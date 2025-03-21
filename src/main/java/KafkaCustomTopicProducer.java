@@ -28,10 +28,28 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer {
             return;
         }
         // create the producer
-        KafkaProducer<String, String> producer = new KafkaProducer<>(properties);
-        LOG.info("Kafka producer created with properties: {}", properties);
+        try (KafkaProducer<String, String> producer = new KafkaProducer<>(properties)) {
+            LOG.info("Kafka producer created with properties: {}", properties);
 
-        ProducerRecord<String, String> producerRecord = new ProducerRecord<>(TOPIC, "topic");
-        LOG.info("Producer record created for topic: {}, value: {}", "topic", "topic");
+            ProducerRecord<String, String> producerRecord = new ProducerRecord<>(TOPIC, "topic");
+            LOG.info("Producer record created for topic: {}, value: {}", "topic", "topic");
+
+            // send data
+            producer.send(producerRecord, (metadata, exception) -> {
+                if (exception == null) {
+                    LOG.info("Record sent successfully to topic: {}, partition: {}, offset: {}",
+                            metadata.topic(), metadata.partition(), metadata.offset());
+                } else {
+                    LOG.error("Error while sending record", exception);
+                }
+            });
+
+            producer.flush();
+            LOG.info("Producer data flushed");
+
+            // flush and close producer
+            producer.close();
+            LOG.info("Producer closed");
+        }
     }
 }
