@@ -44,5 +44,5 @@ podman run --rm -it --network pinot-network --name kafka -p 9092:9092 -e KAFKA_B
 ### Running the Application locally
 Start application:
 ```bash
-java -jar target/kafka-producer-0.0.1-SNAPSHOT.jar
+java -jar target/kafka-producer-0.0.1-SNAPSHOT.jar local
 ```
