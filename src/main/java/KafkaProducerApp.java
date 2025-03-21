@@ -1,6 +1,8 @@
 public class KafkaProducerApp {
 
     public static void main(String[] args) {
-        System.out.println("Hello world!");
+
+        KafkaTopicProducer kafkaProducer = new KafkaCustomTopicProducer();
+        kafkaProducer.produce();
     }
 }
