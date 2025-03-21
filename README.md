@@ -28,12 +28,12 @@ mvn clean package
 To run the application in a Docker/Podman container, follow these steps firstly to ensure Kafka is running
 Run zookeeper:
 ```bash
-podman run --rm -it --network pinot-demo --name zookeeper -e ZOOKEEPER_CLIENT_PORT=2181 zookeeper:3.9.2
+podman run --rm -it --network pinot-network --name zookeeper -e ZOOKEEPER_CLIENT_PORT=2181 zookeeper:3.9.2
 ```
 
 Run kafka:
 ```bash
-podman run --rm -it --network pinot-demo --name kafka -p 9092:9092 -e KAFKA_BROKER_ID=0 -e KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181 -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 bitnami/kafka:3.6
+podman run --rm -it --network pinot-network --name kafka -p 9092:9092 -e KAFKA_BROKER_ID=0 -e KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181 -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 bitnami/kafka:3.6
 ```
 
 ### Running the Application locally
