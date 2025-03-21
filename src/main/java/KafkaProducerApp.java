@@ -7,8 +7,14 @@ public class KafkaProducerApp {
 
     public static void main(String[] args) {
         LOG.info("Starting Kafka Producer Application");
+
+        String configType = "local"; // default to local
+        if (args.length > 0) {
+            configType = args[0];
+        }
+
         KafkaTopicProducer kafkaProducer = new KafkaCustomTopicProducer();
-        kafkaProducer.produce();
+        kafkaProducer.produce(configType);
         LOG.info("Kafka Producer Application finished");
     }
 }

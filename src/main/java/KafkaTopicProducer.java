@@ -1,4 +1,4 @@
 public interface KafkaTopicProducer {
 
-    void produce();
+    void produce(String configType);
 }

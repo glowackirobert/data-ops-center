@@ -13,10 +13,10 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer {
     private static final String TOPIC = "topic";
 
     @Override
-    public void produce() {
-
+    public void produce(String configType) {
         Properties properties = new Properties();
-        String propertiesFile = "kafka-producer.properties";
+        String propertiesFile = "kafka-producer-" + configType + ".properties";
+        LOG.info("Properties file selected: {}", propertiesFile);
         try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(propertiesFile)) {
             if (inputStream == null) {
                 LOG.error("Unable to find properties file: {}", propertiesFile);
@@ -50,6 +50,8 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer {
             // flush and close producer
             producer.close();
             LOG.info("Producer closed");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 }
