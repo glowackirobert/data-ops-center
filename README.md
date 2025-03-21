@@ -26,6 +26,11 @@ mvn clean package
 
 ### Running Kafka
 To run the application in a Docker/Podman container, follow these steps firstly to ensure Kafka is running
+Create Podman network:
+```bash
+podman network create -d bridge pinot-network
+```
+
 Run zookeeper:
 ```bash
 podman run --rm -it --network pinot-network --name zookeeper -e ZOOKEEPER_CLIENT_PORT=2181 zookeeper:3.9.2
