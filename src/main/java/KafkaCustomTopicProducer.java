@@ -31,9 +31,13 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer {
         // create the producer
         try (KafkaProducer<String, String> producer = new KafkaProducer<>(properties)) {
             LOG.info("Kafka producer created with properties: {}", properties);
-    
-            ProducerRecord<String, String> producerRecord = new ProducerRecord<>(TOPIC, "topic");
-            LOG.info("Producer record created for topic: {}, value: {}", "topic", "topic");
+
+            // Format the message as JSON
+            String message = "topic";
+            String jsonMessage = "{\"message\": \"" + message + "\"}";
+
+            ProducerRecord<String, String> producerRecord = new ProducerRecord<>(TOPIC, jsonMessage);
+            LOG.info("Producer record created for topic: {}, value: {}", TOPIC, jsonMessage);
     
             // send data
             producer.send(producerRecord, (metadata, exception) -> {
