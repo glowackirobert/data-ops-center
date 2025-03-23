@@ -27,13 +27,14 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer {
             LOG.error("Error reading Kafka producer properties", e);
             return;
         }
+    
         // create the producer
         try (KafkaProducer<String, String> producer = new KafkaProducer<>(properties)) {
             LOG.info("Kafka producer created with properties: {}", properties);
-
+    
             ProducerRecord<String, String> producerRecord = new ProducerRecord<>(TOPIC, "topic");
             LOG.info("Producer record created for topic: {}, value: {}", "topic", "topic");
-
+    
             // send data
             producer.send(producerRecord, (metadata, exception) -> {
                 if (exception == null) {
@@ -43,15 +44,12 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer {
                     LOG.error("Error while sending record", exception);
                 }
             });
-
+    
             producer.flush();
             LOG.info("Producer data flushed");
-
-            // flush and close producer
-            producer.close();
-            LOG.info("Producer closed");
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+    
+            // The producer will be automatically closed when exiting the try-with-resources block
         }
+        LOG.info("Producer closed");
     }
 }
