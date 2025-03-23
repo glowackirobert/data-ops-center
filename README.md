@@ -31,6 +31,11 @@ Run kafka:
 podman run --rm -it --network pinot-network --name kafka -p 9092:9092 -e KAFKA_BROKER_ID=0 -e KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181 -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 bitnami/kafka:3.6
 ```
 
+When kafka-producer app is running in the container then use:
+```bash
+podman run --rm -it --network pinot-network --name kafka -p 9092:9092 -e KAFKA_BROKER_ID=0 -e KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181 -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092 -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 bitnami/kafka:3.6
+```
+
 
 ## Running the Application in a container
 To run the application in a Docker/Podman container, follow these steps:
@@ -42,7 +47,7 @@ podman build -t kafka-producer:0.0.1-SNAPSHOT .
 
 Run kafka producer app in the container:
 ```bash
-podman run --rm -it --name kafka-producer kafka-producer:0.0.1-SNAPSHOT
+podman run --rm -it --network pinot-network --name kafka-producer kafka-producer:0.0.1-SNAPSHOT
 ```
 
 Ensure kafka producer publish messages properly:
