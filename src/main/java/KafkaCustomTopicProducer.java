@@ -6,54 +6,70 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
 
 public class KafkaCustomTopicProducer implements KafkaTopicProducer {
 
     private static final Logger LOG = LoggerFactory.getLogger(KafkaCustomTopicProducer.class);
     private static final String TOPIC = "topic";
+    private static final String PROPERTIES_FILE_TEMPLATE = "kafka-producer-%s.properties";
+    private static final String JSON_MESSAGE_TEMPLATE = "{\"message\": \"%s\"}";
 
     @Override
     public void produce(String configType) {
-        Properties properties = new Properties();
-        String propertiesFile = "kafka-producer-" + configType + ".properties";
-        LOG.info("Properties file selected: {}", propertiesFile);
+        Properties properties = loadProducerProperties(configType);
+        if (properties == null) return;
+
+        try (KafkaProducer<String, String> producer = new KafkaProducer<>(properties)) {
+            sendSingleMessage(producer, createJsonMessage(TOPIC));
+        }
+    }
+
+    private Properties loadProducerProperties(String configType) {
+        String propertiesFile = String.format(PROPERTIES_FILE_TEMPLATE, configType);
+        LOG.info("Loading properties from: {}", propertiesFile);
+
         try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(propertiesFile)) {
             if (inputStream == null) {
-                LOG.error("Unable to find properties file: {}", propertiesFile);
-                return;
+                LOG.error("Properties file not found: {}", propertiesFile);
+                return null;
             }
-            properties.load(inputStream);
+
+            Properties props = new Properties();
+            props.load(inputStream);
+            LOG.debug("Loaded {} properties", props.size());
+            return props;
+
         } catch (IOException e) {
-            LOG.error("Error reading Kafka producer properties", e);
-            return;
+            LOG.error("Failed to load properties from {}", propertiesFile, e);
+            return null;
         }
-    
-        // create the producer
-        try (KafkaProducer<String, String> producer = new KafkaProducer<>(properties)) {
-            LOG.info("Kafka producer created with properties: {}", properties);
+    }
 
-            // Format the message as JSON
-            String message = "topic";
-            String jsonMessage = "{\"message\": \"" + message + "\"}";
+    private void sendSingleMessage(KafkaProducer<String, String> producer, String message) {
+        ProducerRecord<String, String> record = new ProducerRecord<>(TOPIC, message);
+        LOG.info("Sending message to topic {}: {}", TOPIC, message);
 
-            ProducerRecord<String, String> producerRecord = new ProducerRecord<>(TOPIC, jsonMessage);
-            LOG.info("Producer record created for topic: {}, value: {}", TOPIC, jsonMessage);
-    
-            // send data
-            producer.send(producerRecord, (metadata, exception) -> {
-                if (exception == null) {
-                    LOG.info("Record sent successfully to topic: {}, partition: {}, offset: {}",
-                            metadata.topic(), metadata.partition(), metadata.offset());
-                } else {
-                    LOG.error("Error while sending record", exception);
-                }
-            });
-    
+        try {
+            producer.send(record, this::handleSendResult).get();
             producer.flush();
-            LOG.info("Producer data flushed");
-    
-            // The producer will be automatically closed when exiting the try-with-resources block
+            LOG.info("All messages flushed successfully");
+        } catch (InterruptedException | ExecutionException e) {
+            LOG.error("Failed to send message to Kafka", e);
+            Thread.currentThread().interrupt();
         }
-        LOG.info("Producer closed");
+    }
+
+    private String createJsonMessage(String messageContent) {
+        return String.format(JSON_MESSAGE_TEMPLATE, messageContent);
+    }
+
+    private void handleSendResult(org.apache.kafka.clients.producer.RecordMetadata metadata, Exception exception) {
+        if (exception != null) {
+            LOG.error("Message failed to send", exception);
+        } else {
+            LOG.info("Message sent successfully [topic: {}, partition: {}, offset: {}]",
+                    metadata.topic(), metadata.partition(), metadata.offset());
+        }
     }
 }
