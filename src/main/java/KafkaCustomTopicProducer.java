@@ -6,7 +6,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
-import java.util.concurrent.ExecutionException;
 
 public class KafkaCustomTopicProducer implements KafkaTopicProducer {
 
@@ -21,7 +20,7 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer {
         if (properties == null) return;
 
         try (KafkaProducer<String, String> producer = new KafkaProducer<>(properties)) {
-            sendSingleMessage(producer, createJsonMessage(TOPIC));
+            sendSingleMessage(producer, createJsonMessage());
         }
     }
 
@@ -52,16 +51,15 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer {
 
         try {
             producer.send(record, this::handleSendResult).get();
-            producer.flush();
-            LOG.info("All messages flushed successfully");
-        } catch (InterruptedException | ExecutionException e) {
+            LOG.info("Message sent and acknowledged successfully");
+        } catch (Exception e) {
             LOG.error("Failed to send message to Kafka", e);
             Thread.currentThread().interrupt();
         }
     }
 
-    private String createJsonMessage(String messageContent) {
-        return String.format(JSON_MESSAGE_TEMPLATE, messageContent);
+    private String createJsonMessage() {
+        return String.format(JSON_MESSAGE_TEMPLATE, KafkaCustomTopicProducer.TOPIC);
     }
 
     private void handleSendResult(org.apache.kafka.clients.producer.RecordMetadata metadata, Exception exception) {
