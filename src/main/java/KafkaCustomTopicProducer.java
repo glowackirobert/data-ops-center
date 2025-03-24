@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.stream.IntStream;
 
 public class KafkaCustomTopicProducer implements KafkaTopicProducer {
 
@@ -14,7 +15,8 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer {
     private final KafkaProducer<String, String> producer;
     private static final String TOPIC = "topic";
     private static final String PROPERTIES_FILE_TEMPLATE = "kafka-producer-%s.properties";
-    private static final String JSON_MESSAGE_TEMPLATE = "{\"message\": \"%s\"}";
+    private static final String JSON_MESSAGE_TEMPLATE = "{\"message\": \"%s_%d\"}";
+    private static final int numberOfMessages = 100_000;
 
     public KafkaCustomTopicProducer(String configType) {
         Properties properties = loadProducerProperties(configType);
@@ -23,7 +25,7 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer {
 
     @Override
     public void produce() {
-        sendSingleMessage(this.producer, createJsonMessage());
+        IntStream.range(0, numberOfMessages).forEachOrdered(i -> sendSingleMessage(this.producer, createJsonMessage(i)));
     }
 
     private Properties loadProducerProperties(String configType) {
@@ -60,8 +62,8 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer {
         }
     }
 
-    private String createJsonMessage() {
-        return String.format(JSON_MESSAGE_TEMPLATE, TOPIC);
+    private String createJsonMessage(int i) {
+        return String.format(JSON_MESSAGE_TEMPLATE, TOPIC, i);
     }
 
     private void handleSendResult(org.apache.kafka.clients.producer.RecordMetadata metadata, Exception exception) {
