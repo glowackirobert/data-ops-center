@@ -5,23 +5,25 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Objects;
 import java.util.Properties;
 
 public class KafkaCustomTopicProducer implements KafkaTopicProducer {
 
     private static final Logger LOG = LoggerFactory.getLogger(KafkaCustomTopicProducer.class);
+    private final KafkaProducer<String, String> producer;
     private static final String TOPIC = "topic";
     private static final String PROPERTIES_FILE_TEMPLATE = "kafka-producer-%s.properties";
     private static final String JSON_MESSAGE_TEMPLATE = "{\"message\": \"%s\"}";
 
-    @Override
-    public void produce(String configType) {
+    public KafkaCustomTopicProducer(String configType) {
         Properties properties = loadProducerProperties(configType);
-        if (properties == null) return;
+        this.producer = new KafkaProducer<>(Objects.requireNonNull(properties));
+    }
 
-        try (KafkaProducer<String, String> producer = new KafkaProducer<>(properties)) {
-            sendSingleMessage(producer, createJsonMessage());
-        }
+    @Override
+    public void produce() {
+        sendSingleMessage(this.producer, createJsonMessage());
     }
 
     private Properties loadProducerProperties(String configType) {
@@ -34,10 +36,10 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer {
                 return null;
             }
 
-            Properties props = new Properties();
-            props.load(inputStream);
-            LOG.debug("Loaded {} properties", props.size());
-            return props;
+            Properties properties = new Properties();
+            properties.load(inputStream);
+            LOG.debug("Loaded {} properties", properties.size());
+            return properties;
 
         } catch (IOException e) {
             LOG.error("Failed to load properties from {}", propertiesFile, e);
@@ -59,7 +61,7 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer {
     }
 
     private String createJsonMessage() {
-        return String.format(JSON_MESSAGE_TEMPLATE, KafkaCustomTopicProducer.TOPIC);
+        return String.format(JSON_MESSAGE_TEMPLATE, TOPIC);
     }
 
     private void handleSendResult(org.apache.kafka.clients.producer.RecordMetadata metadata, Exception exception) {
