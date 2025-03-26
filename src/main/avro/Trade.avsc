@@ -1,0 +1,117 @@
+{
+  "type": "record",
+  "name": "Trade",
+  "namespace": "avro",
+  "fields": [
+    {
+      "name": "id",
+      "type": {
+        "type": "string",
+        "logicalType": "decimal",
+        "precision": 38,
+        "scale": 10
+      }
+    },
+    {
+      "name": "UUID",
+      "type": "string"
+    },
+    {
+      "name": "trade",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "amount",
+      "type": {
+        "type": "string",
+        "logicalType": "decimal",
+        "precision": 38,
+        "scale": 10
+      }
+    },
+    {
+      "name": "currency",
+      "type": {
+        "type": "string",
+        "logicalType": "decimal",
+        "precision": 38,
+        "scale": 10
+      }
+    },
+    {
+      "name": "T1",
+      "type": {
+        "type": "string",
+        "logicalType": "decimal",
+        "precision": 38,
+        "scale": 10
+      }
+    },
+    {
+      "name": "T2",
+      "type": {
+        "type": "string",
+        "logicalType": "decimal",
+        "precision": 38,
+        "scale": 10
+      }
+    },
+    {
+      "name": "T3",
+      "type": {
+        "type": "string",
+        "logicalType": "decimal",
+        "precision": 38,
+        "scale": 10
+      }
+    },
+    {
+      "name": "T4",
+      "type": {
+        "type": "string",
+        "logicalType": "decimal",
+        "precision": 38,
+        "scale": 10
+      }
+    },
+    {
+      "name": "T5",
+      "type": {
+        "type": "string",
+        "logicalType": "decimal",
+        "precision": 38,
+        "scale": 10
+      }
+    },
+    {
+      "name": "T6",
+      "type": {
+        "type": "string",
+        "logicalType": "decimal",
+        "precision": 38,
+        "scale": 10
+      }
+    },
+    {
+      "name": "T7",
+      "type": {
+        "type": "string",
+        "logicalType": "decimal",
+        "precision": 38,
+        "scale": 10
+      }
+    },
+    {
+      "name": "bValue",
+      "type": "boolean"
+    },
+    {
+      "name": "createdAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    }
+  ]
+}
