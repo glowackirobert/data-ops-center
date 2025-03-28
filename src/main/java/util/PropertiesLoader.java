@@ -14,7 +14,7 @@ public class PropertiesLoader {
     public static Properties loadProperties(String propertiesFile) {
         LOG.info("Loading properties from: {}", propertiesFile);
 
-        try (InputStream inputStream = PropertiesLoader.class.getClassLoader().getResourceAsStream(propertiesFile)) {
+        try (InputStream inputStream = ClassLoader.getSystemResourceAsStream(propertiesFile)) {
             if (inputStream == null) {
                 LOG.error("Properties file not found: {}", propertiesFile);
                 return null;

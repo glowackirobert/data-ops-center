@@ -1,8 +1,8 @@
 # Start from the base Pinot image
-FROM apachepinot/pinot:1.3.0
+FROM apachepinot/pinot:1.2.0
 
 # Copy the additional scripts into the image
-COPY /scripts/add*.sh /opt/pinot/scripts/
+COPY /scripts/*.sh /opt/pinot/scripts/
 
 # Make the script executable
-RUN chmod +x /opt/pinot/scripts/add*.sh
+RUN chmod +x /opt/pinot/scripts/*.sh
