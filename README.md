@@ -10,7 +10,8 @@ Before you begin, ensure you have the following installed on your machine:
 1. Java Development Kit (JDK) 21
 2. Apache Maven 3.6
 3. Docker/Podman (to run the application in a container)
-4. Kafka cluster (local or remote)
+4. Kafka cluster
+5. Schema registry
 
 
 ### Running Kafka
@@ -66,7 +67,12 @@ java -jar target/kafka-producer-0.0.1-SNAPSHOT.jar local
 ```
 
 
+### Running Apache Pinot with custom configuration
+
+```bash
+podman build -t custom-apachepinot/pinot:1.2.0 -f containerfile-apache-pinot .
+```
 
 
 
-docker build -t custom-apachepinot/pinot:1.3.0 -f Containerfile-apache-pinot .
+
