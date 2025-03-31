@@ -36,6 +36,7 @@ Run schema registry:
 podman run --rm -it --network pinot-network --name schema-registry -p 8081:8081 -e SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=PLAINTEXT://kafka:9092 -e SCHEMA_REGISTRY_HOST_NAME=schema-registry -e SCHEMA_REGISTRY_LISTENERS=http://0.0.0.0:8081 confluentinc/cp-schema-registry:7.6.5
 ```
 
+
 ### Running the Application in the container
 
 Build the kafka producer app image:
@@ -70,7 +71,7 @@ java -jar target/kafka-producer-0.0.1-SNAPSHOT.jar local
 ### Running Apache Pinot with custom configuration
 
 ```bash
-podman build -t custom-apachepinot/pinot:1.2.0 -f containerfile-apache-pinot .
+podman build -t custom-pinot:1.2.0 -f containerfile-apache-pinot .
 ```
 
 
