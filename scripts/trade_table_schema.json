@@ -1,0 +1,16 @@
+{
+  "schemaName" : "trade_table_schema",
+  "enableColumnBasedNullHandling" : false,
+  "dimensionFieldSpecs" : [ {
+    "name" : "eventId",
+    "dataType" : "STRING",
+    "notNull" : false
+  } ],
+  "dateTimeFieldSpecs" : [ {
+    "name" : "eventTime",
+    "dataType" : "LONG",
+    "notNull" : false,
+    "format" : "1:DAYS:EPOCH",
+    "granularity" : "1:DAYS"
+  } ]
+}
