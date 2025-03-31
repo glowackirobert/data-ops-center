@@ -4,9 +4,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Instant;
 import java.util.Objects;
-import java.util.Properties;
 import java.util.stream.IntStream;
 
 import static util.PropertiesLoader.loadProperties;
@@ -21,8 +19,8 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer {
     private static final int numberOfMessages = 100_000;
 
     public KafkaCustomTopicProducer(String configType) {
-        String propertiesFile = String.format(PROPERTIES_FILE_TEMPLATE, configType);
-        Properties properties = loadProperties(propertiesFile);
+        var propertiesFile = String.format(PROPERTIES_FILE_TEMPLATE, configType);
+        var properties = loadProperties(propertiesFile);
         this.producer = new KafkaProducer<>(Objects.requireNonNull(properties));
     }
 
@@ -48,22 +46,29 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer {
         return String.format(JSON_MESSAGE_TEMPLATE, TOPIC, i);
     }
 
+//    private Trade createAvroMessage(int i) {
+//        return Trade.newBuilder()
+//                .setId("1")
+//                .setUUID("A")
+//                .setTrade("B")
+//                .setCurrency("B")
+//                .setAmount("12")
+//                .setT1("T1")
+//                .setT2("T2")
+//                .setT3("T3")
+//                .setT4("T4")
+//                .setT5("T5")
+//                .setT6("T6")
+//                .setT7("T7")
+//                .setBValue(true)
+//                .setCreatedAt(Instant.ofEpochSecond(System.currentTimeMillis()))
+//                .build();
+//    }
+
     private Trade createAvroMessage(int i) {
         return Trade.newBuilder()
-                .setId("1")
-                .setUUID("A")
-                .setTrade("B")
-                .setCurrency("B")
-                .setAmount("12")
-                .setT1("T1")
-                .setT2("T2")
-                .setT3("T3")
-                .setT4("T4")
-                .setT5("T5")
-                .setT6("T6")
-                .setT7("T7")
-                .setBValue(true)
-                .setCreatedAt(Instant.ofEpochSecond(System.currentTimeMillis()))
+                .setEventId(String.valueOf(i))
+                .setEventTime(System.currentTimeMillis())
                 .build();
     }
 
