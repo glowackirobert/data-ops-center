@@ -2,116 +2,16 @@
   "type": "record",
   "name": "Trade",
   "namespace": "avro",
-  "fields": [
-    {
-      "name": "id",
-      "type": {
-        "type": "string",
-        "logicalType": "decimal",
-        "precision": 38,
-        "scale": 10
-      }
-    },
-    {
-      "name": "UUID",
-      "type": "string"
-    },
-    {
-      "name": "trade",
-      "type": ["null", "string"],
-      "default": null
-    },
-    {
-      "name": "amount",
-      "type": {
-        "type": "string",
-        "logicalType": "decimal",
-        "precision": 38,
-        "scale": 10
-      }
-    },
-    {
-      "name": "currency",
-      "type": {
-        "type": "string",
-        "logicalType": "decimal",
-        "precision": 38,
-        "scale": 10
-      }
-    },
-    {
-      "name": "T1",
-      "type": {
-        "type": "string",
-        "logicalType": "decimal",
-        "precision": 38,
-        "scale": 10
-      }
-    },
-    {
-      "name": "T2",
-      "type": {
-        "type": "string",
-        "logicalType": "decimal",
-        "precision": 38,
-        "scale": 10
-      }
-    },
-    {
-      "name": "T3",
-      "type": {
-        "type": "string",
-        "logicalType": "decimal",
-        "precision": 38,
-        "scale": 10
-      }
-    },
-    {
-      "name": "T4",
-      "type": {
-        "type": "string",
-        "logicalType": "decimal",
-        "precision": 38,
-        "scale": 10
-      }
-    },
-    {
-      "name": "T5",
-      "type": {
-        "type": "string",
-        "logicalType": "decimal",
-        "precision": 38,
-        "scale": 10
-      }
-    },
-    {
-      "name": "T6",
-      "type": {
-        "type": "string",
-        "logicalType": "decimal",
-        "precision": 38,
-        "scale": 10
-      }
-    },
-    {
-      "name": "T7",
-      "type": {
-        "type": "string",
-        "logicalType": "decimal",
-        "precision": 38,
-        "scale": 10
-      }
-    },
-    {
-      "name": "bValue",
-      "type": "boolean"
-    },
-    {
-      "name": "createdAt",
-      "type": {
-        "type": "long",
-        "logicalType": "timestamp-millis"
-      }
-    }
-  ]
+     "fields": [
+        {
+            "name": "eventId",
+            "type": "string",
+            "doc": "Unique identifier of the event (UUID)"
+        },
+        {
+            "name": "eventTime",
+            "type": "long",
+            "doc": "Event time creation as the number of milliseconds since the epoch of 1970-01-01T00:00:00Z"
+        }
+     ]
 }
