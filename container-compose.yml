@@ -65,7 +65,7 @@ services:
       start_period: 10s
 
   pinot-controller:
-    image: ${localhost/custom-pinot:1.2.0:-apachepinot/pinot:1.2.0}
+    image: ${PINOT_IMAGE:-apachepinot/pinot:1.3.0}
     command: "StartController -zkAddress zookeeper:2181"
     container_name: "pinot-controller"
     restart: unless-stopped
@@ -86,7 +86,7 @@ services:
       start_period: 10s
 
   pinot-broker:
-    image: ${localhost/custom-pinot:1.2.0:-apachepinot/pinot:1.2.0}}
+    image: ${PINOT_IMAGE:-apachepinot/pinot:1.3.0}
     command: "StartBroker -zkAddress zookeeper:2181"
     container_name: "pinot-broker"
     restart: unless-stopped
@@ -107,7 +107,7 @@ services:
       start_period: 10s
 
   pinot-server:
-    image: ${localhost/custom-pinot:1.2.0:-apachepinot/pinot:1.2.0}
+    image: ${PINOT_IMAGE:-apachepinot/pinot:1.3.0}
     command: "StartServer -zkAddress zookeeper:2181"
     container_name: "pinot-server"
     restart: unless-stopped
@@ -129,7 +129,7 @@ services:
       start_period: 10s
 
   pinot-minion:
-    image: ${localhost/custom-pinot:1.2.0:-apachepinot/pinot:1.2.0}
+    image: ${PINOT_IMAGE:-apachepinot/pinot:1.3.0}
     command: "StartMinion -zkAddress zookeeper:2181"
     container_name: "pinot-minion"
     restart: unless-stopped

@@ -75,5 +75,18 @@ podman build -t custom-pinot:1.2.0 -f containerfile-apache-pinot .
 ```
 
 
+### Running compose file
+
+```bash
+podman compose --file .\container-compose.yml up
+```
+
+Set environment variable for current session
+```bash
+$env:PINOT_IMAGE = "localhost/custom-pinot:1.2.0"
+podman compose --file .\container-compose.yml up
+```
+
+### Stopping application running 
 
 
