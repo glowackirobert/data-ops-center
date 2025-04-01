@@ -22,7 +22,7 @@
 			"stream.kafka.decoder.class.name": "org.apache.pinot.plugin.inputformat.avro.confluent.KafkaConfluentSchemaRegistryAvroMessageDecoder",
 			"stream.kafka.consumer.factory.class.name": "org.apache.pinot.plugin.stream.kafka20.KafkaConsumerFactory",
 			"stream.kafka.broker.list": "kafka:9092",
-			"realtime.segment.flush.threshold.rows": "0",
+			"realtime.segment.flush.threshold.rows": "500,000",
 			"realtime.segment.flush.threshold.time": "24h",
 			"realtime.segment.flush.threshold.segment.size": "50M",
 			"stream.kafka.consumer.prop.auto.offset.reset": "smallest",
