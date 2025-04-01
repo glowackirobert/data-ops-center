@@ -7,7 +7,7 @@
     "notNull" : false
   } ],
   "dateTimeFieldSpecs" : [ {
-    "name" : "eventTime",
+    "name" : "ingestionTime",
     "dataType" : "LONG",
     "notNull" : false,
     "format" : "1:DAYS:EPOCH",
