@@ -1,83 +1,79 @@
 import avro.Trade;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
+import java.util.Properties;
 import java.util.stream.IntStream;
 
 import static util.PropertiesLoader.loadProperties;
 
-public class KafkaCustomTopicProducer implements KafkaTopicProducer {
+public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseable {
 
     private static final Logger LOG = LoggerFactory.getLogger(KafkaCustomTopicProducer.class);
-    private final KafkaProducer<String, Trade> producer;
-    private static final String TOPIC = "topic";
+    private static final String TOPIC = "trade";
     private static final String PROPERTIES_FILE_TEMPLATE = "kafka-producer-%s.properties";
-    private static final String JSON_MESSAGE_TEMPLATE = "{\"message\": \"%s_%d\"}";
-    private static final int numberOfMessages = 100_000;
+    private static final int NUMBER_OF_MESSAGES = 10_000_000;
+    private static final int FLUSH_INTERVAL = 10_000;
+
+    private final KafkaProducer<String, Trade> producer;
 
     public KafkaCustomTopicProducer(String configType) {
-        var propertiesFile = String.format(PROPERTIES_FILE_TEMPLATE, configType);
-        var properties = loadProperties(propertiesFile);
+        Properties properties = loadProperties(String.format(PROPERTIES_FILE_TEMPLATE, configType));
         this.producer = new KafkaProducer<>(Objects.requireNonNull(properties));
     }
 
     @Override
     public void produce() {
-        IntStream.range(0, numberOfMessages).forEachOrdered(i -> sendSingleMessage(this.producer, createAvroMessage(i)));
+        IntStream.range(0, NUMBER_OF_MESSAGES).forEach(this::sendAndFlushMessage);
     }
 
-    private void sendSingleMessage(KafkaProducer<String, Trade> producer, Trade trade) {
-        ProducerRecord<String, Trade> record = new ProducerRecord<>(TOPIC, trade);
-        LOG.info("Sending message to topic {}: {}", TOPIC, trade);
-
-        try {
-            producer.send(record, this::handleSendResult).get();
-            LOG.info("Message sent and acknowledged successfully");
-        } catch (Exception e) {
-            LOG.error("Failed to send message to Kafka", e);
-            Thread.currentThread().interrupt();
+    @Override
+    public void close() {
+        if (producer != null) {
+            producer.flush();
+            producer.close();
         }
     }
 
-    private String createJsonMessage(int i) {
-        return String.format(JSON_MESSAGE_TEMPLATE, TOPIC, i);
+    private void sendAndFlushMessage(int messageNumber) {
+        Trade trade = createAvroMessage(messageNumber);
+        sendSingleMessage(trade, messageNumber);
+        flushIfNeeded(messageNumber);
     }
-
-//    private Trade createAvroMessage(int i) {
-//        return Trade.newBuilder()
-//                .setId("1")
-//                .setUUID("A")
-//                .setTrade("B")
-//                .setCurrency("B")
-//                .setAmount("12")
-//                .setT1("T1")
-//                .setT2("T2")
-//                .setT3("T3")
-//                .setT4("T4")
-//                .setT5("T5")
-//                .setT6("T6")
-//                .setT7("T7")
-//                .setBValue(true)
-//                .setCreatedAt(Instant.ofEpochSecond(System.currentTimeMillis()))
-//                .build();
-//    }
 
     private Trade createAvroMessage(int i) {
         return Trade.newBuilder()
                 .setEventId(String.valueOf(i))
-                .setEventTime(System.currentTimeMillis())
                 .build();
     }
 
-    private void handleSendResult(org.apache.kafka.clients.producer.RecordMetadata metadata, Exception exception) {
-        if (exception != null) {
-            LOG.error("Message failed to send", exception);
-        } else {
-            LOG.info("Message sent successfully [topic: {}, partition: {}, offset: {}]",
-                    metadata.topic(), metadata.partition(), metadata.offset());
+    private void sendSingleMessage(Trade trade, int messageNumber) {
+        ProducerRecord<String, Trade> record = new ProducerRecord<>(TOPIC, trade);
+        try {
+            producer.send(record, this::handleSendResult);
+        } catch (Exception e) {
+            LOG.error("Error in sendSingleMessage for message {}", messageNumber, e);
         }
     }
+
+    private void handleSendResult(RecordMetadata metadata, Exception exception) {
+        if (exception == null) {
+            LOG.info("Message sent successfully: topic={}, partition={}, offset={}",
+                    metadata.topic(), metadata.partition(), metadata.offset());
+        } else {
+            LOG.error("Error sending message: {}", exception.getMessage());
+        }
+    }
+
+    private void flushIfNeeded(int messageNumber) {
+        if ((messageNumber + 1) % FLUSH_INTERVAL == 0) {
+            producer.flush();
+            LOG.info("Flushed {} messages", FLUSH_INTERVAL);
+        }
+    }
+
 }

@@ -7,11 +7,6 @@
             "name": "eventId",
             "type": "string",
             "doc": "Unique identifier of the event (UUID)"
-        },
-        {
-            "name": "eventTime",
-            "type": "long",
-            "doc": "Event time creation as the number of milliseconds since the epoch of 1970-01-01T00:00:00Z"
         }
      ]
 }
