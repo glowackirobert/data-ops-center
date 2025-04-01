@@ -14,7 +14,7 @@ Before you begin, ensure you have the following installed on your machine:
 5. Schema registry
 
 
-### Running Kafka
+### Running Zk, Kafka and Schema Registry 
 
 Create network if not exists:
 ```bash
@@ -51,7 +51,7 @@ podman run --rm -it --network pinot-network --name kafka-producer kafka-producer
 
 Check kafka producer publish messages:
 ```bash
-podman exec -it kafka /bin/bash -c "/opt/bitnami/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic topic --from-beginning"
+podman exec -it kafka /bin/bash -c "/opt/bitnami/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic trade --from-beginning"
 ```
 
 
@@ -62,31 +62,63 @@ Build kafka producer app:
 mvn clean package
 ```
 
-Start application:
+Run application:
 ```bash
 java -jar target/kafka-producer-0.0.1-SNAPSHOT.jar local
 ```
 
 
-### Running Apache Pinot with custom configuration
+### Creation of Apache Pinot image with custom configuration
 
+Build the Apache Pinot custom image:
 ```bash
 podman build -t custom-pinot:1.2.0 -f containerfile-apache-pinot .
 ```
 
+### Running Apache Pinot cluster
 
-### Running compose file
-
+Run Apache Pinot cluster:
 ```bash
-podman compose --file .\container-compose.yml up
+podman run --rm -it --network pinot-network --name pinot -p 2123:2123 -p 9000:9000 -p 8000:8000 -p 7050:7050 -p 6000:6000 apachepinot/pinot:1.2.0 QuickStart -type batch
 ```
 
-Set environment variable for current session
+Run Apache Pinot controller:
+```bash
+podman run --rm -it --network pinot-demo --name pinot-controller -p 9000:9000 -e JAVA_OPTS="-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-controller.log" apachepinot/pinot:1.2.0 StartController -zkAddress zookeeper:2181
+```
+
+Run Apache Pinot broker:
+```bash
+podman run --rm -it --network pinot-demo --name pinot-broker -p 8000:8000 -e JAVA_OPTS="-Dplugins.dir=/opt/pinot/plugins -Xms2G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-broker.log" apachepinot/pinot:1.2.0 StartBroker -zkAddress zookeeper:2181
+```
+
+Run Apache Pinot server:
+```bash
+podman run --rm -it --network pinot-demo --name pinot-server -p 7000:7000 -e JAVA_OPTS="-Dplugins.dir=/opt/pinot/plugins -Xms4G -Xmx8G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-server.log" apachepinot/pinot:1.2.0 StartServer -zkAddress zookeeper:2181
+```
+
+Run Apache Pinot minion:
+```bash
+podman run --rm -it --network pinot-demo --name pinot-minion -p 6000:6000 -e JAVA_OPTS="-Dplugins.dir=/opt/pinot/plugins -Xms1
+```
+
+
+### Running compose
+
+Set environment variable for current session:
 ```bash
 $env:PINOT_IMAGE = "localhost/custom-pinot:1.2.0"
+```
+
+Runs all containers:
+```bash
 podman compose --file .\container-compose.yml up
 ```
 
-### Stopping application running 
 
+### Stopping compose
 
+Stops all containers:
+```bash
+podman compose --file .\container-compose.yml down
+```
