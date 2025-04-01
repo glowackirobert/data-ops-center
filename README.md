@@ -41,12 +41,12 @@ podman run --rm -it --network pinot-network --name schema-registry -p 8081:8081 
 
 Build the kafka producer app image:
 ```bash
-podman build -t kafka-producer:0.0.1-SNAPSHOT -f containerfile-kafka-producer .
+podman build -t kafka-producer:1.0.0 -f containerfile-kafka-producer .
 ```
 
 Run kafka producer app in the container:
 ```bash
-podman run --rm -it --network pinot-network --name kafka-producer kafka-producer:0.0.1-SNAPSHOT
+podman run --rm -it --network pinot-network --name kafka-producer kafka-producer:1.0.0
 ```
 
 Check kafka producer publish messages:
@@ -64,7 +64,7 @@ mvn clean package
 
 Run application:
 ```bash
-java -jar target/kafka-producer-0.0.1-SNAPSHOT.jar local
+java -jar target/kafka-producer-1.0.0.jar local
 ```
 
 

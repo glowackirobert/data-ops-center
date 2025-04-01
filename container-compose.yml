@@ -144,7 +144,7 @@ services:
       - pinot-network
 
   kafka-producer:
-    image: localhost/kafka-producer:0.0.1-SNAPSHOT
+    image: localhost/kafka-producer:1.0.0
     container_name: "kafka-producer"
     restart: no
     depends_on:
