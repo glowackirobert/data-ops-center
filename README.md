@@ -10,11 +10,9 @@ Before you begin, ensure you have the following installed on your machine:
 1. Java Development Kit (JDK) 21
 2. Apache Maven 3.6
 3. Docker/Podman (to run the application in a container)
-4. Kafka cluster
-5. Schema registry
 
 
-### Running Zk, Kafka and Schema Registry 
+### Run Zk, Kafka and Schema Registry 
 
 Create network if not exists:
 ```bash
@@ -37,11 +35,26 @@ podman run --rm -it --network pinot-network --name schema-registry -p 8081:8081 
 ```
 
 
-### Running the Application in the container
+
+### Run the Application locally
+
+Build kafka producer app:
+```bash
+mvn clean package
+```
+
+Run application:
+```bash
+java -jar target/kafka-producer-1.0.0.jar local
+```
+
+
+
+### Run the Application in the container
 
 Build the kafka producer app image:
 ```bash
-podman build -t kafka-producer:1.0.0 -f containerfile-kafka-producer .
+podman build -t kafka-producer:1.0.0 -f container/containerfile-kafka-producer .
 ```
 
 Run kafka producer app in the container:
@@ -55,27 +68,17 @@ podman exec -it kafka /bin/bash -c "/opt/bitnami/kafka/bin/kafka-console-consume
 ```
 
 
-### Running the Application locally
 
-Build kafka producer app:
-```bash
-mvn clean package
-```
-
-Run application:
-```bash
-java -jar target/kafka-producer-1.0.0.jar local
-```
-
-
-### Creation of Apache Pinot image with custom configuration
+### Create the Apache Pinot image with custom configuration
 
 Build the Apache Pinot custom image:
 ```bash
-podman build -t custom-pinot:1.2.0 -f containerfile-apache-pinot .
+podman build -t custom-pinot:1.2.0 -f container/containerfile-apache-pinot .
 ```
 
-### Running Apache Pinot cluster
+
+
+### Run Apache Pinot cluster
 
 Run Apache Pinot cluster:
 ```bash
@@ -84,41 +87,45 @@ podman run --rm -it --network pinot-network --name pinot -p 2123:2123 -p 9000:90
 
 Run Apache Pinot controller:
 ```bash
-podman run --rm -it --network pinot-demo --name pinot-controller -p 9000:9000 -e JAVA_OPTS="-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-controller.log" apachepinot/pinot:1.2.0 StartController -zkAddress zookeeper:2181
+podman run --rm -it --network pinot-network --name pinot-controller -p 9000:9000 -e JAVA_OPTS="-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-controller.log" apachepinot/pinot:1.2.0 StartController -zkAddress zookeeper:2181
 ```
 
 Run Apache Pinot broker:
 ```bash
-podman run --rm -it --network pinot-demo --name pinot-broker -p 8000:8000 -e JAVA_OPTS="-Dplugins.dir=/opt/pinot/plugins -Xms2G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-broker.log" apachepinot/pinot:1.2.0 StartBroker -zkAddress zookeeper:2181
+podman run --rm -it --network pinot-network --name pinot-broker -p 8000:8000 -e JAVA_OPTS="-Dplugins.dir=/opt/pinot/plugins -Xms2G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-broker.log" apachepinot/pinot:1.2.0 StartBroker -zkAddress zookeeper:2181
 ```
 
 Run Apache Pinot server:
 ```bash
-podman run --rm -it --network pinot-demo --name pinot-server -p 7000:7000 -e JAVA_OPTS="-Dplugins.dir=/opt/pinot/plugins -Xms4G -Xmx8G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-server.log" apachepinot/pinot:1.2.0 StartServer -zkAddress zookeeper:2181
+podman run --rm -it --network pinot-network --name pinot-server -p 7000:7000 -e JAVA_OPTS="-Dplugins.dir=/opt/pinot/plugins -Xms4G -Xmx8G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-server.log" apachepinot/pinot:1.2.0 StartServer -zkAddress zookeeper:2181
 ```
 
 Run Apache Pinot minion:
 ```bash
-podman run --rm -it --network pinot-demo --name pinot-minion -p 6000:6000 -e JAVA_OPTS="-Dplugins.dir=/opt/pinot/plugins -Xms1
+podman run --rm -it --network pinot-network --name pinot-minion -p 6000:6000 -e JAVA_OPTS="-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx1G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-minion.log" apachepinot/pinot:1.2.0 StartMinion -zkAddress zookeeper:2181
 ```
 
 
-### Running compose
+
+### Run compose file
 
 Set environment variable for current session:
+
+**Note:** The `$` sign is a prompt indicator for PowerShell. When copying the command, ensure you include the entire line as shown.
 ```bash
 $env:PINOT_IMAGE = "localhost/custom-pinot:1.2.0"
 ```
 
-Runs all containers:
+Run all containers:
 ```bash
-podman compose --file .\container-compose.yml up
+podman compose --file .\container\container-compose.yml up
 ```
 
 
-### Stopping compose
 
-Stops all containers:
+### Stop compose file
+
+Stop all containers:
 ```bash
-podman compose --file .\container-compose.yml down
+podman compose --file .\container\container-compose.yml down
 ```
