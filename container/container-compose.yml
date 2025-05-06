@@ -17,30 +17,45 @@ services:
       retries: 5
       start_period: 10s
 
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: "prometheus"
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - /jmx_exporter/prometheus.yml:/usr/share/prometheus.yml
+    networks:
+      - pinot-network
+
   kafka:
     image: ${KAFKA_IMAGE:-bitnami/kafka:3.6}
     container_name: "kafka"
     restart: unless-stopped
     ports:
-      - "9092:9092"
-      - "29092:29092"
+      - "9092:9092"   # container
+      - "29092:29092" # localhost
+      - "9091:9091"   # prometheus JMX metrics
     environment:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181/kafka
       KAFKA_BROKER_ID: 0
       KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_OPTS: "-javaagent:/usr/share/jmx_prometheus_javaagent-1.2.0.jar=9091:/usr/share/kafka_jmx_config.yml"
     depends_on:
       zookeeper:
         condition: service_healthy
     networks:
       - pinot-network
     healthcheck:
-      test: [ "CMD-SHELL", "kafka-broker-api-versions.sh -bootstrap-server kafka:9092" ]
+      test: [ "CMD-SHELL", "env -u KAFKA_OPTS kafka-broker-api-versions.sh -bootstrap-server kafka:9092 || exit 1" ]
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 30s
     deploy:
       replicas: ${KAFKA_REPLICAS:-1}
+    volumes:
+      - ../jmx_exporter:/usr/share/
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.6.5
@@ -144,7 +159,7 @@ services:
       - pinot-network
 
   kafka-producer:
-    image: localhost/kafka-producer:1.0.0
+    image: kafka-producer:1.0.0
     container_name: "kafka-producer"
     restart: no
     depends_on:
