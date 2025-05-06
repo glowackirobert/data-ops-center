@@ -1,9 +1,8 @@
 import avro.Trade;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
 import java.util.Properties;
@@ -11,9 +10,9 @@ import java.util.stream.IntStream;
 
 import static util.PropertiesLoader.loadProperties;
 
+@Slf4j
 public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseable {
 
-    private static final Logger LOG = LoggerFactory.getLogger(KafkaCustomTopicProducer.class);
     private static final String TOPIC = "trade";
     private static final String PROPERTIES_FILE_TEMPLATE = "kafka-producer-%s.properties";
     private static final int NUMBER_OF_MESSAGES = 10_000_000;
@@ -56,23 +55,23 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
         try {
             producer.send(record, this::handleSendResult);
         } catch (Exception e) {
-            LOG.error("Error in sendSingleMessage for message {}", messageNumber, e);
+            log.error("Error in sendSingleMessage for message {}", messageNumber, e);
         }
     }
 
     private void handleSendResult(RecordMetadata metadata, Exception exception) {
         if (exception == null) {
-            LOG.info("Message sent successfully: topic={}, partition={}, offset={}",
+            log.info("Message sent successfully: topic={}, partition={}, offset={}",
                     metadata.topic(), metadata.partition(), metadata.offset());
         } else {
-            LOG.error("Error sending message: {}", exception.getMessage());
+            log.error("Error sending message: {}", exception.getMessage());
         }
     }
 
     private void flushIfNeeded(int messageNumber) {
         if ((messageNumber + 1) % FLUSH_INTERVAL == 0) {
             producer.flush();
-            LOG.info("Flushed {} messages", FLUSH_INTERVAL);
+            log.info("Flushed {} messages", FLUSH_INTERVAL);
         }
     }
 
