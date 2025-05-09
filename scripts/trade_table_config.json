@@ -23,7 +23,7 @@
 			"stream.kafka.consumer.factory.class.name": "org.apache.pinot.plugin.stream.kafka20.KafkaConsumerFactory",
 			"stream.kafka.broker.list": "kafka:9092",
 			"realtime.segment.flush.threshold.rows": "500000",
-			"realtime.segment.flush.threshold.time": "0h",
+			"realtime.segment.flush.threshold.time": "1h",
 			"realtime.segment.flush.threshold.segment.size": "0",
 			"stream.kafka.consumer.prop.auto.offset.reset": "smallest",
 			"stream.kafka.consumer.prop.request.timeout.ms": "30000",

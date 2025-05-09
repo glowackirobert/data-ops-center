@@ -1,5 +1,5 @@
 {
-  "schemaName" : "trade_table_schema",
+  "schemaName" : "trade",
   "enableColumnBasedNullHandling" : false,
   "dimensionFieldSpecs" : [ {
     "name" : "eventId",
