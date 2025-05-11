@@ -2,10 +2,10 @@
 	"tableName": "trade",
 	"tableType": "REALTIME",
 	"segmentsConfig": {
+		"schemaName": "trade",
 		"minimizeDataMovement": false,
 		"timeColumnName": "ingestionTime",
 		"timeType": "MILLISECONDS",
-		"schemaName": "trade",
 		"replicasPerPartition": "1"
 	},
 	"tenants": {

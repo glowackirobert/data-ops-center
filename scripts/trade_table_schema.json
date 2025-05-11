@@ -1,16 +1,20 @@
 {
-  "schemaName" : "trade",
-  "enableColumnBasedNullHandling" : false,
-  "dimensionFieldSpecs" : [ {
-    "name" : "eventId",
-    "dataType" : "STRING",
-    "notNull" : false
-  } ],
-  "dateTimeFieldSpecs" : [ {
-    "name" : "ingestionTime",
-    "dataType" : "LONG",
-    "notNull" : false,
-    "format" : "1:DAYS:EPOCH",
-    "granularity" : "1:DAYS"
-  } ]
+  "schemaName": "trade",
+  "enableColumnBasedNullHandling": false,
+  "dimensionFieldSpecs": [
+    {
+      "name": "eventId",
+      "dataType": "STRING",
+      "notNull": false
+    }
+  ],
+  "dateTimeFieldSpecs": [
+    {
+      "name": "ingestionTime",
+      "dataType": "LONG",
+      "notNull": false,
+      "format": "1:DAYS:EPOCH",
+      "granularity": "1:DAYS"
+    }
+  ]
 }
