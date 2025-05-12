@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - master
-    tags:
-      - 'v*'
 
 jobs:
   build-and-push:
@@ -24,19 +22,17 @@ jobs:
           username: ${{ vars.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: docker.io/${{ vars.DOCKER_USERNAME }}/${{ github.event.repository.name }}
-          tags: |
-            type=ref,event=tag
-            type=semver,pattern={{version}}
+      - name: Extract version from pom.xml
+        id: extract_version
+        run: |
+          VERSION=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='version']/text()" pom.xml)
+          echo "VERSION=$VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            docker.io/${{ vars.DOCKER_USERNAME }}/${{ github.event.repository.name }}:${{ steps.extract_version.outputs.version }}
