@@ -23,11 +23,7 @@ jobs:
         username: ${{ vars.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Debug Docker Hub credentials
-      run: |
-        echo "DOCKER_USERNAME: ${{ vars.DOCKER_USERNAME }}"
-        echo "DOCKER_PASSWORD: ***"  # Just confirms the secret is set
-        echo "Image: docker.io/${{ vars.DOCKER_USERNAME }}/${{ github.event.repository.name }}:${{ steps.extract_version.outputs.version }}"
+
 
     - name: Install xmllint
       run: sudo apt-get update && sudo apt-get install -y libxml2-utils
@@ -38,6 +34,12 @@ jobs:
         VERSION=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='version']/text()" pom.xml)
         echo "VERSION=$VERSION"
         echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Debug Docker Hub credentials
+      run: |
+        echo "DOCKER_USERNAME: ${{ vars.DOCKER_USERNAME }}"
+        echo "DOCKER_PASSWORD: ***"  # Just confirms the secret is set
+        echo "Image: docker.io/${{ vars.DOCKER_USERNAME }}/${{ github.event.repository.name }}:${{ steps.extract_version.outputs.version }}"
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v6
