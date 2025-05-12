@@ -24,7 +24,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - /jmx_exporter/prometheus.yml:/usr/share/prometheus.yml
+      - ../jmx_exporter/prometheus.yml:/etc/prometheus/prometheus.yml
     networks:
       - pinot-network
 
@@ -35,12 +35,11 @@ services:
     ports:
       - "9092:9092"   # container
       - "29092:29092" # localhost
-      - "9091:9091"   # prometheus JMX metrics
     environment:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181/kafka
       KAFKA_BROKER_ID: 0
       KAFKA_ADVERTISED_HOST_NAME: kafka
-      KAFKA_OPTS: "-javaagent:/usr/share/jmx_prometheus_javaagent-1.2.0.jar=9091:/usr/share/kafka_jmx_config.yml"
+      KAFKA_OPTS: "-javaagent:/usr/share/jmx_prometheus_javaagent-1.2.0.jar=19092:/usr/share/kafka_jmx_config.yml"
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -86,7 +85,6 @@ services:
     restart: unless-stopped
     ports:
       - "9000:9000"
-      - "19000:19000" # prometheus JMX metrics
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-controller.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=19000:/opt/pinot/etc/jmx_prometheus_javaagent/configs/controller.yml"
     depends_on:
@@ -109,7 +107,7 @@ services:
     ports:
       - "8099:8099"
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-broker.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=8099:/opt/pinot/etc/jmx_prometheus_javaagent/configs/broker.yml"
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-broker.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18099:/opt/pinot/etc/jmx_prometheus_javaagent/configs/broker.yml"
     depends_on:
       pinot-controller:
         condition: service_healthy
@@ -131,7 +129,7 @@ services:
       - "8098:8098"
       - "8097:8097"
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms2G -Xmx8G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-server.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=8098:/opt/pinot/etc/jmx_prometheus_javaagent/configs/server.yml"
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms2G -Xmx8G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-server.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18098:/opt/pinot/etc/jmx_prometheus_javaagent/configs/server.yml"
     depends_on:
       pinot-broker:
         condition: service_healthy
@@ -152,7 +150,7 @@ services:
     ports:
       - "7500:7500"
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-minion.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=7500:/opt/pinot/etc/jmx_prometheus_javaagent/configs/minion.yml"
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-minion.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=17500:/opt/pinot/etc/jmx_prometheus_javaagent/configs/minion.yml"
     depends_on:
       pinot-server:
         condition: service_healthy
@@ -160,7 +158,7 @@ services:
       - pinot-network
 
   kafka-producer:
-    image: kafka-producer:1.0.0
+    image: robertglowacki83/kafka-producer:1.0.0
     container_name: "kafka-producer"
     restart: no
     depends_on:
