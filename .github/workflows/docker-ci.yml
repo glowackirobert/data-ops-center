@@ -27,6 +27,11 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: docker.io/${{ vars.DOCKER_USERNAME }}/${{ github.event.repository.name }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=sha
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
