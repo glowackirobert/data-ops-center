@@ -4,9 +4,14 @@
   "namespace": "avro",
      "fields": [
         {
-            "name": "eventId",
+            "name": "tradeId",
             "type": "string",
             "doc": "Unique identifier of the event (UUID)"
+        },
+        {
+            "name": "symbol",
+            "type": "string",
+            "doc": "Randomly generated string"
         }
      ]
 }

@@ -38,7 +38,7 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
         for (int i = 0; i < NUMBER_OF_THREADS; i++) {
             executorService.submit(() -> produceMessages(messageCounter));
         }
-        shutdownAndAwaitTermination();
+//        shutdownAndAwaitTermination();
     }
 
     @Override
@@ -73,7 +73,8 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
 
     private Trade createAvroMessage(int i) {
         return Trade.newBuilder()
-                .setEventId(String.valueOf(i))
+                .setTradeId(String.valueOf(i))
+                .setSymbol(RandomGenerator.generateStringValue())
                 .build();
     }
 
