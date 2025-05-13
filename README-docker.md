@@ -3,13 +3,15 @@
 This is a Java-based Kafka Producer application that sends messages to a Kafka topic.
 
 
+
 ## Requirements
 
 Before you begin, ensure you have the following installed on your machine:
 
 1. Java Development Kit (JDK) 21
 2. Apache Maven 3.6
-3. Docker/Podman (to run the application in a container)
+3. Docker/Podman
+
 
 
 ### Run Zk, Kafka and Schema Registry 
@@ -59,7 +61,7 @@ docker build -t robertglowacki83/kafka-producer:1.0.0 .
 
 Run kafka producer app in the container:
 ```bash
-docker run --rm -it --network pinot-network --name kafka-producer kafka-producer:1.0.0
+docker run --rm -it --network pinot-network --name kafka-producer robertglowacki83/kafka-producer:1.0.0
 ```
 
 Check kafka producer publish messages:
