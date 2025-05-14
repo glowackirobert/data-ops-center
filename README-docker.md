@@ -56,7 +56,7 @@ java -jar target/kafka-producer-1.0.0.jar local
 
 Build the kafka producer app image:
 ```bash
-docker build -t robertglowacki83/kafka-producer:1.0.0 .
+docker build -f Dockerfile.kafka-producer -t robertglowacki83/kafka-producer:1.0.0 .
 ```
 
 Run kafka producer app in the container:
@@ -66,7 +66,7 @@ docker run --rm -it --network pinot-network --name kafka-producer robertglowacki
 
 Check kafka producer publish messages:
 ```bash
-docker exec -it kafka /bin/bash -c "/opt/bitnami/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic trade --from-beginning"
+docker exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/bitnami/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic trade --from-beginning"
 ```
 
 
@@ -118,7 +118,7 @@ Set environment variable for current session:
 $env:PINOT_IMAGE = "custom-pinot:1.2.0"
 ```
 
-Run all containers:
+Run all containers and ensure that the most recent images are pulled:
 ```bash
 docker-compose -f .\container\container-compose.yml up
 ```
