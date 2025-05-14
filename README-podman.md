@@ -75,7 +75,7 @@ podman exec -it kafka /bin/bash -c "/opt/bitnami/kafka/bin/kafka-console-consume
 
 Build the Apache Pinot custom image:
 ```bash
-podman build -t custom-pinot:1.2.0 -f container/containerfile-apache-pinot .
+podman build -t custom-pinot:1.2.0 -f container/Dockerfile.apache-pinot .
 ```
 
 
