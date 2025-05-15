@@ -8,6 +8,8 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    env:
+      PRODUCER_MODULE: producer-app
 
     steps:
     - name: Checkout code
@@ -29,15 +31,15 @@ jobs:
     - name: Extract version from pom.xml
       id: extract_version
       run: |
-        VERSION=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='version']/text()" producer-app/pom.xml)
+        VERSION=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='version']/text()" $PRODUCER_MODULE/pom.xml)
         echo "VERSION=$VERSION"
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v6
       with:
-        context: ./producer-app
-        file: ./producer-app/Dockerfile.kafka-producer
+        context: ${{ env.PRODUCER_MODULE }}
+        file: ./${{ env.PRODUCER_MODULE }}/Dockerfile.kafka-producer
         push: true
         tags: |
-          docker.io/${{ vars.DOCKER_USERNAME }}/${{ github.event.repository.name }}:${{ steps.extract_version.outputs.version }}
+          docker.io/${{ vars.DOCKER_USERNAME }}/${{ env.PRODUCER_MODULE }}:${{ steps.extract_version.outputs.version }}
