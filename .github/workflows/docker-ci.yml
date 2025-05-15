@@ -39,7 +39,7 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         context: ${{ env.KAFKA_PRODUCER_MODULE }}
-        file: ./${{ env.KAFKA_PRODUCER_MODULE }}/Dockerfile.kafka-producer
+        file: ./${{ env.KAFKA_PRODUCER_MODULE }}/Dockerfile.${{ env.KAFKA_PRODUCER_MODULE }}
         push: true
         tags: |
           docker.io/${{ vars.DOCKER_USERNAME }}/${{ env.KAFKA_PRODUCER_MODULE }}:${{ steps.extract_version.outputs.version }}
