@@ -6,6 +6,11 @@
       "name": "eventId",
       "dataType": "STRING",
       "notNull": false
+    },
+    {
+      "name": "symbol",
+      "dataType": "STRING",
+      "notNull": false
     }
   ],
   "dateTimeFieldSpecs": [
