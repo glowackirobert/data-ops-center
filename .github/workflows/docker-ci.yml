@@ -36,7 +36,8 @@ jobs:
     - name: Build and push Docker image
       uses: docker/build-push-action@v6
       with:
-        context: .
+        context: ./producer-app
+        file: ./producer-app/Dockerfile.kafka-producer
         push: true
         tags: |
           docker.io/${{ vars.DOCKER_USERNAME }}/${{ github.event.repository.name }}:${{ steps.extract_version.outputs.version }}

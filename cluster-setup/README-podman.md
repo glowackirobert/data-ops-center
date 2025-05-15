@@ -1,6 +1,6 @@
-# Kafka Producer Application
+# Cluster setup
 
-This is a Java-based Kafka Producer application that sends messages to a Kafka topic.
+This module contains all configs related to set up data ops center cluster.
 
 
 
@@ -38,26 +38,7 @@ podman run --rm -it --network pinot-network --name schema-registry -p 8081:8081 
 
 
 
-### Run the Application locally
-
-Build kafka producer app:
-```bash
-mvn clean package
-```
-
-Run application:
-```bash
-java -jar target/kafka-producer-1.0.0.jar local
-```
-
-
-
 ### Run the Application in the container
-
-Build the kafka producer app image:
-```bash
-podman build -t robertglowacki83/kafka-producer:1.0.0 .
-```
 
 Run kafka producer app in the container:
 ```bash
