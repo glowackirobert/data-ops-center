@@ -61,7 +61,7 @@ docker build -f kafka-producer-app/Dockerfile.kafka-producer-app -t robertglowac
 
 Run kafka producer app in the container:
 ```bash
-docker run --rm -it --network pinot-network --name kafka-producer robertglowacki83/kafka-producer:1.0.0
+docker run --rm -it --network pinot-network --name kafka-producer-app robertglowacki83/kafka-producer-app:1.0.0
 ```
 
 Check kafka producer publish messages:

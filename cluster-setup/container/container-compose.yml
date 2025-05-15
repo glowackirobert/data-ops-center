@@ -158,8 +158,8 @@ services:
       - pinot-network
 
   kafka-producer:
-    image: robertglowacki83/kafka-producer:1.0.0
-    container_name: "kafka-producer"
+    image: robertglowacki83/kafka-producer-app:1.0.0
+    container_name: "kafka-producer-app"
     restart: no
     depends_on:
       pinot-server:
