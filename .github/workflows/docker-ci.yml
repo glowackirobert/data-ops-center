@@ -38,7 +38,7 @@ jobs:
     - name: Build and push Docker image
       uses: docker/build-push-action@v6
       with:
-        context: ${{ env.KAFKA_PRODUCER_MODULE }}
+        context: .
         file: ./${{ env.KAFKA_PRODUCER_MODULE }}/Dockerfile.${{ env.KAFKA_PRODUCER_MODULE }}
         push: true
         tags: |
