@@ -48,7 +48,7 @@ jobs:
     - name: Extract Pinot version
       id: extract_version_apache_pinot
       run: |
-        VERSION = $(grep -oP 'FROM apachepinot/pinot:\K[\d.]+' ./cluster-setup/Dockerfile.${{ env.APACHE_PINOT }})
+        VERSION=$(grep -oP 'FROM apachepinot/pinot:\K[\d.]+' ./cluster-setup/Dockerfile.${{ env.APACHE_PINOT }})
         echo "VERSION=$VERSION"
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
