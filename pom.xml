@@ -6,7 +6,7 @@
 
     <groupId>com.glowackirobert</groupId>
     <artifactId>your-parent-project</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.0.0</version>
 
     <packaging>pom</packaging>
     <name>Your Parent Project</name>
@@ -14,11 +14,5 @@
 
     <modules>
         <module>kafka-producer-app</module>
-        <!-- Add other modules here, e.g.:
-        <module>another-module</module>
-        -->
     </modules>
-
-    <!-- Optionally, you can define dependencyManagement and pluginManagement here
-         to share dependencies and plugins across all modules -->
 </project>

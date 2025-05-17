@@ -56,7 +56,7 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         context: .
-        file: ./cluster-setup/Dockerfile.${{ env.APACHE_PINOT }}
+        file: ./cluster-setup/container/Dockerfile.${{ env.APACHE_PINOT }}
         push: true
         tags: |
           docker.io/${{ vars.DOCKER_USERNAME }}/${{ env.APACHE_PINOT }}:${{ steps.extract_version_apache_pinot.outputs.version }}
