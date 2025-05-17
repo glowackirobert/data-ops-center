@@ -1,6 +1,6 @@
 services:
   zookeeper:
-    image: ${ZK_IMAGE:-zookeeper:3.9.2}
+    image: zookeeper:3.9.2
     container_name: "zookeeper"
     restart: unless-stopped
     ports:
@@ -29,7 +29,7 @@ services:
       - pinot-network
 
   kafka:
-    image: ${KAFKA_IMAGE:-bitnami/kafka:3.6}
+    image: bitnami/kafka:3.6
     container_name: "kafka"
     restart: unless-stopped
     ports:
@@ -79,7 +79,7 @@ services:
       start_period: 10s
 
   pinot-controller:
-    image: ${PINOT_IMAGE:-apachepinot/pinot:1.2.0}
+    image: robertglowacki83/apache-pinot:1.2.0
     command: "StartController -zkAddress zookeeper:2181"
     container_name: "pinot-controller"
     restart: unless-stopped
@@ -100,7 +100,7 @@ services:
       start_period: 10s
 
   pinot-broker:
-    image: ${PINOT_IMAGE:-apachepinot/pinot:1.2.0}
+    image: robertglowacki83/apache-pinot:1.2.0
     command: "StartBroker -zkAddress zookeeper:2181"
     container_name: "pinot-broker"
     restart: unless-stopped
@@ -121,7 +121,7 @@ services:
       start_period: 10s
 
   pinot-server:
-    image: ${PINOT_IMAGE:-apachepinot/pinot:1.2.0}
+    image: robertglowacki83/apache-pinot:1.2.0
     command: "StartServer -zkAddress zookeeper:2181"
     container_name: "pinot-server"
     restart: unless-stopped
@@ -143,7 +143,7 @@ services:
       start_period: 10s
 
   pinot-minion:
-    image: ${PINOT_IMAGE:-apachepinot/pinot:1.2.0}
+    image: robertglowacki83/apache-pinot:1.2.0
     command: "StartMinion -zkAddress zookeeper:2181"
     container_name: "pinot-minion"
     restart: unless-stopped
