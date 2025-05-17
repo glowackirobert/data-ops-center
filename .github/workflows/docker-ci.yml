@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       KAFKA_PRODUCER_MODULE: kafka-producer-app
+      APACHE_PINOT: apache-pinot
 
     steps:
     - name: Checkout code
@@ -28,14 +29,14 @@ jobs:
     - name: Install xmllint
       run: sudo apt-get update && sudo apt-get install -y libxml2-utils
 
-    - name: Extract version from pom.xml
+    - name: Extract kafka producer app version from pom.xml
       id: extract_version
       run: |
         VERSION=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='version']/text()" $KAFKA_PRODUCER_MODULE/pom.xml)
         echo "VERSION=$VERSION"
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-    - name: Build and push Docker image
+    - name: Build and push Docker image of kafka producer app
       uses: docker/build-push-action@v6
       with:
         context: .
@@ -43,3 +44,17 @@ jobs:
         push: true
         tags: |
           docker.io/${{ vars.DOCKER_USERNAME }}/${{ env.KAFKA_PRODUCER_MODULE }}:${{ steps.extract_version.outputs.version }}
+
+    - name: Extract Pinot version
+      id: extract_version
+      run: |
+        echo "version=$(grep -oP 'FROM apachepinot/pinot:\K[\d.]+' ./cluster-setup/Dockerfile.${{ env.APACHE_PINOT }})" >> $GITHUB_OUTPUT
+
+    - name: Build and push Docker image of custom Apache Pinot app
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: ./cluster-setup/Dockerfile.${{ env.APACHE_PINOT }}
+        push: true
+        tags: |
+          docker.io/${{ vars.DOCKER_USERNAME }}/${{ env.APACHE_PINOT }}::${{ steps.extract_version.outputs.version }}
