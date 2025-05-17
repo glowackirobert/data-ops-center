@@ -92,13 +92,6 @@ docker run --rm -it --network pinot-network --name pinot-minion -p 6000:6000 -e 
 
 ### Run compose file
 
-Set environment variable for current session:
-
-**Note:** The `$` sign is a prompt indicator for PowerShell. When copying the command, ensure you include the entire line as shown below.
-```bash
-$env:PINOT_IMAGE = "custom-pinot:1.2.0"
-```
-
 Run all containers and ensure that the most recent images are pulled:
 ```bash
 docker-compose -f .\container\container-compose.yml up

@@ -92,13 +92,6 @@ podman run --rm -it --network pinot-network --name pinot-minion -p 6000:6000 -e 
 
 ### Run compose file
 
-Set environment variable for current session:
-
-**Note:** The `$` sign is a prompt indicator for PowerShell. When copying the command, ensure you include the entire line as shown.
-```bash
-$env:PINOT_IMAGE = "localhost/custom-pinot:1.2.0"
-```
-
 Run all containers:
 ```bash
 podman compose --file .\container\container-compose.yml up
