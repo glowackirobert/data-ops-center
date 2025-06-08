@@ -5,12 +5,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.glowackirobert</groupId>
-    <artifactId>your-parent-project</artifactId>
+    <artifactId>data-ops-center</artifactId>
     <version>1.0.0</version>
 
     <packaging>pom</packaging>
-    <name>Your Parent Project</name>
-    <description>Parent project for multi-module build</description>
+    <name>Data operations center</name>
+    <description>Parent project for multi-module data operations center</description>
 
     <modules>
         <module>kafka-producer-app</module>
