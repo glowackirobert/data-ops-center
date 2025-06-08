@@ -38,7 +38,6 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
         for (int i = 0; i < NUMBER_OF_THREADS; i++) {
             executorService.submit(() -> produceMessages(messageCounter));
         }
-//        shutdownAndAwaitTermination();
     }
 
     @Override
