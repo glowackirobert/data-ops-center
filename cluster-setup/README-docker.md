@@ -42,7 +42,8 @@ docker run --rm -it --network pinot-network --name schema-registry -p 8081:8081 
 
 Run kafka producer app in the container:
 ```bash
-docker run --rm -it --network pinot-network --name kafka-producer robertglowacki83/kafka-producer:1.0.0
+docker run --rm -it --network pinot-network --name kafka-producer-app robertglowacki83/kafka-producer-app:1.0.0
+
 ```
 
 Check kafka producer publish messages:
@@ -94,7 +95,7 @@ docker run --rm -it --network pinot-network --name pinot-minion -p 6000:6000 -e 
 
 Run all containers and ensure that the most recent images are pulled:
 ```bash
-docker-compose -f .\container\container-compose.yml up
+docker-compose -f cluster-setup\container\container-compose.yml up --pull always
 ```
 
 
@@ -103,5 +104,5 @@ docker-compose -f .\container\container-compose.yml up
 
 Stop all containers:
 ```bash
-docker-compose -f .\container\container-compose.yml down
+docker-compose -f cluster-setup\container\container-compose.yml down
 ```
