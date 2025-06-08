@@ -8,7 +8,7 @@ ENV OUTPUT_DIR=/opt/pinot/scripts
 RUN mkdir -p ${OUTPUT_DIR}
 
 # Copy the scripts into the image
-COPY cluster-setup/scripts/*.json /opt/pinot/scripts/
+COPY cluster-setup/table_config/*.json /opt/pinot/scripts/
 
 # Make the script executable
 RUN chmod +x /opt/pinot/scripts/*.json
