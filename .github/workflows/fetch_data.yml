@@ -1,7 +1,7 @@
 name: Fetch data from gdansk public transport api.
 
 on:
-  workflow_dispatch:v
+  workflow_dispatch:
 
 jobs:
   run-script:
