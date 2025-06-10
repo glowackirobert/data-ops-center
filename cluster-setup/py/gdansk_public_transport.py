@@ -1,5 +1,4 @@
 import requests
-import schedule
 import json
 import time
 from datetime import datetime
@@ -13,7 +12,8 @@ def fetch_and_save_vehicles_data():
         vehicles = data.get('vehicles', [])
 
         if vehicles:
-            filename = datetime.now().strftime('%Y-%m-%d-%H') + '.txt'  # Add hour to filename for uniqueness
+            # Filename based on current hour
+            filename = datetime.now().strftime('%Y-%m-%d:%H') + '.txt'
             with open(filename, 'a', encoding='utf-8') as f:
                 for vehicle in vehicles:
                     f.write(json.dumps(vehicle, ensure_ascii=False) + '\n')
@@ -26,16 +26,10 @@ def fetch_and_save_vehicles_data():
         print(f"Error occurred: {e}")
 
 if __name__ == '__main__':
-    # Schedule the job to run at the start of every hour (hh:00:00)
-    schedule.every().hour.at(":00").do(fetch_and_save_vehicles_data)
-    print("Script started. Waiting for the next full hour...", flush=True)
-
-    # Run the job once immediately if the current time is at :00 minutes and :00 seconds
-    now = datetime.now()
-    if now.minute == 0 and now.second == 0:
-        fetch_and_save_vehicles_data()
-
-    # Continuously check for pending jobs
+    print("Script started. Fetching data every 60 seconds...", flush=True)
     while True:
-        schedule.run_pending()
-        time.sleep(1)  # Check every second (avoids timing drift)
+        fetch_and_save_vehicles_data()
+        # Sleep until the start of the next minute
+        now = datetime.now()
+        sleep_seconds = 60 - now.second
+        time.sleep(sleep_seconds)
