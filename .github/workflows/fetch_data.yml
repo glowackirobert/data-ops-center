@@ -13,6 +13,12 @@ jobs:
           python-version: "3.10"
       - run: pip install -r .github/workflows/requirements.txt
       - run: python cluster-setup/py/gdansk_public_transport.py
-#        env:
-#          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-#          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Upload file to S3
+        uses: hkusu/s3-upload-action@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: 'eu-north-1'
+          aws-bucket: ${{ vars.AWS_BUCKET_GDANSK_PUBLIC_TRANSPORT }}
+          file-path: './*.txt'
+          destination-dir: '/data'
