@@ -12,24 +12,27 @@ def fetch_and_save_vehicles_data():
         vehicles = data.get('vehicles', [])
 
         if vehicles:
-            # Filename based on current hour
-            filename = datetime.now().strftime('%Y-%m-%d:%H') + '.txt'
+            filename = datetime.now().strftime('%Y-%m-%d-%H') + '.txt'
             with open(filename, 'a', encoding='utf-8') as f:
                 for vehicle in vehicles:
                     f.write(json.dumps(vehicle, ensure_ascii=False) + '\n')
-
             print(f"Data appended to {filename} at {datetime.now().strftime('%H:%M:%S')}", flush=True)
         else:
             print("No vehicles data found.")
-
     except Exception as e:
         print(f"Error occurred: {e}")
 
 if __name__ == '__main__':
-    print("Script started. Fetching data every 60 seconds...", flush=True)
+    print("Script started. Waiting for the next full minute...", flush=True)
+    # Wait until the next full minute
+    now = datetime.now()
+    seconds_to_next_minute = 60 - now.second
+    time.sleep(seconds_to_next_minute)
+
+
     while True:
         fetch_and_save_vehicles_data()
-        # Sleep until the start of the next minute
+        # Sleep until the next full minute
         now = datetime.now()
-        sleep_seconds = 60 - now.second
-        time.sleep(sleep_seconds)
+        seconds_to_next_minute = 60 - now.second
+        time.sleep(seconds_to_next_minute)
