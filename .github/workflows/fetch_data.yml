@@ -1,11 +1,8 @@
 name: Fetch data
 
 on:
-  push:
-    branches:
-      - master
   schedule:
-    - cron: "* * * * *"   # Triggers every minute
+    - cron: "*/5 * * * *"   # Triggers every minute
 
 jobs:
   run-script:

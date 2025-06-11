@@ -2,7 +2,7 @@ name: Upload Data to S3
 
 on:
   schedule:
-    - cron: "0 * * * *"  # Every hour
+    - cron: "10 * * * *"  # Every hour
 
 jobs:
   upload-to-s3:
