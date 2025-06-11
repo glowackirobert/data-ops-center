@@ -3,7 +3,7 @@ import json
 import time
 from datetime import datetime
 
-def fetch_and_save_vehicles_data():
+def fetch_and_save_vehicles_data(filename):
     url = 'https://ckan2.multimediagdansk.pl/gpsPositions?v=2'
     try:
         response = requests.get(url, timeout=10)
@@ -12,7 +12,6 @@ def fetch_and_save_vehicles_data():
         vehicles = data.get('vehicles', [])
 
         if vehicles:
-            filename = datetime.now().strftime('%Y-%m-%d-%H') + '.txt'
             with open(filename, 'a', encoding='utf-8') as f:
                 for vehicle in vehicles:
                     f.write(json.dumps(vehicle, ensure_ascii=False) + '\n')
