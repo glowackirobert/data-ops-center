@@ -23,21 +23,13 @@ def fetch_and_save_vehicles_data():
         print(f"Error occurred: {e}")
 
 if __name__ == '__main__':
-# Create filename for current UTC hour
-    current_hour = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
-    filename = current_hour.strftime('%Y-%m-%d-%H') + '.txt'
+    # Create filename for current UTC hour
+    filename = datetime.utcnow().strftime('%Y-%m-%d-%H') + '.txt'
 
-    # Calculate end time (HH:59)
-    start_time = datetime.utcnow()
-    end_time = start_time.replace(minute=59, second=0, microsecond=0)
-
-    while datetime.utcnow() < end_time:
-        next_run = datetime.utcnow() + timedelta(seconds=60)
+    # Run fetch every minute until HH:59
+    while datetime.utcnow().minute < 59:
         fetch_and_save_vehicles_data(filename)
+        time.sleep(60)  # Wait exactly one minute
 
-        # Sleep until next full minute
-        sleep_time = (next_run - datetime.utcnow()).total_seconds()
-        if sleep_time > 0:
-            time.sleep(sleep_time)
-    # Final fetch at HH:59 before script exits
+    # Final fetch at HH:59 before exiting
     fetch_and_save_vehicles_data(filename)
