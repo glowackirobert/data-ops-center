@@ -1,0 +1,21 @@
+name: Fetch data
+
+on:
+  push:
+    branches:
+      - master
+  schedule:
+    - cron: "* * * * *"   # Triggers every minute
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    env:
+      AWS_BUCKET: ${{ vars.AWS_BUCKET_GDANSK_PUBLIC_TRANSPORT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install -r .github/workflows/requirements.txt
+      - run: python cluster-setup/py/gdansk_public_transport.py
