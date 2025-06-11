@@ -1,7 +1,7 @@
 import requests
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 def fetch_and_save_vehicles_data(filename):
     url = 'https://ckan2.multimediagdansk.pl/gpsPositions?v=2'
@@ -22,11 +22,19 @@ def fetch_and_save_vehicles_data(filename):
         print(f"Error occurred: {e}")
 
 if __name__ == '__main__':
+    # Wait until HH:MM:00 before starting execution
+    now = datetime.now(timezone.utc)
+    target_time = now.replace(second=0, microsecond=0)
+
+    if now.second > 0:
+        wait_time = (60 - now.second)
+        time.sleep(wait_time)
+
     # Create filename for current UTC hour
-    filename = datetime.utcnow().strftime('%Y-%m-%d-%H') + '.txt'
+    filename = now.strftime('%Y-%m-%d-%H') + '.txt'
 
     # Run fetch every minute until HH:59
-    while datetime.utcnow().minute < 59:
+    while datetime.now(timezone.utc).minute < 59:
         fetch_and_save_vehicles_data(filename)
         time.sleep(60)  # Wait exactly one minute
 

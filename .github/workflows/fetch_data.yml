@@ -3,7 +3,7 @@ name: Fetch data and upload to S3
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 * * * *"  # Runs at the start of every hour (UTC)
+    - cron: "* * * * *"  # Runs at the start of every hour (UTC)
 
 jobs:
   run-script:
