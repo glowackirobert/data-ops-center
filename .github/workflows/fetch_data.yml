@@ -2,7 +2,7 @@ name: Fetch data
 
 on:
   schedule:
-    - cron: "*/5 * * * *"   # Triggers every minute
+    - cron: "* * * * *"   # Triggers every minute
 
 jobs:
   run-script:
@@ -16,8 +16,9 @@ jobs:
           python-version: "3.10"
       - run: pip install -r .github/workflows/requirements.txt
       - run: python cluster-setup/py/gdansk_public_transport.py
-      - name: Show created files
-        continue-on-error: true
-        run: |
-          echo "Listing all files in working directory:"
-          find . -type f | sort
+
+      - name: Upload generated files
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdansk-public-transport-files
+          path: data
