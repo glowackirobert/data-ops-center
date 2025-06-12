@@ -16,6 +16,8 @@ jobs:
           DATE_DIR=$(date -u -d "-1 hour" +"%Y-%m-%d")
           echo "file=./${PREV_HOUR}.txt" >> $GITHUB_OUTPUT
           echo "date_dir=${DATE_DIR}" >> $GITHUB_OUTPUT
+      - name: Debug file listing
+        run: ls -la
 
       - name: Upload to S3
         uses: hkusu/s3-upload-action@v2
