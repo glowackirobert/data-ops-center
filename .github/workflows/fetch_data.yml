@@ -17,8 +17,25 @@ jobs:
       - run: pip install -r .github/workflows/requirements.txt
       - run: python cluster-setup/py/gdansk_public_transport.py
 
-      - name: Upload generated files
-        uses: actions/upload-artifact@v4
+      - name: Calculate previous hour and date
+        id: time
+        run: |
+          PREV_HOUR=$(date -u -d "-1 hour" +"%Y-%m-%d-%H")
+          DATE_DIR=$(date -u -d "-1 hour" +"%Y-%m-%d")
+          echo "Previous hour: $PREV_HOUR"
+          echo "Date dir: $DATE_DIR"
+          echo "file=./${PREV_HOUR}.txt" >> $GITHUB_OUTPUT
+          echo "date_dir=${DATE_DIR}" >> $GITHUB_OUTPUT
+
+      - name: Debug file listing
+        run: ls -la
+
+      - name: Upload to S3
+        uses: hkusu/s3-upload-action@v2
         with:
-          name: gdansk-public-transport-files
-          path: data
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: "eu-north-1"
+          aws-bucket: ${{ vars.AWS_BUCKET_GDANSK_PUBLIC_TRANSPORT }}
+          file-path: ${{ steps.time.outputs.file }}
+          destination-dir: "/data/${{ steps.time.outputs.date_dir }}"
