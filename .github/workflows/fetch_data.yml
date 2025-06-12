@@ -17,6 +17,7 @@ jobs:
       - run: pip install -r .github/workflows/requirements.txt
       - run: python cluster-setup/py/gdansk_public_transport.py
       - name: Show created files
+        continue-on-error: true
         run: |
           echo "Listing all files in working directory:"
           find . -type f | sort
