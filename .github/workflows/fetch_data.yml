@@ -16,3 +16,7 @@ jobs:
           python-version: "3.10"
       - run: pip install -r .github/workflows/requirements.txt
       - run: python cluster-setup/py/gdansk_public_transport.py
+      - name: Show created files
+        run: |
+          echo "Listing all files in working directory:"
+          find . -type f | sort

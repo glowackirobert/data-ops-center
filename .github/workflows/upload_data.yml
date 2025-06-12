@@ -2,7 +2,7 @@ name: Upload Data to S3
 
 on:
   schedule:
-    - cron: "10 * * * *"  # Every hour
+    - cron: "* * * * *"  # Every hour
 
 jobs:
   upload-to-s3:
@@ -14,6 +14,8 @@ jobs:
         run: |
           PREV_HOUR=$(date -u -d "-1 hour" +"%Y-%m-%d-%H")
           DATE_DIR=$(date -u -d "-1 hour" +"%Y-%m-%d")
+          echo "Previous hour: $PREV_HOUR"
+          echo "Date dir: $DATE_DIR"
           echo "file=./${PREV_HOUR}.txt" >> $GITHUB_OUTPUT
           echo "date_dir=${DATE_DIR}" >> $GITHUB_OUTPUT
 
