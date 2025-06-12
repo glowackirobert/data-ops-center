@@ -1,8 +1,7 @@
 name: Fetch data
 
 on:
-  schedule:
-    - cron: "* * * * *"   # Triggers every minute
+  workflow_dispatch:
 
 jobs:
   run-script:
