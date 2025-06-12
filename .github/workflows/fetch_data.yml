@@ -19,8 +19,8 @@ jobs:
       - name: Calculate previous hour and date
         id: time
         run: |
-          CURRENT_HOUR=$(date -u -d +"%Y-%m-%d-%H")
-          DATE_DIR=$(date -u -d +"%Y-%m-%d")
+          CURRENT_HOUR=$(date -u + "%Y-%m-%d-%H")
+          DATE_DIR=$(date -u + "%Y-%m-%d")
           echo "file=${CURRENT_HOUR}.txt" >> $GITHUB_OUTPUT
           echo "date_dir=${DATE_DIR}" >> $GITHUB_OUTPUT
 
