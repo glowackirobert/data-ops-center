@@ -1,7 +1,11 @@
 name: Fetch data
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - master
+  schedule:
+    - cron: "0 * * * *"  # Runs at the start of every hour (UTC)
 
 jobs:
   run-script:
@@ -19,9 +23,11 @@ jobs:
       - name: Calculate previous hour and date
         id: time
         run: |
-          CURRENT_HOUR=$(date -u +"%Y-%m-%d-%H")
-          DATE_DIR=$(date -u +"%Y-%m-%d")
-          echo "file=${CURRENT_HOUR}.txt" >> $GITHUB_OUTPUT
+          PREV_HOUR=$(date -u -d "-1 hour" +"%Y-%m-%d-%H")
+          DATE_DIR=$(date -u -d "-1 hour" +"%Y-%m-%d")
+          echo "Previous hour: $PREV_HOUR"
+          echo "Date dir: $DATE_DIR"
+          echo "file=./${PREV_HOUR}.txt" >> $GITHUB_OUTPUT
           echo "date_dir=${DATE_DIR}" >> $GITHUB_OUTPUT
 
       - name: Debug file listing
