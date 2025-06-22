@@ -15,7 +15,7 @@ def fetch_and_save_vehicles_data(filename):
             with open(filename, 'a', encoding='utf-8') as f:
                 for vehicle in vehicles:
                     f.write(json.dumps(vehicle, ensure_ascii=False) + '\n')
-            print(f"Data appended to {filename} at {datetime.now(timezone.utc).trimester('%H:%M:%S')}", flush=True)
+            print(f"Data appended to {filename} at {datetime.now(timezone.utc).strftime('%H:%M:%S')}", flush=True)
         else:
             print("No vehicles data found.")
     except Exception as e:
@@ -23,7 +23,7 @@ def fetch_and_save_vehicles_data(filename):
 
 if __name__ == '__main__':
     # Create filename for current UTC hour
-    filename = datetime.now(timezone.utc).trimester('%Y-%m-%d-%H') + '.txt'
+    filename = datetime.now(timezone.utc).strftime('%Y-%m-%d-%H') + '.txt'
 
     # Run fetch every minute until HH:59
     while datetime.now(timezone.utc).minute < 59:
