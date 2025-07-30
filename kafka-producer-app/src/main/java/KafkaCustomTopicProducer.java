@@ -19,33 +19,37 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
     private static final int NUMBER_OF_MESSAGES = 10_000_000;
     private static final int FLUSH_INTERVAL = 100_000;
     private static final int NUMBER_OF_THREADS = 4;
-
+    private static final int ITERATIONS = 4;
     private final KafkaProducer<String, Trade> producer;
-    private final ExecutorService executorService;
-    private final AtomicInteger messageCounter = new AtomicInteger(0);
 
     public KafkaCustomTopicProducer(String configType) {
         Properties properties = loadProperties(String.format(PROPERTIES_FILE_TEMPLATE, configType));
         this.producer = new KafkaProducer<>(Objects.requireNonNull(properties));
-        this.executorService = Executors.newFixedThreadPool(NUMBER_OF_THREADS);
+//        this.executorService = Executors.newFixedThreadPool(NUMBER_OF_THREADS);
     }
 
     @Override
     public void produce() {
-        log.info("Starting to produce messages");
-        for (int i = 0; i < NUMBER_OF_THREADS; i++) {
-            executorService.submit(this::produceMessages);
+        for (int iteration = 0; iteration < ITERATIONS; iteration++) {
+            log.info("Starting iteration {}/{}", iteration + 1, ITERATIONS);
+            AtomicInteger messageCounter = new AtomicInteger(0);
+            ExecutorService executorService = Executors.newFixedThreadPool(NUMBER_OF_THREADS);
+
+            for (int i = 0; i < NUMBER_OF_THREADS; i++) {
+                executorService.submit(() -> produceMessages(messageCounter));
+            }
+            shutdownExecutor(executorService);
         }
     }
 
     @Override
     public void close() {
         log.info("Closing producer and executor service");
-        shutdownExecutor();
+        producer.flush();
         producer.close();
     }
 
-    private void produceMessages() {
+    private void produceMessages(AtomicInteger messageCounter) {
         int localCounter = 0;
         while (true) {
             int currentMsgIndex = messageCounter.getAndIncrement();
@@ -84,7 +88,7 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
         }
     }
 
-    private void shutdownExecutor() {
+    private void shutdownExecutor(ExecutorService executorService) {
         executorService.shutdown();
         try {
             if (!executorService.awaitTermination(1, TimeUnit.MINUTES)) {

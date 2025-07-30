@@ -30,5 +30,4 @@ public class PropertiesLoader {
             return null;
         }
     }
-
 }
