@@ -64,7 +64,12 @@ Run kafka producer app in the container:
 podman run --rm -it --network pinot-network --name kafka-producer-app robertglowacki83/kafka-producer-app:1.0.0
 ```
 
-Check kafka producer publish messages:
+Read messages published on kafka topic:
 ```bash
 podman exec -it kafka /bin/bash -c "/opt/bitnami/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic trade --from-beginning"
+```
+
+Check kafka number of messages:
+```bash
+podman exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/bitnami/kafka/bin/kafka-run-class.sh kafka.tools.GetOffsetShell --broker-list localhost:9092 --topic trade --time -1"
 ```
