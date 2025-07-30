@@ -25,7 +25,6 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
     public KafkaCustomTopicProducer(String configType) {
         Properties properties = loadProperties(String.format(PROPERTIES_FILE_TEMPLATE, configType));
         this.producer = new KafkaProducer<>(Objects.requireNonNull(properties));
-//        this.executorService = Executors.newFixedThreadPool(NUMBER_OF_THREADS);
     }
 
     @Override
