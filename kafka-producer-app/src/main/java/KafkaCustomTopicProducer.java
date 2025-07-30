@@ -51,6 +51,7 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
 
     private void produceMessages(AtomicInteger messageCounter) {
         int localCounter = 0;
+        long lastFlushTime = System.nanoTime();
         while (true) {
             int currentMsgIndex = messageCounter.getAndIncrement();
             if (currentMsgIndex >= NUMBER_OF_MESSAGES) {
@@ -62,7 +63,16 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
             localCounter++;
             if (localCounter % FLUSH_INTERVAL == 0) {
                 producer.flush();
-                log.info("Thread {} flushed {} messages", Thread.currentThread().getName(), FLUSH_INTERVAL);
+                long now = System.nanoTime();
+                long elapsedNanos = now - lastFlushTime;
+                lastFlushTime = now;
+
+                double elapsedSeconds = elapsedNanos / 1_000_000_000.0;
+                double rate = FLUSH_INTERVAL / elapsedSeconds;
+                log.info("Thread {} flushed {} messages at rate: {} messages/second",
+                        Thread.currentThread().getName(),
+                        FLUSH_INTERVAL,
+                        String.format("%.2f", rate));
             }
         }
     }
