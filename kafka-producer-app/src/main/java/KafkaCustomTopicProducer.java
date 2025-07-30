@@ -66,13 +66,9 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
                 long now = System.nanoTime();
                 long elapsedNanos = now - lastFlushTime;
                 lastFlushTime = now;
-
                 double elapsedSeconds = elapsedNanos / 1_000_000_000.0;
-                double rate = FLUSH_INTERVAL / elapsedSeconds;
-                log.info("Thread {} flushed {} messages at rate: {} messages/second",
-                        Thread.currentThread().getName(),
-                        FLUSH_INTERVAL,
-                        String.format("%.2f", rate));
+                log.info("Thread: {} flushed {} messages in {} sec.",
+                        Thread.currentThread().getName(), FLUSH_INTERVAL, elapsedSeconds);
             }
         }
     }
