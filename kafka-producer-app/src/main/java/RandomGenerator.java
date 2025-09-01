@@ -1,5 +1,8 @@
 import java.math.BigInteger;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class RandomGenerator {
 
@@ -27,5 +30,15 @@ public class RandomGenerator {
         T[] enumValues = enumClass.getEnumConstants();
         int randomIndex = RANDOM.nextInt(enumValues.length);
         return enumValues[randomIndex];
+    }
+
+    public static Instant generateRandomDate() {
+        Instant now = Instant.now();
+        Instant oneYearAgo = now.minus(365, ChronoUnit.DAYS);
+
+        long startEpochMilli = oneYearAgo.toEpochMilli();
+        long endEpochMilli = now.toEpochMilli();
+        long randomEpochMilli = ThreadLocalRandom.current().nextLong(startEpochMilli, endEpochMilli);
+        return Instant.ofEpochMilli(randomEpochMilli);
     }
 }

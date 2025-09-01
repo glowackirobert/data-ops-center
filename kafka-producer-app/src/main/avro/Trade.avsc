@@ -2,37 +2,75 @@
   "type": "record",
   "name": "Trade",
   "namespace": "avro",
-     "fields": [
+  "fields": [
+    {
+      "name": "tradeId",
+      "type": "string",
+      "doc": "Unique identifier of the event (UUID)"
+    },
+    {
+      "name": "symbol",
+      "type": "string",
+      "doc": "Randomly generated string"
+    },
+    {
+      "name": "tradeDate",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "quantity",
+      "type": "int"
+    },
+    {
+      "name": "price",
+      "type": {
+        "type": "bytes",
+        "logicalType": "decimal",
+        "precision": 16,
+        "scale": 4
+      }
+    },
+    {
+      "name": "data",
+      "type": "string",
+      "doc": "Randomly generated string"
+    },
+    {
+      "name": "side",
+      "type": {
+        "type": "enum",
+        "name": "TradeSide",
+        "symbols": [
+          "BUY",
+          "SELL"
+        ]
+      }
+    },
+    {
+      "name": "tradeType",
+      "type": {
+        "type": "enum",
+        "name": "TradeType",
+        "symbols": [
+          "MARKET",
+          "LIMIT",
+          "STOP"
+        ]
+      }
+    },
+    {
+      "name": "settlementDate",
+      "type": [
+        "null",
         {
-            "name": "tradeId",
-            "type": "string",
-            "doc": "Unique identifier of the event (UUID)"
-        },
-        {
-            "name": "symbol",
-            "type": "string",
-            "doc": "Randomly generated string"
-        },
-        {
-            "name": "data",
-            "type": "string",
-            "doc": "Randomly generated string"
-        },
-        {
-            "name": "side",
-            "type": {
-                 "type": "enum",
-                 "name": "TradeSide",
-                 "symbols": ["BUY", "SELL"]
-            }
-        },
-        {
-          "name": "tradeType",
-          "type": {
-            "type": "enum",
-            "name": "TradeType",
-            "symbols": ["MARKET", "LIMIT", "STOP"]
-          }
+          "type": "int",
+          "logicalType": "date"
         }
-     ]
+      ],
+      "default": null
+    }
+  ]
 }
