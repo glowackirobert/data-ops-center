@@ -12,6 +12,27 @@
             "name": "symbol",
             "type": "string",
             "doc": "Randomly generated string"
+        },
+        {
+            "name": "data",
+            "type": "string",
+            "doc": "Randomly generated string"
+        },
+        {
+            "name": "side",
+            "type": {
+                 "type": "enum",
+                 "name": "TradeSide",
+                 "symbols": ["BUY", "SELL"]
+            }
+        },
+        {
+          "name": "tradeType",
+          "type": {
+            "type": "enum",
+            "name": "TradeType",
+            "symbols": ["MARKET", "LIMIT", "STOP"]
+          }
         }
      ]
 }

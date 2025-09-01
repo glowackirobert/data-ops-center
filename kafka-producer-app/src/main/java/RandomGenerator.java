@@ -22,4 +22,10 @@ public class RandomGenerator {
     public static boolean generateBooleanValue() {
         return RANDOM.nextBoolean();
     }
+
+    public static <T extends Enum<?>> T getRandomEnumValue(Class<T> enumClass) {
+        T[] enumValues = enumClass.getEnumConstants();
+        int randomIndex = RANDOM.nextInt(enumValues.length);
+        return enumValues[randomIndex];
+    }
 }

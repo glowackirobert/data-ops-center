@@ -1,4 +1,6 @@
 import avro.Trade;
+import avro.TradeSide;
+import avro.TradeType;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -81,6 +83,9 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
         return Trade.newBuilder()
                 .setTradeId(String.valueOf(index))
                 .setSymbol(RandomGenerator.generateStringValue())
+                .setData(RandomGenerator.generateStringValue())
+                .setSide(RandomGenerator.getRandomEnumValue(TradeSide.class))
+                .setTradeType(RandomGenerator.getRandomEnumValue(TradeType.class))
                 .build();
     }
 
