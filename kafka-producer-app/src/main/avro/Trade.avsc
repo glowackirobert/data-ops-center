@@ -4,7 +4,7 @@
   "namespace": "avro",
   "fields": [
     {
-      "name": "tradeId",
+      "name": "eventId",
       "type": "string",
       "doc": "Unique identifier of the event (UUID)"
     },
@@ -14,29 +14,13 @@
       "doc": "Randomly generated string"
     },
     {
-      "name": "tradeDate",
-      "type": {
+        "name": "tradeDate",
         "type": "long",
-        "logicalType": "timestamp-millis"
-      }
+        "doc": "Nanoseconds since Unix epoch"
     },
     {
-      "name": "quantity",
-      "type": "int"
-    },
-    {
-      "name": "price",
-      "type": {
-        "type": "bytes",
-        "logicalType": "decimal",
-        "precision": 16,
-        "scale": 4
-      }
-    },
-    {
-      "name": "data",
-      "type": "string",
-      "doc": "Randomly generated string"
+        "name": "quantity",
+        "type": "int"
     },
     {
       "name": "side",
@@ -60,17 +44,6 @@
           "STOP"
         ]
       }
-    },
-    {
-      "name": "settlementDate",
-      "type": [
-        "null",
-        {
-          "type": "int",
-          "logicalType": "date"
-        }
-      ],
-      "default": null
     }
   ]
 }

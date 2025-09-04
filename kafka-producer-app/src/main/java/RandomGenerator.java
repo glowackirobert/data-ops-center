@@ -32,13 +32,13 @@ public class RandomGenerator {
         return enumValues[randomIndex];
     }
 
-    public static Instant generateRandomDate() {
+    public static long generateRandomNanoTimestamp() {
         Instant now = Instant.now();
         Instant oneYearAgo = now.minus(365, ChronoUnit.DAYS);
 
-        long startEpochMilli = oneYearAgo.toEpochMilli();
-        long endEpochMilli = now.toEpochMilli();
-        long randomEpochMilli = ThreadLocalRandom.current().nextLong(startEpochMilli, endEpochMilli);
-        return Instant.ofEpochMilli(randomEpochMilli);
+        long startEpochNano = oneYearAgo.getEpochSecond() * 1_000_000_000L + oneYearAgo.getNano();
+        long endEpochNano = now.getEpochSecond() * 1_000_000_000L + now.getNano();
+
+        return ThreadLocalRandom.current().nextLong(startEpochNano, endEpochNano);
     }
 }

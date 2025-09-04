@@ -18,10 +18,10 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
 
     private static final String TOPIC = "trade";
     private static final String PROPERTIES_FILE_TEMPLATE = "kafka-producer-%s.properties";
-    private static final int NUMBER_OF_MESSAGES = 10_000_000;
-    private static final int FLUSH_INTERVAL = 100_000;
-    private static final int NUMBER_OF_THREADS = 4;
-    private static final int ITERATIONS = 4;
+    private static final int NUMBER_OF_MESSAGES = 10_000;
+    private static final int FLUSH_INTERVAL = 100;
+    private static final int NUMBER_OF_THREADS = 1;
+    private static final int ITERATIONS = 1;
     private final KafkaProducer<String, Trade> producer;
 
     public KafkaCustomTopicProducer(String configType) {
@@ -59,6 +59,9 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
                 break;
             }
             Trade trade = createAvroMessage(currentMsgIndex);
+            if (localCounter == 100) {
+                log.info("trade: {}", trade);
+            }
             sendSingleMessage(trade);
 
             localCounter++;
@@ -81,9 +84,10 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
 
     private Trade createAvroMessage(int index) {
         return Trade.newBuilder()
-                .setTradeId(String.valueOf(index))
+                .setEventId(String.valueOf(index))
                 .setSymbol(RandomGenerator.generateStringValue())
-                .setData(RandomGenerator.generateStringValue())
+                .setTradeDate(RandomGenerator.generateRandomNanoTimestamp())
+                .setQuantity(4323)
                 .setSide(RandomGenerator.getRandomEnumValue(TradeSide.class))
                 .setTradeType(RandomGenerator.getRandomEnumValue(TradeType.class))
                 .build();

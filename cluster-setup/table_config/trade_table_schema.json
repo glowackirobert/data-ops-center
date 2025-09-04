@@ -1,25 +1,52 @@
 {
   "schemaName": "trade",
-  "enableColumnBasedNullHandling": false,
   "dimensionFieldSpecs": [
     {
       "name": "eventId",
       "dataType": "STRING",
-      "notNull": false
+      "singleValueField": true,
+      "defaultNullValue": ""
     },
     {
       "name": "symbol",
       "dataType": "STRING",
-      "notNull": false
+      "singleValueField": true,
+      "defaultNullValue": ""
+    },
+    {
+      "name": "side",
+      "dataType": "STRING",
+      "singleValueField": true,
+      "defaultNullValue": ""
+    },
+    {
+      "name": "tradeType",
+      "dataType": "STRING",
+      "singleValueField": true,
+      "defaultNullValue": ""
+    }
+  ],
+  "metricFieldSpecs": [
+    {
+      "name": "quantity",
+      "dataType": "INT",
+      "defaultNullValue": 0
     }
   ],
   "dateTimeFieldSpecs": [
     {
       "name": "ingestionTime",
       "dataType": "LONG",
-      "notNull": false,
-      "format": "1:DAYS:EPOCH",
-      "granularity": "1:DAYS"
+      "format": "EPOCH",
+      "granularity": "DAYS",
+      "defaultNullValue": -1
+    },
+    {
+      "name": "tradeDate",
+      "dataType": "LONG",
+      "format": "EPOCH",
+      "granularity": "DAYS",
+      "defaultNullValue": -1
     }
   ]
 }
