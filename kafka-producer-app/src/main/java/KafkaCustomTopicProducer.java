@@ -21,7 +21,7 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
     private static final int NUMBER_OF_MESSAGES = 10_000;
     private static final int FLUSH_INTERVAL = 100;
     private static final int NUMBER_OF_THREADS = 1;
-    private static final int ITERATIONS = 1;
+    private static final int ITERATIONS = 2;
     private final KafkaProducer<String, Trade> producer;
 
     public KafkaCustomTopicProducer(String configType) {
@@ -87,7 +87,8 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
                 .setEventId(String.valueOf(index))
                 .setSymbol(RandomGenerator.generateStringValue())
                 .setTradeDate(RandomGenerator.generateRandomNanoTimestamp())
-                .setQuantity(4323)
+                .setQuantity(RandomGenerator.generateIntValue())
+                .setIsActive(RandomGenerator.generateBooleanValue())
                 .setSide(RandomGenerator.getRandomEnumValue(TradeSide.class))
                 .setTradeType(RandomGenerator.getRandomEnumValue(TradeType.class))
                 .build();

@@ -23,6 +23,10 @@
         "type": "int"
     },
     {
+      "name": "isActive",
+      "type": "boolean"
+    },
+    {
       "name": "side",
       "type": {
         "type": "enum",
