@@ -167,6 +167,22 @@ services:
     networks:
       - pinot-network
 
+pinot-init:
+  image: robertglowacki83/apache-pinot:1.2.0
+  depends_on:
+    pinot-controller:
+      condition: service_healthy
+  command: >
+    /bin/sh -c "
+      sleep 5 &&
+      bin/pinot-admin.sh AddTable \
+        -tableConfigFile /opt/pinot/scripts/trade_table_config.json \
+        -schemaFile /opt/pinot/scripts/trade_table_schema.json \
+        -exec
+    "
+  networks:
+    - pinot-network
+
 networks:
   pinot-network:
     name: pinot-network
