@@ -15,8 +15,8 @@ pinotFSSpecs:
     className: org.apache.pinot.plugin.filesystem.S3PinotFS
     configs:
       region: eu-north-1
-      accessKey: "<YOUR_AWS_ACCESS_KEY>"
-      secretKey: "<YOUR_AWS_SECRET_KEY>"
+      accessKey: "<AWS_ACCESS_KEY_ID>"
+      secretKey: "<AWS_SECRET_ACCESS_KEY>"
 
 recordReaderSpec:
   dataFormat: 'json'
