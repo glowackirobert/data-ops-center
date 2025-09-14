@@ -1,0 +1,36 @@
+executionFrameworkSpec:
+  name: 'standalone'
+  segmentGenerationJobRunnerClassName: 'org.apache.pinot.plugin.ingestion.batch.standalone.SegmentGenerationJobRunner'
+  segmentTarPushJobRunnerClassName: 'org.apache.pinot.plugin.ingestion.batch.standalone.SegmentTarPushJobRunner'
+  segmentUriPushJobRunnerClassName: 'org.apache.pinot.plugin.ingestion.batch.standalone.SegmentUriPushJobRunner'
+
+inputDirURI: 's3://gdansk-public-transport/artifacts/'
+includeFileNamePattern: 'glob:**/*.txt'
+outputDirURI: '/tmp/pinot/segments'
+overwriteOutput: true
+
+pinotFSSpecs:
+  - scheme: s3
+    className: org.apache.pinot.plugin.filesystem.S3PinotFS
+    configs:
+      region: eu-north-1
+      accessKey: "<YOUR_AWS_ACCESS_KEY>"
+      secretKey: "<YOUR_AWS_SECRET_KEY>"
+
+recordReaderSpec:
+  dataFormat: 'json'
+  className: "org.apache.pinot.plugin.inputformat.json.JSONRecordReader",
+  configClassName: "org.apache.pinot.plugin.inputformat.json.JSONRecordReaderConfig",
+  configs:
+    failOnNullField: false
+    failOnException: false
+
+tableSpec:
+  tableName: 'gdansk_public_transport'
+
+pinotClusterSpecs:
+  - controllerURI: 'http://localhost:9000'
+
+pushJobSpec:
+  pushAttempts: 2
+  pushRetryIntervalMillis: 1000

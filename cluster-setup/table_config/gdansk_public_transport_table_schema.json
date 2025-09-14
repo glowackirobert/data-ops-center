@@ -1,0 +1,73 @@
+{
+  "schemaName": "gdansk_public_transport",
+  "dimensionFieldSpecs": [
+    {
+      "name": "routeShortName",
+      "dataType": "STRING"
+    },
+    {
+      "name": "headsign",
+      "dataType": "STRING"
+    },
+    {
+      "name": "vehicleCode",
+      "dataType": "STRING"
+    },
+    {
+      "name": "vehicleService",
+      "dataType": "STRING"
+    }
+  ],
+  "metricFieldSpecs": [
+    {
+      "name": "tripId",
+      "dataType": "INT"
+    },
+    {
+      "name": "routeId",
+      "dataType": "INT"
+    },
+    {
+      "name": "vehicleId",
+      "dataType": "INT"
+    },
+    {
+      "name": "speed",
+      "dataType": "FLOAT"
+    },
+    {
+      "name": "direction",
+      "dataType": "INT"
+    },
+    {
+      "name": "delay",
+      "dataType": "INT"
+    },
+    {
+      "name": "lat",
+      "dataType": "DOUBLE"
+    },
+    {
+      "name": "lon",
+      "dataType": "DOUBLE"
+    },
+    {
+      "name": "gpsQuality",
+      "dataType": "INT"
+    }
+  ],
+  "dateTimeFieldSpecs": [
+    {
+      "name": "generated",
+      "dataType": "TIMESTAMP",
+      "format": "1:MILLISECONDS:EPOCH",
+      "granularity": "1:MILLISECONDS"
+    },
+    {
+      "name": "scheduledTripStartTime",
+      "dataType": "TIMESTAMP",
+      "format": "1:MILLISECONDS:EPOCH",
+      "granularity": "1:MILLISECONDS"
+    }
+  ]
+}
