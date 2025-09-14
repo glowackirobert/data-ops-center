@@ -19,8 +19,8 @@ pinotFSSpecs:
 
 recordReaderSpec:
   dataFormat: 'json'
-  className: "org.apache.pinot.plugin.inputformat.json.JSONRecordReader",
-  configClassName: "org.apache.pinot.plugin.inputformat.json.JSONRecordReaderConfig",
+  className: "org.apache.pinot.plugin.inputformat.json.JSONRecordReader"
+  configClassName: "org.apache.pinot.plugin.inputformat.json.JSONRecordReaderConfig"
   configs:
     failOnNullField: false
     failOnException: false
