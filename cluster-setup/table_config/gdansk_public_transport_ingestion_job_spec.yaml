@@ -26,7 +26,7 @@ recordReaderSpec:
 
 tableSpec:
   tableName: 'gdansk_public_transport'
-  schemaURI: 'http://localhost:9000/tables/gdansk_public_transport'
+  schemaURI: 'http://localhost:9000/tables/gdansk_public_transport/schema'
   tableConfigURI: 'http://localhost:9000/tables/gdansk_public_transport_OFFLINE'
 
 pinotClusterSpecs:
