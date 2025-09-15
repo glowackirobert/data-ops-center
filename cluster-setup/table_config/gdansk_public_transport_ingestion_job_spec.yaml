@@ -15,6 +15,8 @@ pinotFSSpecs:
     className: org.apache.pinot.plugin.filesystem.S3PinotFS
     configs:
       region: eu-north-1
+      accessKey: "ANONYMOUS"
+      secretKey: "ANONYMOUS"
 
 recordReaderSpec:
   dataFormat: 'json'
