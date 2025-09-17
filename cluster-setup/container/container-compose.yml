@@ -87,11 +87,14 @@ services:
       - "9000:9000"
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-controller.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=19000:/opt/pinot/etc/jmx_prometheus_javaagent/configs/controller.yml"
+      AWS_ACCESS_KEY_ID: AWS_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY: AWS_SECRET_ACCESS_KEY
     depends_on:
       zookeeper:
         condition: service_healthy
     networks:
       - pinot-network
+      -
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:9000/health || exit 1"]
       interval: 30s
@@ -151,6 +154,8 @@ services:
       - "7500:7500"
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-minion.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=17500:/opt/pinot/etc/jmx_prometheus_javaagent/configs/minion.yml"
+    AWS_ACCESS_KEY_ID: AWS_ACCESS_KEY_ID
+    AWS_SECRET_ACCESS_KEY: AWS_SECRET_ACCESS_KEY
     depends_on:
       pinot-server:
         condition: service_healthy
