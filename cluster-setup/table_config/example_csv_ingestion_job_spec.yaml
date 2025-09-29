@@ -5,8 +5,8 @@ executionFrameworkSpec:
   segmentUriPushJobRunnerClassName: 'org.apache.pinot.plugin.ingestion.batch.standalone.SegmentUriPushJobRunner'
 
 jobType: SegmentCreationAndTarPush
-inputDirURI: 's3://gdansk-public-transport/artifacts/'
-includeFileNamePattern: 'glob:**/*.txt'
+inputDirURI: 's3://bucketName'
+includeFileNamePattern: 'glob:**/*.csv'
 outputDirURI: '/tmp/pinot/segments'
 overwriteOutput: true
 
@@ -19,8 +19,11 @@ pinotFSSpecs:
       secretKey:
 
 recordReaderSpec:
-  dataFormat: 'json'
-  className: "org.apache.pinot.plugin.inputformat.json.JSONRecordReader"
+  dataFormat: csv
+  className: org.apache.pinot.plugin.inputformat.csv.CSVRecordReader
+  configs:
+    delimiter: ","
+    header: true
 
 tableSpec:
   tableName: 'gdansk_public_transport'
