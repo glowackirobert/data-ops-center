@@ -58,13 +58,13 @@
   ],
   "dateTimeFieldSpecs": [
     {
-      "name": "generated",
+      "name": "generatedTransformed",
       "dataType": "TIMESTAMP",
       "format": "1:MILLISECONDS:EPOCH",
       "granularity": "1:MILLISECONDS"
     },
     {
-      "name": "scheduledTripStartTime",
+      "name": "scheduledTripStartTimeTransformed",
       "dataType": "TIMESTAMP",
       "format": "1:MILLISECONDS:EPOCH",
       "granularity": "1:MILLISECONDS"
