@@ -1,8 +1,11 @@
 name: Fetch data
 
 on:
-  push:
+  workflow_dispatch
+
 # Note: Change way of fetching data from GitHub Action into Amazon AWS Lambda function
+#on:
+#  push:
 #    branches:
 #      - master
 #  schedule:
