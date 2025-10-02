@@ -1,34 +1,53 @@
-import requests
 import json
-import time
+import requests
 from datetime import datetime, timezone
+import boto3
+from io import StringIO
 
-def fetch_and_save_vehicles_data(filename):
+s3 = boto3.client('s3')
+S3_BUCKET_NAME = 'gdansk-public-transport'
+
+def fetch_vehicles_data():
     url = 'https://ckan2.multimediagdansk.pl/gpsPositions?v=2'
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         data = response.json()
         vehicles = data.get('vehicles', [])
-
-        if vehicles:
-            with open(filename, 'a', encoding='utf-8') as f:
-                for vehicle in vehicles:
-                    f.write(json.dumps(vehicle, ensure_ascii=False) + '\n')
-            print(f"Data appended to {filename} at {datetime.now(timezone.utc).strftime('%H:%M:%S')}", flush=True)
-        else:
-            print("No vehicles data found.")
+        return vehicles
     except Exception as e:
-        print(f"Error occurred: {e}")
+        print(f"Error occurred while fetching data: {e}")
+        return None
 
-if __name__ == '__main__':
-    # Create filename for current UTC hour
-    filename = datetime.now(timezone.utc).strftime('%Y-%m-%d-%H') + '.txt'
+def upload_vehicles_data_to_s3(vehicles, bucket_name):
+    if not vehicles:
+        print("No vehicles data to upload.")
+        return
 
-    # Run fetch every minute until HH:59:59
-    while (datetime.now(timezone.utc).minute < 59):
-        fetch_and_save_vehicles_data(filename)
-        time.sleep(60)  # Wait 60 seconds
+    now = datetime.now(timezone.utc)
+    s3_key = now.strftime('artifacts/%Y/%m/%d/%Y-%m-%d-%H-%M.txt')
 
-    # Final fetch at HH:59 before exiting
-    fetch_and_save_vehicles_data(filename)
+    # Serialize vehicles JSON lines to a string buffer
+    buffer = StringIO()
+    for vehicle in vehicles:
+        buffer.write(json.dumps(vehicle, ensure_ascii=False) + '\n')
+    buffer.seek(0)
+
+    try:
+        s3.put_object(
+            Bucket=bucket_name,
+            Key=s3_key,
+            Body=buffer.getvalue().encode('utf-8')
+        )
+        print(f"Uploaded data to s3://{bucket_name}/{s3_key}")
+    except Exception as e:
+        print(f"Failed to upload to S3: {e}")
+
+def lambda_handler(event, context):
+    vehicles = fetch_vehicles_data()
+    upload_vehicles_data_to_s3(vehicles, S3_BUCKET_NAME)
+
+    return {
+        'statusCode': 200,
+        'body': 'Fetch and upload completed'
+    }
