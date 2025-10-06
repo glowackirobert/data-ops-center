@@ -29,7 +29,7 @@ services:
       - pinot-network
 
   kafka:
-    image: bitnami/kafka:3.6
+    image: bitnamilegacy/kafka:3.6
     container_name: "kafka"
     restart: unless-stopped
     ports:
