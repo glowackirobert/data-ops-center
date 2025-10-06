@@ -6,6 +6,7 @@ executionFrameworkSpec:
 
 jobType: SegmentCreationAndTarPush
 inputDirURI: 's3://gdansk-public-transport/artifacts/'
+searchRecursively: true
 includeFileNamePattern: 'glob:**/*.txt'
 outputDirURI: '/tmp/pinot/segments'
 overwriteOutput: true
