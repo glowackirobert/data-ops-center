@@ -79,7 +79,7 @@ services:
       start_period: 10s
 
   pinot-controller:
-    image: robertglowacki83/apache-pinot:1.2.0
+    image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:1.2.0
     command: "StartController -zkAddress zookeeper:2181"
     container_name: "pinot-controller"
     restart: unless-stopped
@@ -87,8 +87,6 @@ services:
       - "9000:9000"
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-controller.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=19000:/opt/pinot/etc/jmx_prometheus_javaagent/configs/controller.yml"
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -102,7 +100,7 @@ services:
       start_period: 10s
 
   pinot-broker:
-    image: robertglowacki83/apache-pinot:1.2.0
+    image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:1.2.0
     command: "StartBroker -zkAddress zookeeper:2181"
     container_name: "pinot-broker"
     restart: unless-stopped
@@ -123,7 +121,7 @@ services:
       start_period: 10s
 
   pinot-server:
-    image: robertglowacki83/apache-pinot:1.2.0
+    image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:1.2.0
     command: "StartServer -zkAddress zookeeper:2181"
     container_name: "pinot-server"
     restart: unless-stopped
@@ -145,7 +143,7 @@ services:
       start_period: 10s
 
   pinot-minion:
-    image: robertglowacki83/apache-pinot:1.2.0
+    image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:1.2.0
     command: "StartMinion -zkAddress zookeeper:2181"
     container_name: "pinot-minion"
     restart: unless-stopped
@@ -153,8 +151,6 @@ services:
       - "7500:7500"
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-minion.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=17500:/opt/pinot/etc/jmx_prometheus_javaagent/configs/minion.yml"
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
     depends_on:
       pinot-server:
         condition: service_healthy
@@ -162,7 +158,7 @@ services:
       - pinot-network
 
   kafka-producer:
-    image: robertglowacki83/kafka-producer-app:1.0.0
+    image: ${DOCKER_IMAGE_BASE_PATH}kafka-producer-app:1.0.0
     container_name: "kafka-producer-app"
     restart: no
     depends_on:
@@ -175,4 +171,3 @@ networks:
   pinot-network:
     name: pinot-network
     driver: bridge
-    external: true
