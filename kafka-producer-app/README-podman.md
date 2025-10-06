@@ -56,7 +56,7 @@ java -jar kafka-producer-app/target/kafka-producer-app-1.0.0.jar local
 
 Build the kafka producer app image:
 ```bash
-podman build -t robertglowacki83/kafka-producer-app:1.0.0 .
+podman build -f kafka-producer-app/Dockerfile.kafka-producer-app -t kafka-producer-app:1.0.0 .
 ```
 
 Run kafka producer app in the container:

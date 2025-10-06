@@ -57,7 +57,7 @@ docker exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/bitnami/kafka/bin/kaf
 
 Build the Apache Pinot custom image:
 ```bash
-docker build -t custom-pinot:1.2.0 -f cluster-setup/container/Dockerfile.apache-pinot .
+docker build -t apache-pinot:1.2.0 -f cluster-setup/container/Dockerfile.apache-pinot .
 ```
 
 
@@ -89,13 +89,19 @@ Run Apache Pinot minion:
 docker run --rm -it --network pinot-network --name pinot-minion -p 6000:6000 -e JAVA_OPTS="-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx1G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-minion.log" apachepinot/pinot:1.2.0 StartMinion -zkAddress zookeeper:2181
 ```
 
+### Run cluster in development mode
 
-
-### Run compose file
-
-Run all containers and ensure that the most recent images are pulled:
+Run all containers in production mode and ensure that the most recent images are pulled:
 ```bash
-docker-compose -f cluster-setup\container\container-compose.yml up --pull always
+docker-compose --env-file env/env.dev -f cluster-setup\container\container-compose.yml up
+```
+
+
+### Run cluster in production mode
+
+Run all containers in production mode and ensure that the most recent images are pulled:
+```bash
+docker-compose --env-file env/env.prod -f cluster-setup\container\container-compose.yml up --pull always
 ```
 
 
