@@ -104,13 +104,11 @@ Run all containers in production mode and ensure that the most recent images are
 docker-compose --env-file env/env.prod -f cluster-setup\container\container-compose.yml up --pull always
 ```
 
-
-
 ### Stop cluster in development mode
 
 Stop all containers:
 ```bash
-docker-compose -f cluster-setup\container\container-compose.yml down
+docker-compose --env-file env/env.dev -f cluster-setup\container\container-compose.yml down
 ```
 
 ### Stop cluster in production mode
