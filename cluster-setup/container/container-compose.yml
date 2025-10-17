@@ -36,7 +36,7 @@ services:
     deploy:
       replicas: ${KAFKA_REPLICAS:-1}
     volumes:
-      - ../jmx_exporter:/usr/share/
+      - ../jmx_exporter/:/usr/share/
       - ../volumes/kafka-data:/bitnami/kafka/data
     depends_on:
       zookeeper:
@@ -74,7 +74,7 @@ services:
 
   pinot-controller:
     image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:1.2.0
-    command: "StartController -zkAddress zookeeper:2181"
+    command: "StartController -configFileName /opt/pinot/custom-config/pinot-controller.conf"
     container_name: pinot-controller
     restart: unless-stopped
     ports:
@@ -82,6 +82,8 @@ services:
       - 19000:19000
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-controller.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=19000:/opt/pinot/etc/jmx_prometheus_javaagent/configs/controller.yml"
+#    volumes:
+#      - pinot-controller-data:/var/pinot/controller
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -96,7 +98,7 @@ services:
 
   pinot-broker:
     image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:1.2.0
-    command: "StartBroker -zkAddress zookeeper:2181"
+    command: "StartBroker -configFileName /opt/pinot/custom-config/pinot-broker.conf"
     container_name: pinot-broker
     restart: unless-stopped
     ports:
@@ -104,6 +106,8 @@ services:
       - 18099:18099
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-broker.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18099:/opt/pinot/etc/jmx_prometheus_javaagent/configs/broker.yml"
+#    volumes:
+#      - pinot-broker-data:/var/pinot/broker
     depends_on:
       pinot-controller:
         condition: service_healthy
@@ -118,7 +122,7 @@ services:
 
   pinot-server:
     image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:1.2.0
-    command: "StartServer -zkAddress zookeeper:2181"
+    command: "StartServer -configFileName /opt/pinot/custom-config/pinot-server.conf"
     container_name: pinot-server
     restart: unless-stopped
     ports:
@@ -127,6 +131,8 @@ services:
       - 18098:18098 # prometheus
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms2G -Xmx8G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-server.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18098:/opt/pinot/etc/jmx_prometheus_javaagent/configs/server.yml"
+#    volumes:
+#      - pinot-server-data:/var/pinot/server
     depends_on:
       pinot-broker:
         condition: service_healthy
@@ -141,7 +147,7 @@ services:
 
   pinot-minion:
     image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:1.2.0
-    command: "StartMinion -zkAddress zookeeper:2181"
+    command: "StartMinion -configFileName /opt/pinot/custom-config/pinot-controller.conf"
     container_name: pinot-minion
     restart: unless-stopped
     ports:
@@ -149,6 +155,8 @@ services:
       - 17500:17500
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-minion.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=17500:/opt/pinot/etc/jmx_prometheus_javaagent/configs/minion.yml"
+#    volumes:
+#      - pinot-minion-data:/var/pinot/minion
     depends_on:
       pinot-server:
         condition: service_healthy
@@ -162,9 +170,7 @@ services:
     ports:
       - 9090:9090
     volumes:
-      - ../jmx_exporter/prometheus.yml:/etc/prometheus/prometheus.yml
-    depends_on:
-      - pinot-minion
+      - ../prometheus:/etc/prometheus
     networks:
       - pinot-network
 
@@ -198,3 +204,9 @@ networks:
   pinot-network:
     name: pinot-network
     driver: bridge
+
+#volumes:
+#  pinot-controller-data:
+#  pinot-broker-data:
+#  pinot-server-data:
+#  pinot-minion-data:
