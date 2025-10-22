@@ -20,7 +20,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.13'
+          python-version: '3.11'
 
       - name: Install dependencies and prepare zip
         run: |
@@ -37,5 +37,5 @@ jobs:
           function-name: GdanskPublicTransportHandler
           code-artifacts-dir: aws_lambda
           handler: gdansk_public_transport.handler
-          runtime: python3.13
+          runtime: python3.11
           dry-run: false
