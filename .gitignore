@@ -1,0 +1,7 @@
+# Apache Pinot volumes except content of the subdirectory cluster-setup/volumes/grafana
+cluster-setup/volumes/*
+!cluster-setup/volumes/grafana/
+!cluster-setup/volumes/grafana/*
+
+# AWS Lambda
+aws_lambda
