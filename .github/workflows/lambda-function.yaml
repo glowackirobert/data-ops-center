@@ -20,6 +20,7 @@ jobs:
 
       - name: Install dependencies and prepare zip
         run: |
+          mkdir aws_lambda
           cd aws_lambda
           pip install requests -t .
           pip install schedule -t .
