@@ -37,6 +37,6 @@ jobs:
         with:
           function-name: GdanskPublicTransportHandler
           code-artifacts-dir: aws_lambda/function.zip
-          handler: index.handler
+          handler: gdansk_public_transport.handler
           runtime: python3.13
           dry-run: false
