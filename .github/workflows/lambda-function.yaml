@@ -33,7 +33,10 @@ jobs:
         with:
           function-name: GdanskPublicTransportHandler
           code-artifacts-dir: aws_lambda/function.zip
-          aws-region: eu-north-1
+          handler: index.handler
+          runtime: nodejs20.x
+          dry-run: false
         env:
+          aws-region: eu-north-1
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
