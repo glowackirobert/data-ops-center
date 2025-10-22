@@ -30,13 +30,12 @@ jobs:
           pip install schedule -t .
           pip install boto3 -t .
           cp ../cluster-setup/py/gdansk_public_transport.py .
-          zip -r function.zip .
 
       - name: Deploy to AWS Lambda
         uses: aws-actions/aws-lambda-deploy@v1
         with:
           function-name: GdanskPublicTransportHandler
-          zip-file: aws_lambda/function.zip
+          code-artifacts-dir: aws_lambda
           handler: index.handler
           runtime: python3.13
           dry-run: false
