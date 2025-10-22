@@ -36,7 +36,7 @@ jobs:
         uses: aws-actions/aws-lambda-deploy@v1
         with:
           function-name: GdanskPublicTransportHandler
-          code-artifacts-dir: aws_lambda/function.zip
+          code-artifacts-dir: aws_lambda
           handler: index.handler
           runtime: nodejs20.x
           dry-run: false
