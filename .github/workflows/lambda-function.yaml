@@ -34,6 +34,7 @@ jobs:
           function-name: GdanskPublicTransportHandler
           code-artifacts-dir: aws_lambda/function.zip
         env:
-          aws-region: ${{ vars.AWS_REGION }}
+#          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: eu-north-1
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
