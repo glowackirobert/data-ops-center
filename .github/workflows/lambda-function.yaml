@@ -9,7 +9,7 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     env:
-      aws-region: eu-north-1
+      AWS_REGION: eu-north-1
       AWS_ACCESS_KEY_ID: ${{ secrets.LAMBDA_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.LAMBDA_SECRET_ACCESS_KEY }}
 
@@ -24,7 +24,7 @@ jobs:
 
       - name: Install dependencies and prepare zip
         run: |
-          mkdir aws_lambda
+          mkdir -p aws_lambda
           cd aws_lambda
           pip install requests -t .
           pip install schedule -t .
