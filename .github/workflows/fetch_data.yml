@@ -22,27 +22,27 @@ jobs:
         with:
           python-version: "3.10"
       - run: pip install -r .github/workflows/requirements.txt
-      - run: python cluster-setup/py/gdansk_public_transport.py
+      - run: python cluster-setup/py/gdansk_public_transport_github_action.py
 
-#      - name: Calculate previous hour and date
-#        id: time
-#        run: |
-#          PREV_HOUR=$(date -u +"%Y-%m-%d-%H")
-#          DATE_DIR=$(date -u +"%Y-%m-%d")
-#          echo "Previous hour: $PREV_HOUR"
-#          echo "Date dir: $DATE_DIR"
-#          echo "file=./${PREV_HOUR}.txt" >> $GITHUB_OUTPUT
-#          echo "date_dir=${DATE_DIR}" >> $GITHUB_OUTPUT
+      - name: Calculate previous hour and date
+        id: time
+        run: |
+          PREV_HOUR=$(date -u +"%Y-%m-%d-%H")
+          DATE_DIR=$(date -u +"%Y-%m-%d")
+          echo "Previous hour: $PREV_HOUR"
+          echo "Date dir: $DATE_DIR"
+          echo "file=./${PREV_HOUR}.txt" >> $GITHUB_OUTPUT
+          echo "date_dir=${DATE_DIR}" >> $GITHUB_OUTPUT
 
-#      - name: Debug file listing
-#        run: ls -la
-#
-#      - name: Upload to S3
-#        uses: hkusu/s3-upload-action@v2
-#        with:
-#          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-#          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-#          aws-region: ${{ vars.AWS_REGION }}
-#          aws-bucket: ${{ vars.AWS_BUCKET_GDANSK_PUBLIC_TRANSPORT }}
-#          file-path: ${{ steps.time.outputs.file }}
-#          destination-dir: "/${{ steps.time.outputs.date_dir }}"
+      - name: Debug file listing
+        run: ls -la
+
+      - name: Upload to S3
+        uses: hkusu/s3-upload-action@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          aws-bucket: ${{ vars.AWS_BUCKET_GDANSK_PUBLIC_TRANSPORT }}
+          file-path: ${{ steps.time.outputs.file }}
+          destination-dir: "/${{ steps.time.outputs.date_dir }}"
