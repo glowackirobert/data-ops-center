@@ -96,7 +96,6 @@ Run all containers in production mode and ensure that the most recent images are
 docker-compose --env-file env/env.dev -f cluster-setup\container\container-compose.yml up
 ```
 
-
 ### Run cluster in production mode
 
 Run all containers in production mode and ensure that the most recent images are pulled:
