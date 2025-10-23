@@ -25,7 +25,7 @@ def upload_vehicles_data_to_s3(vehicles, bucket_name):
         return
 
     now = datetime.now(timezone.utc)
-    s3_key = now.strftime('artifacts/%Y/%m/%d/%Y-%m-/%d-%H-%M.txt')
+    s3_key = now.strftime('artifacts/%Y/%m/%d/%Y-%m-%d-%H-%M.txt')
 
     # Serialize vehicles JSON lines to a string buffer
     buffer = StringIO()
