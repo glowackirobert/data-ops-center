@@ -1,15 +1,9 @@
 name: Fetch data
 
 on:
-  workflow_dispatch
-
-# Note: Change way of fetching data from GitHub Action into Amazon AWS Lambda function
-#on:
-#  push:
-#    branches:
-#      - master
-#  schedule:
-#    - cron: "0 * * * *"  # Runs at the start of every hour (UTC)
+  push:
+    branches:
+      - master
 
 jobs:
   run-script:
@@ -24,15 +18,19 @@ jobs:
       - run: pip install -r .github/workflows/requirements.txt
       - run: python cluster-setup/py/gdansk_public_transport_github_action.py
 
-      - name: Calculate previous hour and date
+      - name: Calculate date time
         id: time
         run: |
           PREV_HOUR=$(date -u +"%Y-%m-%d-%H")
-          DATE_DIR=$(date -u +"%Y-%m-%d")
+          YEAR=$(date -u +"%Y")
+          MONTH=$(date -u +"%m")
+          DAY=$(date -u +"%d")
+          FILENAME="./${PREV_HOUR}.txt"
+          DEST_DIR="${YEAR}/${MONTH}/${DAY}"
           echo "Previous hour: $PREV_HOUR"
-          echo "Date dir: $DATE_DIR"
-          echo "file=./${PREV_HOUR}.txt" >> $GITHUB_OUTPUT
-          echo "date_dir=${DATE_DIR}" >> $GITHUB_OUTPUT
+          echo "Date dir: $DEST_DIR"
+          echo "file=${FILENAME}" >> $GITHUB_OUTPUT
+          echo "date_dir=${DEST_DIR}" >> $GITHUB_OUTPUT
 
       - name: Debug file listing
         run: ls -la
