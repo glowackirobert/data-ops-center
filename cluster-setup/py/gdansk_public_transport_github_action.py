@@ -26,10 +26,9 @@ if __name__ == '__main__':
     filename = datetime.now(timezone.utc).strftime('%Y-%m-%d-%H-%M') + '.txt'
 
     # Run fetch every minute until HH:59:59
-    while (datetime.now(timezone.utc).minute < 59) and (datetime.now(timezone.utc).second < 59):
-        while (datetime.now(timezone.utc).minute < 59):
-            fetch_and_save_vehicles_data(filename)
-            time.sleep(30)  # Wait 20 seconds
+    while (datetime.now(timezone.utc).minute < 10 and (datetime.now(timezone.utc).second < 59):
+        fetch_and_save_vehicles_data(filename)
+        time.sleep(30)  # Wait 20 seconds
 
     # Final fetch at HH:59 before exiting
     fetch_and_save_vehicles_data(filename)
