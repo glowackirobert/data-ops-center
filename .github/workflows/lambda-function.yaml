@@ -12,10 +12,6 @@ permissions:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    env:
-      AWS_REGION: ${{ vars.AWS_REGION }}
-      LAMBDA_ROLE_ARN: arn:aws:iam::689522024200:role/LambdaDeployRole
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -34,16 +30,20 @@ jobs:
           pip install boto3 -t .
           cp ../cluster-setup/py/gdansk_public_transport_lambda.py .
 
-      - name: Configure AWS credentials (OIDC)
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ env.LAMBDA_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: arn:aws:iam::689522024200:role/LambdaDeployRole
+          aws-region: eu-north-1
+          role-session-name: GitHubActions-Lambda-${{ github.run_id }}
+
+      - name: Verify credentials  # ← CRITICAL DEBUG
+        run: aws sts get-caller-identity
 
       - name: Deploy to AWS Lambda
         uses: aws-actions/aws-lambda-deploy@v1.1.0
         with:
           function-name: GdanskPublicTransportHandler
           code-artifacts-dir: aws_lambda
-          handler: gdansk_public_transport_aws.lambda_handler
+          handler: gdansk_public_transport_lambda.handler
           runtime: python3.13
