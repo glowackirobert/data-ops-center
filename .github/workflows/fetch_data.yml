@@ -31,16 +31,15 @@ jobs:
       - name: Calculate date time
         id: time
         run: |
-          PREV_HOUR=$(date -u +"%Y-%m-%d-%H")
+          NOW=$(date -u +"%Y-%m-%d-%H-%M")
           YEAR=$(date -u +"%Y")
           MONTH=$(date -u +"%m")
           DAY=$(date -u +"%d")
-          FILENAME="./${PREV_HOUR}.txt"
+          FILENAME="./${NOW}.txt"
           DEST_DIR="${YEAR}/${MONTH}/${DAY}"
-          echo "Previous hour: $PREV_HOUR"
-          echo "Date dir: $DEST_DIR"
           echo "file=${FILENAME}" >> $GITHUB_OUTPUT
           echo "date_dir=${DEST_DIR}" >> $GITHUB_OUTPUT
+
 
       - name: Debug file listing
         run: ls -la
