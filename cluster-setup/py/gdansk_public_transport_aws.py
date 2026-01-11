@@ -43,7 +43,7 @@ def upload_vehicles_data_to_s3(vehicles, bucket_name):
     except Exception as e:
         print(f"Failed to upload to S3: {e}")
 
-def handler(event, context):
+def lambda_handler(event, context):
     vehicles = fetch_vehicles_data()
     upload_vehicles_data_to_s3(vehicles, S3_BUCKET_NAME)
 
