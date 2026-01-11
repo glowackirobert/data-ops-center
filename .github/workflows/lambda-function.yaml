@@ -28,7 +28,7 @@ jobs:
           pip install requests -t .
           pip install schedule -t .
           pip install boto3 -t .
-          cp ../cluster-setup/py/gdansk_public_transport_lambda.py .
+          cp ../cluster-setup/py/gdansk_public_transport_aws.py .
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
