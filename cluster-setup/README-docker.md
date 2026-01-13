@@ -91,14 +91,14 @@ docker run --rm -it --network pinot-network --name pinot-minion -p 6000:6000 -e 
 
 ### Run cluster in development mode
 
-Run all containers in production mode and ensure that the most recent images are pulled:
+Run all containers, ensure that the most recent images are pulled:
 ```bash
 docker-compose --env-file env/env.dev -f cluster-setup\container\container-compose.yml up
 ```
 
 ### Run cluster in production mode
 
-Run all containers in production mode and ensure that the most recent images are pulled:
+Run all containers, ensure that the most recent images are pulled:
 ```bash
 docker-compose --env-file env/env.prod -f cluster-setup\container\container-compose.yml up --pull always
 ```
