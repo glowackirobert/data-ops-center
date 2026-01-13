@@ -37,7 +37,7 @@ jobs:
           aws-region: eu-north-1
           role-session-name: GitHubActions-Lambda-${{ github.run_id }}
 
-      - name: Verify credentials  # ← CRITICAL DEBUG
+      - name: Verify credentials
         run: aws sts get-caller-identity
 
       - name: Deploy to AWS Lambda
