@@ -9,8 +9,8 @@ RUN mkdir -p ${OUTPUT_DIR}
 
 # Copy the scripts into the image
 COPY cluster-setup/table_config/* /opt/pinot/scripts/
-COPY cluster-setup/pinot/* /opt/pinot/custom-config/
+COPY cluster-setup/pinot/* /opt/pinot/config/
 
 # Make the script executable
 RUN chmod +x /opt/pinot/scripts/*
-RUN chmod +x /opt/pinot/custom-config/*
+RUN chmod +x /opt/pinot/config/*
