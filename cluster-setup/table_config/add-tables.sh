@@ -8,7 +8,7 @@ until curl -f http://pinot-controller:9000/health; do
 done
 
 # Add gdansk table
-pinot-admin.sh AddTable \
+./bin/pinot-admin.sh AddTable \
   -schemaFile /opt/pinot/scripts/gdansk_public_transport_table_schema.json \
   -tableConfigFile /opt/pinot/scripts/gdansk_public_transport_table_config.json \
   -controllerHost pinot-controller -controllerPort 9000 -exec
