@@ -7,16 +7,25 @@ until curl -f http://pinot-controller:9000/health; do
   sleep 5
 done
 
-# Add gdansk table
-./bin/pinot-admin.sh AddTable \
-  -schemaFile /opt/pinot/scripts/gdansk_public_transport_table_schema.json \
-  -tableConfigFile /opt/pinot/scripts/gdansk_public_transport_table_config.json \
-  -controllerHost pinot-controller -controllerPort 9000 -exec
+# Add gdansk public transport schema
+curl -X POST -H "Content-Type: application/json" \
+  -d @/opt/pinot/scripts/gdansk_public_transport_table_schema.json \
+  http://pinot-controller:9000/schemas
+
+# Add gdansk public transport table
+curl -X POST -H "Content-Type: application/json" \
+  -d @/opt/pinot/scripts/gdansk_public_transport_table_config.json \
+  http://pinot-controller:9000/tables
+
+
+# Add trade schema
+curl -X POST -H "Content-Type: application/json" \
+  -d @/opt/pinot/scripts/trade_realtime_schema.json \
+  http://pinot-controller:9000/schemas
 
 # Add trade table
-./bin/pinot-admin.sh AddTable \
-  -schemaFile /opt/pinot/scripts/trade_realtime_schema.json \
-  -tableConfigFile /opt/pinot/scripts/trade_realtime_config.json \
-  -controllerHost pinot-controller -controllerPort 9000 -exec
+curl -X POST -H "Content-Type: application/json" \
+  -d @/opt/pinot/scripts/trade_realtime_config.json \
+  http://pinot-controller:9000/tables
 
 echo "Tables added successfully"
