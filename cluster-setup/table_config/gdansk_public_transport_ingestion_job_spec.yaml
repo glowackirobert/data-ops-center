@@ -5,8 +5,8 @@ executionFrameworkSpec:
   segmentUriPushJobRunnerClassName: 'org.apache.pinot.plugin.ingestion.batch.standalone.SegmentUriPushJobRunner'
 
 jobType: SegmentCreationAndTarPush
-inputDirURI: 's3://gdansk-public-transport/artifacts/'
-searchRecursively: true
+inputDirURI: 's3://gdansk-public-transport/'
+searchRecursively: false
 includeFileNamePattern: 'glob:**/*.txt'
 outputDirURI: '/tmp/pinot/segments'
 overwriteOutput: true
