@@ -16,8 +16,6 @@ pinotFSSpecs:
     className: org.apache.pinot.plugin.filesystem.S3PinotFS
     configs:
       region: eu-north-1
-      accessKey:
-      secretKey:
 
 recordReaderSpec:
   dataFormat: 'json'
