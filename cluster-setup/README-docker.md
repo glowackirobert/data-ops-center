@@ -43,7 +43,6 @@ docker run --rm -it --network pinot-network --name schema-registry -p 8081:8081 
 Run kafka producer app in the container:
 ```bash
 docker run --rm -it --network pinot-network --name kafka-producer-app robertglowacki83/kafka-producer-app:1.0.0
-
 ```
 
 Check kafka producer publish messages:

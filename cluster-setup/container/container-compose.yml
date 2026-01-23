@@ -8,15 +8,16 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      ZOO_4LW_COMMANDS_WHITELIST: "ruok,stat,conf,isro"
     #    volumes:
     #      - ../volumes/zoo-data:/data
     #      - ../volumes/zoo-log:/datalog
     healthcheck:
-      test: ["CMD", "zkServer.sh", "status"]
+      test: ["CMD-SHELL", "echo ruok | nc 127.0.0.1 2181 | grep imok"]
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 60s
     networks:
       - pinot-network
 
