@@ -11,6 +11,7 @@ RUN mkdir -p ${OUTPUT_DIR}
 COPY cluster-setup/table_config/* /opt/pinot/scripts/
 COPY cluster-setup/pinot/* /opt/pinot/config/
 
-# Make the script executable
-RUN chmod +x /opt/pinot/scripts/*
-RUN chmod +x /opt/pinot/config/*
+# Fix line endings and make scripts executable
+RUN sed -i 's/\r$//' /opt/pinot/scripts/add-tables.sh && \
+    chmod +x /opt/pinot/scripts/* && \
+    chmod +x /opt/pinot/config/*
