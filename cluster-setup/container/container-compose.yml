@@ -22,7 +22,7 @@ services:
       - pinot-network
 
   kafka:
-    image: bitnami/kafka:3.6
+    image: bitnamilegacy/kafka:3.6
     container_name: kafka
     restart: unless-stopped
     ports:
@@ -74,9 +74,10 @@ services:
       - pinot-network
 
   pinot-controller:
-    image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:1.2.0
+    image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:${APACHE_PINOT_VERSION}
     command: "StartController -configFileName /opt/pinot/config/pinot-controller.conf"
     container_name: pinot-controller
+    hostname: pinot-controller
     restart: unless-stopped
     ports:
       - 9000:9000
@@ -100,9 +101,10 @@ services:
       - pinot-network
 
   pinot-broker:
-    image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:1.2.0
+    image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:${APACHE_PINOT_VERSION}
     command: "StartBroker -configFileName /opt/pinot/config/pinot-broker.conf"
     container_name: pinot-broker
+    hostname: pinot-broker
     restart: unless-stopped
     ports:
       - 8099:8099
@@ -124,9 +126,10 @@ services:
       - pinot-network
 
   pinot-server:
-    image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:1.2.0
+    image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:${APACHE_PINOT_VERSION}
     command: "StartServer -configFileName /opt/pinot/config/pinot-server.conf"
     container_name: pinot-server
+    hostname: pinot-server
     restart: unless-stopped
     ports:
       - 8098:8098 # client queries
@@ -149,9 +152,10 @@ services:
       - pinot-network
 
   pinot-minion:
-    image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:1.2.0
+    image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:${APACHE_PINOT_VERSION}
     command: "StartMinion -configFileName /opt/pinot/config/pinot-minion.conf"
     container_name: pinot-minion
+    hostname: pinot-minion
     restart: unless-stopped
     ports:
       - 7500:7500
@@ -204,15 +208,13 @@ services:
       - pinot-network
 
   pinot-command-runner:
-    image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:1.2.0
+    image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:${APACHE_PINOT_VERSION}
     container_name: pinot-command-runner
     entrypoint: [ "/bin/bash" ]
     command: [ "/opt/pinot/scripts/add-tables.sh" ]
     restart: "no"
     environment:
       - JAVA_OPTS=-Dpinot.admin.system.exit=true -Xmx512m
-    #    volumes:
-    #      - ./scripts:/opt/pinot/scripts
     depends_on:
       pinot-server:
         condition: service_healthy
