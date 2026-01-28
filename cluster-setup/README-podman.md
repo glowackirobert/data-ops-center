@@ -36,8 +36,6 @@ Run schema registry:
 podman run --rm -it --network pinot-network --name schema-registry -p 8081:8081 -e SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=PLAINTEXT://kafka:9092 -e SCHEMA_REGISTRY_HOST_NAME=schema-registry -e SCHEMA_REGISTRY_LISTENERS=http://0.0.0.0:8081 confluentinc/cp-schema-registry:7.6.5
 ```
 
-
-
 ### Run the Application in the container
 
 Run kafka producer app in the container:
@@ -50,45 +48,12 @@ Check kafka producer publish messages:
 podman exec -it kafka /bin/bash -c "/opt/bitnami/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic trade --from-beginning"
 ```
 
-
-
 ### Create the Apache Pinot image with custom configuration
 
 Build the Apache Pinot custom image:
 ```bash
-podman build -t custom-pinot:1.2.0 -f cluster-setup/container/Dockerfile.apache-pinot .
+podman build -t custom-pinot:1.4.0 -f cluster-setup/container/Dockerfile.apache-pinot .
 ```
-
-
-
-### Run Apache Pinot cluster
-
-Run Apache Pinot cluster:
-```bash
-podman run --rm -it --network pinot-network --name pinot -p 2123:2123 -p 9000:9000 -p 8000:8000 -p 7050:7050 -p 6000:6000 apachepinot/pinot:1.2.0 QuickStart -type batch
-```
-
-Run Apache Pinot controller:
-```bash
-podman run --rm -it --network pinot-network --name pinot-controller -p 9000:9000 -e JAVA_OPTS="-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-controller.log" apachepinot/pinot:1.2.0 StartController -zkAddress zookeeper:2181
-```
-
-Run Apache Pinot broker:
-```bash
-podman run --rm -it --network pinot-network --name pinot-broker -p 8000:8000 -e JAVA_OPTS="-Dplugins.dir=/opt/pinot/plugins -Xms2G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-broker.log" apachepinot/pinot:1.2.0 StartBroker -zkAddress zookeeper:2181
-```
-
-Run Apache Pinot server:
-```bash
-podman run --rm -it --network pinot-network --name pinot-server -p 7000:7000 -e JAVA_OPTS="-Dplugins.dir=/opt/pinot/plugins -Xms4G -Xmx8G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-server.log" apachepinot/pinot:1.2.0 StartServer -zkAddress zookeeper:2181
-```
-
-Run Apache Pinot minion:
-```bash
-podman run --rm -it --network pinot-network --name pinot-minion -p 6000:6000 -e JAVA_OPTS="-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx1G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-minion.log" apachepinot/pinot:1.2.0 StartMinion -zkAddress zookeeper:2181
-```
-
-
 
 ### Run compose file
 
@@ -96,8 +61,6 @@ Run all containers:
 ```bash
 podman compose --file .\container\container-compose.yml up
 ```
-
-
 
 ### Stop compose file
 
