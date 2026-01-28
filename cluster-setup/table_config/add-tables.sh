@@ -70,3 +70,8 @@ curl -X POST \
   http://pinot-controller:9000/tables
 
 echo "Tables added successfully"
+
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d @gdansk_public_transport_ingestion_job_spec.json \
+  http://pinot-controller:9000/ingestionJobs
