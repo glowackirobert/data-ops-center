@@ -1,5 +1,7 @@
+ARG APACHE_PINOT_VERSION=1.4.0
+
 # Start from the base Pinot image
-FROM apachepinot/pinot:1.2.0
+FROM apachepinot/pinot:${APACHE_PINOT_VERSION}
 
 # Define build-time arguments
 ENV OUTPUT_DIR=/opt/pinot/scripts
