@@ -38,7 +38,7 @@ services:
       replicas: ${KAFKA_REPLICAS:-1}
     volumes:
       - ../jmx_exporter/:/usr/share/
-    #      - ../volumes/kafka-data:/bitnami/kafka/data
+      - ../volumes/kafka-data:/bitnami/kafka/data
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -69,7 +69,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 10s
+      start_period: 120s
     networks:
       - pinot-network
 
@@ -86,8 +86,8 @@ services:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-controller.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=19000:/opt/pinot/etc/jmx_prometheus_javaagent/configs/controller.yml"
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-    #    volumes:
-    #      - pinot-controller-data:/var/pinot/controller
+    volumes:
+      - ../volumes/pinot/controller:/opt/pinot/data/controller
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -111,8 +111,6 @@ services:
       - 18099:18099
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-broker.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18099:/opt/pinot/etc/jmx_prometheus_javaagent/configs/broker.yml"
-    #    volumes:
-    #      - pinot-broker-data:/var/pinot/broker
     depends_on:
       pinot-controller:
         condition: service_healthy
@@ -137,8 +135,8 @@ services:
       - 18098:18098 # prometheus
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms2G -Xmx8G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-server.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18098:/opt/pinot/etc/jmx_prometheus_javaagent/configs/server.yml"
-    #    volumes:
-    #      - pinot-server-data:/var/pinot/server
+    volumes:
+      - ../volumes/pinot/server:/opt/pinot/pinotServerData
     depends_on:
       pinot-broker:
         condition: service_healthy
@@ -162,8 +160,6 @@ services:
       - 17500:17500
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-minion.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=17500:/opt/pinot/etc/jmx_prometheus_javaagent/configs/minion.yml"
-    #    volumes:
-    #      - pinot-minion-data:/var/pinot/minion
     depends_on:
       pinot-server:
         condition: service_healthy
@@ -182,7 +178,7 @@ services:
       - pinot-network
 
   grafana:
-    image: grafana/grafana
+    image: grafana/grafana:11.4.8
     container_name: grafana
     ports:
       - 3000:3000
@@ -225,9 +221,3 @@ networks:
   pinot-network:
     name: pinot-network
     driver: bridge
-
-#volumes:
-#  pinot-controller-data:
-#  pinot-broker-data:
-#  pinot-server-data:
-#  pinot-minion-data:
