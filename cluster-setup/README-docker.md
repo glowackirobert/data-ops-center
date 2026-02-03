@@ -36,7 +36,7 @@ Run schema registry:
 docker run --rm -it --network pinot-network --name schema-registry -p 8081:8081 -e SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=PLAINTEXT://kafka:9092 -e SCHEMA_REGISTRY_HOST_NAME=schema-registry -e SCHEMA_REGISTRY_LISTENERS=http://0.0.0.0:8081 confluentinc/cp-schema-registry:7.6.5
 ```
 
-### Run the Application in the container
+### Run the Producer Application in the container
 
 Run kafka producer app in the container:
 ```bash
@@ -57,9 +57,24 @@ docker build -t apache-pinot:1.4.0 -f cluster-setup/container/Dockerfile.apache-
 
 ### Run cluster in development mode
 
+Set variable to run initialization containers: `kafka-producer` and `pinot-command-runner`
+```bash
+$env:COMPOSE_PROFILES="init"
+```
+
+Unset variable after initialization, in order to skip executing initialization containers: `kafka-producer` and `pinot-command-runner`
+```bash
+Remove-Item Env:COMPOSE_PROFILES -ErrorAction SilentlyContinue
+```
+
 Run all containers:
 ```bash
 docker-compose --env-file env/env.dev -f cluster-setup\container\container-compose.yml up
+```
+
+Stop all containers:
+```bash
+docker-compose --env-file env/env.dev -f cluster-setup\container\container-compose.yml down
 ```
 
 ### Run cluster in production mode
@@ -69,16 +84,14 @@ Run all containers, ensure that the most recent images are pulled:
 docker-compose --env-file env/env.prod -f cluster-setup\container\container-compose.yml up --pull always
 ```
 
-### Stop cluster in development mode
-
-Stop all containers:
-```bash
-docker-compose --env-file env/env.dev -f cluster-setup\container\container-compose.yml down
-```
-
-### Stop cluster in production mode
-
 Stop all containers:
 ```bash
 docker-compose --env-file env/env.prod -f cluster-setup\container\container-compose.yml down
 ```
+
+### Convert Docker compose to Kubernetes manifests
+
+```bash
+docker compose -f cluster-setup\container\container-compose.yml --env-file env/env.dev bridge convert
+```
+
