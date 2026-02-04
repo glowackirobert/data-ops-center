@@ -48,11 +48,8 @@ services:
     volumes:
       - ../jmx_exporter/:/usr/share/
       - ../volumes/kafka-data:/opt/kafka/data
-    depends_on:
-      zookeeper:
-        condition: service_healthy
     healthcheck:
-      test: [ "CMD-SHELL", "env -u KAFKA_OPTS kafka-broker-api-versions.sh -bootstrap-server kafka:9092 || exit 1" ]
+      test: [ "CMD-SHELL", "env -u KAFKA_OPTS /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -75,10 +72,10 @@ services:
         condition: service_healthy
     healthcheck:
       test: [ "CMD-SHELL", "curl -f http://localhost:8081/ || exit 1" ]
-      interval: 30s
+      interval: 15s
       timeout: 10s
       retries: 5
-      start_period: 120s
+      start_period: 60s
     networks:
       - pinot-network
 
@@ -127,7 +124,7 @@ services:
       test: ["CMD-SHELL", "curl -f http://localhost:8099/health || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 10
+      retries: 5
       start_period: 10s
     networks:
       - pinot-network
@@ -153,7 +150,7 @@ services:
       test: ["CMD-SHELL", "curl -f http://localhost:8097/health || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 10
+      retries: 5
       start_period: 10s
     networks:
       - pinot-network
@@ -208,7 +205,7 @@ services:
     container_name: kafka-producer-app
     restart: no
     depends_on:
-      pinot-server:
+      kafka:
         condition: service_healthy
     networks:
       - pinot-network
