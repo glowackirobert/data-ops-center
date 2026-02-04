@@ -57,19 +57,14 @@ docker build -t apache-pinot:1.4.0 -f cluster-setup/container/Dockerfile.apache-
 
 ### Run cluster in development mode
 
-Set variable to run initialization containers: `kafka-producer` and `pinot-command-runner`
-```bash
-$env:COMPOSE_PROFILES="init"
-```
-
-Unset variable after initialization, in order to skip executing initialization containers: `kafka-producer` and `pinot-command-runner`
-```bash
-Remove-Item Env:COMPOSE_PROFILES -ErrorAction SilentlyContinue
-```
-
 Run all containers:
 ```bash
 docker-compose --env-file env/env.dev -f cluster-setup\container\container-compose.yml up
+```
+
+Run all  in initialization mode, which means that the initialization containers: `kafka-producer` and `pinot-command-runner` will be executed:
+```bash
+docker-compose --env-file env/env.dev -f cluster-setup\container\container-compose.yml --profile init up
 ```
 
 Stop all containers:

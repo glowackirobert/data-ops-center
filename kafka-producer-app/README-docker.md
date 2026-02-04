@@ -36,8 +36,6 @@ Run schema registry:
 docker run --rm -it --network pinot-network --name schema-registry -p 8081:8081 -e SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=PLAINTEXT://kafka:9092 -e SCHEMA_REGISTRY_HOST_NAME=schema-registry -e SCHEMA_REGISTRY_LISTENERS=http://0.0.0.0:8081 confluentinc/cp-schema-registry:7.6.5
 ```
 
-
-
 ### Run the Application locally
 
 Build kafka producer app:
@@ -49,8 +47,6 @@ Run application:
 ```bash
 java -jar kafka-producer-app/target/kafka-producer-app-1.0.0.jar local
 ```
-
-
 
 ### Run the Application in the container
 
@@ -64,12 +60,17 @@ Run kafka producer app in the container:
 docker run --rm -it --network pinot-network --name kafka-producer-app robertglowacki83/kafka-producer-app:1.0.0
 ```
 
+Check if topic exists:
+```bash
+docker exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"
+```
+
 Read messages published on kafka topic:
 ```bash
-docker exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/bitnami/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic trade --from-beginning"
+docker exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic trade --from-beginning"
 ```
 
 Check kafka number of messages:
 ```bash
-docker exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/bitnami/kafka/bin/kafka-run-class.sh kafka.tools.GetOffsetShell --broker-list localhost:9092 --topic trade --time -1"
+docker exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/kafka/bin/kafka-run-class.sh kafka.tools.GetOffsetShell --bootstrap-server localhost:9092 --topic trade --time -1"
 ```
