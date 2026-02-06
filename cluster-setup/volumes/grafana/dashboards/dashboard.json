@@ -189,8 +189,14 @@
         {
           "expr": "sum(pinot_controller_realtimeTableCount_Value)",
           "interval": "",
-          "legendFormat": "total table count",
+          "legendFormat": "total realtime table count",
           "refId": "A"
+        },
+        {
+          "expr": "sum(pinot_controller_offlineTableCount_Value)",
+          "interval": "",
+          "legendFormat": "total offline table count",
+          "refId": "B"
         }
       ],
       "thresholds": [],
@@ -505,17 +511,23 @@
           "refId": "A"
         },
         {
+          "expr": "sum by (topic) (avg by (partition) (pinot_server_realtimeIngestionDelayMs_Value))",
+          "interval": "",
+          "legendFormat": "Delay",
+          "refId": "B"
+        },
+        {
           "expr": "rate(kafka_events_published_total[5m])",
           "interval": "",
           "legendFormat": "Published",
-          "refId": "B"
+          "refId": "C"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Table Ingestion Rate",
+      "title": "Table Ingestion Data",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -817,7 +829,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "avg by (job) (rate(container_cpu_user_seconds_total[5m]))",
+          "expr": "avg by (job) (rate(process_cpu_seconds_total[5m]))",
           "interval": "",
           "legendFormat": "{{job}}",
           "refId": "A"
@@ -827,7 +839,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Pinot Controller CPU User",
+      "title": "Pinot Instance CPU usage",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -923,7 +935,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Pinot Controller JVM Used",
+      "title": "Pinot Instance JVM Used",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -940,198 +952,6 @@
       "yaxes": [
         {
           "format": "decbytes",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {},
-          "links": []
-        },
-        "overrides": []
-      },
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 39
-      },
-      "hiddenSeries": false,
-      "id": 24,
-      "legend": {
-        "alignAsTable": true,
-        "avg": true,
-        "current": true,
-        "hideEmpty": false,
-        "max": true,
-        "min": true,
-        "rightSide": false,
-        "show": true,
-        "total": false,
-        "values": true
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "connected",
-      "percentage": false,
-      "pluginVersion": "11.4.8",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "avg by (job) (rate(container_cpu_user_seconds_total[5m]))",
-          "interval": "",
-          "legendFormat": "{{job}}",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Pinot Broker CPU User",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "percentunit",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {},
-          "links": []
-        },
-        "overrides": []
-      },
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 47
-      },
-      "hiddenSeries": false,
-      "id": 25,
-      "legend": {
-        "alignAsTable": true,
-        "avg": true,
-        "current": true,
-        "hideEmpty": false,
-        "max": true,
-        "min": true,
-        "rightSide": false,
-        "show": true,
-        "total": false,
-        "values": true
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "connected",
-      "percentage": false,
-      "pluginVersion": "11.4.8",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "avg by (job) (rate(container_cpu_user_seconds_total[5m]))",
-          "interval": "",
-          "legendFormat": "{{job}}",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Pinot Server CPU User",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "percentunit",
           "label": null,
           "logBase": 1,
           "max": null,
@@ -1210,25 +1030,25 @@
           "expr": "avg by (table) (pinot_server_queryProcessing_75thPercentile)",
           "interval": "",
           "legendFormat": "{{table}}-p75",
-          "refId": "E"
+          "refId": "B"
         },
         {
           "expr": "avg by (table) (pinot_server_queryProcessing_95thPercentile)",
           "interval": "",
           "legendFormat": "{{table}}-p95",
-          "refId": "D"
+          "refId": "C"
         },
         {
           "expr": "avg by (table) (pinot_server_queryProcessing_99thPercentile)",
           "interval": "",
           "legendFormat": "{{table}}-p99",
-          "refId": "B"
+          "refId": "D"
         },
         {
           "expr": "avg by (table) (pinot_server_queryProcessing_999thPercentile)",
           "interval": "",
           "legendFormat": "{{table}}-p999",
-          "refId": "C"
+          "refId": "E"
         }
       ],
       "thresholds": [],
