@@ -203,7 +203,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Realtime Table Count",
+      "title": "Table Count",
       "tooltip": {
         "shared": true,
         "sort": 0,

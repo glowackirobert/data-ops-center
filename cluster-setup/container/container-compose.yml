@@ -60,7 +60,7 @@ services:
   schema-registry:
     image: confluentinc/cp-schema-registry:7.6.5
     container_name: schema-registry
-    restart: no
+    restart: unless-stopped
     ports:
       - 8081:8081
     environment:
@@ -188,10 +188,10 @@ services:
   grafana:
     image: grafana/grafana:11.4.8
     container_name: grafana
+    restart: unless-stopped
     ports:
       - 3000:3000
     environment:
-      GF_SERVER_ROOT_URL: https://localhost:3000
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
     volumes:
       - ../volumes/grafana/provisioning:/etc/grafana/provisioning
