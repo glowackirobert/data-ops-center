@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+  namespace: data-ops-center
+
+spec:
+  serviceName: zookeeper
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: zookeeper
+
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+
+    spec:
+      containers:
+        - name: zookeeper
+          image: zookeeper:3.9.2
+
+          ports:
+            - containerPort: 2181
+              name: client
+
+          env:
+            - name: ZOO_4LW_COMMANDS_WHITELIST
+              value: "ruok"
+
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "echo ruok | nc 127.0.0.1 2181 | grep imok"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "echo ruok | nc 127.0.0.1 2181 | grep imok"
+            initialDelaySeconds: 20
+            periodSeconds: 15
+
+          volumeMounts:
+            - name: data
+              mountPath: /data
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 5Gi
