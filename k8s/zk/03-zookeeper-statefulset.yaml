@@ -5,59 +5,95 @@ metadata:
   namespace: data-ops-center
 
 spec:
-  serviceName: zookeeper
-  replicas: 1
-
+  serviceName: zookeeper-headless
+  replicas: 3
+  podManagementPolicy: Parallel
   selector:
     matchLabels:
-      app: zookeeper
+      app.kubernetes.io/name: zookeeper
+      app.kubernetes.io/instance: dev-data-ops-center
+      app.kubernetes.io/component: zookeeper
 
   template:
     metadata:
       labels:
-        app: zookeeper
+        app.kubernetes.io/name: zookeeper
+        app.kubernetes.io/instance: dev-data-ops-center
+        app.kubernetes.io/component: zookeeper
 
     spec:
+      terminationGracePeriodSeconds: 30
+      initContainers:
+        - name: init-zookeeper
+          image: zookeeper:3.9.2
+          command:
+            - sh
+            - -c
+            - |
+              ordinal=${HOSTNAME##*-}
+              echo $((ordinal + 1)) > /data/myid
+          volumeMounts:
+            - name: data
+              mountPath: /data
       containers:
         - name: zookeeper
           image: zookeeper:3.9.2
-
           ports:
-            - containerPort: 2181
-              name: client
+            - name: client
+              containerPort: 2181
+            - name: follower
+              containerPort: 2888
+            - name: election
+              containerPort: 3888
 
           env:
+            - name: ZOO_CLIENT_PORT
+              value: "2181"
+            - name: ZOO_CFG_EXTRA
+              value: "clientPort=2181"
             - name: ZOO_4LW_COMMANDS_WHITELIST
-              value: "ruok"
+              value: "ruok,stat,conf,isro"
+            - name: ZOO_SERVERS
+              value: "server.1=zookeeper-0.zookeeper-headless.data-ops-center.svc.cluster.local:2888:3888 server.2=zookeeper-1.zookeeper-headless.data-ops-center.svc.cluster.local:2888:3888 server.3=zookeeper-2.zookeeper-headless.data-ops-center.svc.cluster.local:2888:3888"
 
-          readinessProbe:
-            exec:
-              command:
-                - sh
-                - -c
-                - "echo ruok | nc 127.0.0.1 2181 | grep imok"
-            initialDelaySeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+          startupProbe:
+            tcpSocket:
+              port: 2181
+            failureThreshold: 30
             periodSeconds: 10
-
+          readinessProbe:
+            tcpSocket:
+              port: 2181
           livenessProbe:
-            exec:
-              command:
-                - sh
-                - -c
-                - "echo ruok | nc 127.0.0.1 2181 | grep imok"
-            initialDelaySeconds: 20
-            periodSeconds: 15
+            tcpSocket:
+              port: 2181
 
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: datalog
+              mountPath: /datalog
 
   volumeClaimTemplates:
     - metadata:
         name: data
       spec:
-        accessModes:
-          - ReadWriteOnce
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+    - metadata:
+        name: datalog
+      spec:
+        accessModes: ["ReadWriteOnce"]
         resources:
           requests:
             storage: 5Gi

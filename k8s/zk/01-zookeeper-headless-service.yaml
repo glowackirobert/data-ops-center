@@ -1,0 +1,37 @@
+# ------------------------------------------------------------
+# Headless Service (required for ZooKeeper ensemble discovery)
+# - Provides stable DNS per pod (zookeeper-0, zookeeper-1, zookeeper-2)
+# - Used ONLY for internal ZooKeeper cluster communication
+# ------------------------------------------------------------
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper-headless
+  namespace: data-ops-center
+  labels:
+    app.kubernetes.io/name: zookeeper
+    app.kubernetes.io/instance: dev-data-ops-center
+    app.kubernetes.io/component: zookeeper
+
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+
+  selector:
+    app.kubernetes.io/name: zookeeper
+    app.kubernetes.io/instance: dev-data-ops-center
+    app.kubernetes.io/component: zookeeper
+
+  ports:
+    - name: client
+      port: 2181
+      targetPort: 2181
+
+    - name: follower
+      port: 2888
+      targetPort: 2888
+
+    - name: election
+      port: 3888
+      targetPort: 3888
