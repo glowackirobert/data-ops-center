@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data-ops-center
+  labels:
+    app.kubernetes.io/name: data-ops-center
+    app.kubernetes.io/instance: dev
+    app.kubernetes.io/part-of: data-ops-center
+    app.kubernetes.io/managed-by: kubectl
+  annotations:
+    description: "Namespace for Data Ops Center platform (Pinot, Superset, ZooKeeper)"
