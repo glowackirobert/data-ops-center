@@ -1,0 +1,28 @@
+# ------------------------------------------------------------
+# Client Service (used by Apache Pinot and other apps)
+# - Stable endpoint: zookeeper:2181
+# - Load-balanced across all ZooKeeper nodes
+# ------------------------------------------------------------
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+  namespace: data-ops-center
+  labels:
+    app.kubernetes.io/name: zookeeper
+    app.kubernetes.io/instance: dev-data-ops-center
+    app.kubernetes.io/component: zookeeper
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app.kubernetes.io/name: zookeeper
+    app.kubernetes.io/instance: dev-data-ops-center
+    app.kubernetes.io/component: zookeeper
+
+  ports:
+    - name: client
+      port: 2181
+      targetPort: 2181
