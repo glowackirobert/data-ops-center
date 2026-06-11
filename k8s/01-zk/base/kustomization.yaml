@@ -1,0 +1,7 @@
+resources:
+  - 01-zookeeper-headless-service.yaml
+  - 02-zookeeper-client-service.yaml
+  - 03-zookeeper-statefulset.yaml
+
+# You can apply the base directly with:
+#   kubectl apply -k k8s/01-zk/base
