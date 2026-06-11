@@ -1,14 +1,20 @@
-# ------------------------------------------------------------
-# Headless Service (required for ZooKeeper ensemble discovery)
-# - Provides stable DNS per pod (zookeeper-0, zookeeper-1, zookeeper-2)
-# - Used ONLY for internal ZooKeeper cluster communication
-# ------------------------------------------------------------
-
 apiVersion: v1
 kind: Service
 metadata:
   name: zookeeper-headless
   namespace: data-ops-center
+  annotations:
+    description: |
+      Headless Service for the ZooKeeper StatefulSet. This Service is configured with 
+      `clusterIP: None` so that Kubernetes will create DNS A records for each StatefulSet
+      pod (for example: zookeeper-{ordinal}.{headless-service}.{namespace}.svc).
+      Those per-pod DNS names are required by ZooKeeper for intra-quorum
+      communication and leader election (ports 2888 and 3888).
+      
+      Note on the client port (2181): this headless Service declares the
+      client port so individual pod endpoints are addressable if an operator
+      or tool needs to connect directly to a specific replica. The headless 
+      Service's client port is primarily for per-pod access and discovery.
   labels:
     app.kubernetes.io/name: zookeeper
     app.kubernetes.io/instance: dev-data-ops-center
