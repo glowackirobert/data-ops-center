@@ -9,13 +9,16 @@ spec:
     spec:
       affinity:
         podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - topologyKey: kubernetes.io/hostname
-              labelSelector:
-                matchLabels:
-                  app.kubernetes.io/name: zookeeper
-                  app.kubernetes.io/instance: dev-data-ops-center
-                  app.kubernetes.io/component: zookeeper
+#          requiredDuringSchedulingIgnoredDuringExecution:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: zookeeper
+                    app.kubernetes.io/instance: dev-data-ops-center
+                    app.kubernetes.io/component: zookeeper
       containers:
         - name: zookeeper
           env:

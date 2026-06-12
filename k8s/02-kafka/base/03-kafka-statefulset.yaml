@@ -38,13 +38,16 @@ spec:
       automountServiceAccountToken: false
       affinity:
         podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - topologyKey: kubernetes.io/hostname
-              labelSelector:
-                matchLabels:
-                  app.kubernetes.io/name: kafka
-                  app.kubernetes.io/instance: dev-data-ops-center
-                  app.kubernetes.io/component: kafka
+#          requiredDuringSchedulingIgnoredDuringExecution
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: kafka
+                    app.kubernetes.io/instance: dev-data-ops-center
+                    app.kubernetes.io/component: kafka
       initContainers:
         - name: init-kafka
           image: busybox:1.36
