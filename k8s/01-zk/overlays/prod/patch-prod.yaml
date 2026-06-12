@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+  namespace: data-ops-center
+spec:
+  replicas: 3
+  template:
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: zookeeper
+                  app.kubernetes.io/instance: dev-data-ops-center
+                  app.kubernetes.io/component: zookeeper
+      containers:
+        - name: zookeeper
+          env:
+            - name: ZOO_SERVERS
+              value: "server.1=zookeeper-0.zookeeper-headless.data-ops-center.svc.cluster.local:2888:3888 server.2=zookeeper-1.zookeeper-headless.data-ops-center.svc.cluster.local:2888:3888 server.3=zookeeper-2.zookeeper-headless.data-ops-center.svc.cluster.local:2888:3888"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 50Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+              ephemeral-storage: 200Mi

@@ -1,8 +1,0 @@
-resources:
-  - ../../base
-
-patchesStrategicMerge:
-  - patch-replicas.yaml
-
-# Apply this overlay with:
-#   kubectl apply -k k8s/01-zk/overlays/ha

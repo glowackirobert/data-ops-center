@@ -1,7 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
 resources:
   - 01-zookeeper-headless-service.yaml
   - 02-zookeeper-client-service.yaml
   - 03-zookeeper-statefulset.yaml
 
-# You can apply the base directly with:
-#   kubectl apply -k k8s/01-zk/base
+# Base is environment-neutral — never apply directly.
+# Use an overlay: kubectl apply -k k8s/01-zk/overlays/dev|prod

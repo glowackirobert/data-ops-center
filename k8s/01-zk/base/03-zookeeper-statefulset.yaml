@@ -1,28 +1,38 @@
+# ------------------------------------------------------------
+# ZooKeeper StatefulSet
+# Base is environment-neutral — never apply directly.
+# Use an overlay: kubectl apply -k k8s/01-zk/overlays/dev|prod
+#
+# - myid written per-pod by init container (ordinal + 1)
+# - ZOO_SERVERS and replicas are environment-specific (set in overlays)
+# ------------------------------------------------------------
+
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: zookeeper
   namespace: data-ops-center
-
+  labels:
+    app.kubernetes.io/name: zookeeper
+    app.kubernetes.io/instance: dev-data-ops-center
+    app.kubernetes.io/component: zookeeper
 spec:
   serviceName: zookeeper-headless
-  replicas: 3
   podManagementPolicy: Parallel
   selector:
     matchLabels:
       app.kubernetes.io/name: zookeeper
       app.kubernetes.io/instance: dev-data-ops-center
       app.kubernetes.io/component: zookeeper
-
   template:
     metadata:
       labels:
         app.kubernetes.io/name: zookeeper
         app.kubernetes.io/instance: dev-data-ops-center
         app.kubernetes.io/component: zookeeper
-
     spec:
       terminationGracePeriodSeconds: 30
+      automountServiceAccountToken: false
       initContainers:
         - name: init-zookeeper
           image: zookeeper:3.9.2
@@ -45,7 +55,6 @@ spec:
               containerPort: 2888
             - name: election
               containerPort: 3888
-
           env:
             - name: ZOO_CLIENT_PORT
               value: "2181"
@@ -53,17 +62,6 @@ spec:
               value: "clientPort=2181"
             - name: ZOO_4LW_COMMANDS_WHITELIST
               value: "ruok,stat,conf,isro"
-            - name: ZOO_SERVERS
-              value: "server.1=zookeeper-0.zookeeper-headless.data-ops-center.svc.cluster.local:2888:3888 server.2=zookeeper-1.zookeeper-headless.data-ops-center.svc.cluster.local:2888:3888 server.3=zookeeper-2.zookeeper-headless.data-ops-center.svc.cluster.local:2888:3888"
-
-          resources:
-            requests:
-              cpu: 100m
-              memory: 256Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi
-
           startupProbe:
             tcpSocket:
               port: 2181
@@ -75,13 +73,11 @@ spec:
           livenessProbe:
             tcpSocket:
               port: 2181
-
           volumeMounts:
             - name: data
               mountPath: /data
             - name: datalog
               mountPath: /datalog
-
   volumeClaimTemplates:
     - metadata:
         name: data
