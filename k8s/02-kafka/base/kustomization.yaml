@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - 01-kafka-headless-service.yaml
+  - 02-kafka-client-service.yaml
+  - 03-kafka-statefulset.yaml
+  - kafka-usr-share-configmap.yaml
+
+# You can apply the base directly with:
+#   kubectl apply -k k8s/02-kafka/base

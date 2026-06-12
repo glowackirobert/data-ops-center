@@ -1,11 +1,13 @@
 # ------------------------------------------------------------
 # Kafka StatefulSet — KRaft mode (apache/kafka 4.x, ZK-free)
-# - Stable identities (kafka-0/1/2), each node is broker+controller
+# Base is environment-neutral — never apply directly.
+# Use an overlay: kubectl apply -k k8s/02-kafka/overlays/dev|prod
+#
 # - KAFKA_NODE_ID and KAFKA_ADVERTISED_LISTENERS set per-pod by init container
 # - Custom image kafka-jmx:4.1.1 has JMX agent JAR baked in;
-#   build and load with: bash k8s/02-kafka/build.sh
+#   build and load with: bash k8s/02-kafka/build.sh [dev|prod]
 # - CLUSTER_ID must be fixed so all pods agree; regenerate with:
-#     kubectl exec -it kafka-0 -n data-ops-center -- /opt/kafka/bin/kafka-storage.sh random-uuid
+#   kubectl exec -it kafka-0 -n data-ops-center -- /opt/kafka/bin/kafka-storage.sh random-uuid
 # ------------------------------------------------------------
 
 apiVersion: apps/v1
@@ -19,7 +21,6 @@ metadata:
     app.kubernetes.io/component: kafka
 spec:
   serviceName: kafka-headless
-  replicas: 3
   podManagementPolicy: Parallel
   selector:
     matchLabels:
@@ -82,22 +83,8 @@ spec:
               value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
             - name: KAFKA_INTER_BROKER_LISTENER_NAME
               value: "PLAINTEXT"
-            - name: KAFKA_CONTROLLER_QUORUM_VOTERS
-              value: "1@kafka-0.kafka-headless.data-ops-center.svc.cluster.local:9093,2@kafka-1.kafka-headless.data-ops-center.svc.cluster.local:9093,3@kafka-2.kafka-headless.data-ops-center.svc.cluster.local:9093"
             - name: CLUSTER_ID
               value: "MkU3OEVBNTcwNTJENDM2Qk"
-            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
-              value: "3"
-            - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
-              value: "3"
-            - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
-              value: "2"
-            - name: KAFKA_MIN_INSYNC_REPLICAS
-              value: "2"
-            - name: KAFKA_DEFAULT_REPLICATION_FACTOR
-              value: "3"
-            - name: KAFKA_NUM_PARTITIONS
-              value: "3"
             - name: KAFKA_LOG_DIRS
               value: "/opt/kafka/data/log"
             - name: KAFKA_OPTS
@@ -110,15 +97,6 @@ spec:
                 export $(cat /opt/kafka-config/envfile | xargs)
               fi
               exec /etc/kafka/docker/run
-          resources:
-            requests:
-              cpu: 200m
-              memory: 512Mi
-              ephemeral-storage: 100Mi
-            limits:
-              cpu: 1
-              memory: 1Gi
-              ephemeral-storage: 500Mi
           readinessProbe:
             tcpSocket:
               port: 9092
@@ -152,4 +130,4 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 50Gi
+            storage: 10Gi
