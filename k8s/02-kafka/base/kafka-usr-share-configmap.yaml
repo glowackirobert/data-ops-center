@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-usr-share
+  namespace: data-ops-center
+data:
+  jmx_exporter_config.yml: |
+    startDelaySeconds: 0
+    lowercaseOutputName: true
+    rules:
+      - pattern: '.*'
+        name: kafka_metric

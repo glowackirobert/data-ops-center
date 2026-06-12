@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: data-ops-center
+  labels:
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/instance: dev-data-ops-center
+    app.kubernetes.io/component: kafka
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/instance: dev-data-ops-center
+    app.kubernetes.io/component: kafka
+  ports:
+    - name: client
+      port: 9092
+      targetPort: 9092

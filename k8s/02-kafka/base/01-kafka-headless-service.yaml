@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-headless
+  namespace: data-ops-center
+  labels:
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/instance: dev-data-ops-center
+    app.kubernetes.io/component: kafka
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/instance: dev-data-ops-center
+    app.kubernetes.io/component: kafka
+  ports:
+    - name: client
+      port: 9092
+      targetPort: 9092
+    - name: metrics
+      port: 19092
+      targetPort: 19092
