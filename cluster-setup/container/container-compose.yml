@@ -4,7 +4,7 @@ services:
     container_name: zookeeper
     restart: unless-stopped
     ports:
-      - 2181:2181
+      - "127.0.0.1:2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -26,9 +26,9 @@ services:
     container_name: kafka
     restart: unless-stopped
     ports:
-      - 9092:9092   # container
-      - 29092:29092 # localhost
-      - 19092:19092 # metrics
+      - "127.0.0.1:9092:9092"   # internal (Docker network only)
+      - "127.0.0.1:29092:29092" # localhost clients
+      - "127.0.0.1:19092:19092" # metrics
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: "controller,broker"
@@ -42,6 +42,9 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_LOG_DIRS: "/opt/kafka/data/log"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_RETENTION_BYTES: 10737418240
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
       KAFKA_OPTS: "-javaagent:/usr/share/jmx_prometheus_javaagent-1.2.0.jar=19092:/usr/share/kafka_jmx_config.yml"
     volumes:
       - ../jmx_exporter/:/usr/share/
@@ -60,7 +63,7 @@ services:
     container_name: schema-registry
     restart: unless-stopped
     ports:
-      - 8081:8081
+      - "127.0.0.1:8081:8081"
     environment:
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "PLAINTEXT://kafka:9092"
       SCHEMA_REGISTRY_HOST_NAME: "schema-registry"
@@ -84,12 +87,13 @@ services:
     hostname: pinot-controller
     restart: unless-stopped
     ports:
-      - 9000:9000
-      - 19000:19000
+      - "9000:9000"
+      - "127.0.0.1:19000:19000"
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-controller.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=19000:/opt/pinot/etc/jmx_prometheus_javaagent/configs/controller.yml"
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-controller.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=19000:/opt/pinot/etc/jmx_prometheus_javaagent/configs/controller.yml"
+      AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
+    secrets:
+      - aws_credentials
     volumes:
       - ../volumes/pinot/controller:/opt/pinot/data/controller
     depends_on:
@@ -113,10 +117,10 @@ services:
     hostname: pinot-broker
     restart: unless-stopped
     ports:
-      - 8099:8099
-      - 18099:18099
+      - "8099:8099"
+      - "127.0.0.1:18099:18099"
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-broker.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18099:/opt/pinot/etc/jmx_prometheus_javaagent/configs/broker.yml"
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-broker.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18099:/opt/pinot/etc/jmx_prometheus_javaagent/configs/broker.yml"
     depends_on:
       pinot-controller:
         condition: service_healthy
@@ -136,11 +140,11 @@ services:
     hostname: pinot-server
     restart: unless-stopped
     ports:
-      - 8098:8098 # client queries
-      - 8097:8097 # admin API
-      - 18098:18098 # prometheus
+      - "127.0.0.1:8098:8098" # client queries (via broker only)
+      - "127.0.0.1:8097:8097" # admin API
+      - "127.0.0.1:18098:18098" # metrics
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms2G -Xmx8G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-server.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18098:/opt/pinot/etc/jmx_prometheus_javaagent/configs/server.yml"
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms2G -Xmx8G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-server.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18098:/opt/pinot/etc/jmx_prometheus_javaagent/configs/server.yml"
     volumes:
       - ../volumes/pinot/server:/opt/pinot/pinotServerData
     depends_on:
@@ -162,10 +166,10 @@ services:
     hostname: pinot-minion
     restart: unless-stopped
     ports:
-      - 7500:7500
-      - 17500:17500
+      - "127.0.0.1:7500:7500"
+      - "127.0.0.1:17500:17500"
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc:gc-pinot-minion.log -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=17500:/opt/pinot/etc/jmx_prometheus_javaagent/configs/minion.yml"
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-minion.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=17500:/opt/pinot/etc/jmx_prometheus_javaagent/configs/minion.yml"
     depends_on:
       pinot-server:
         condition: service_healthy
@@ -183,7 +187,7 @@ services:
     container_name: prometheus
     restart: unless-stopped
     ports:
-      - 9090:9090
+      - "127.0.0.1:9090:9090"
     volumes:
       - ../prometheus:/etc/prometheus
     healthcheck:
@@ -202,7 +206,9 @@ services:
     ports:
       - 3000:3000
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+    secrets:
+      - grafana_admin_password
     volumes:
       - ../volumes/grafana/provisioning:/etc/grafana/provisioning
       - ../volumes/grafana/dashboards:/var/lib/grafana/dashboards
@@ -242,3 +248,9 @@ networks:
   pinot-network:
     name: pinot-network
     driver: bridge
+
+secrets:
+  aws_credentials:
+    file: ./secrets/aws_credentials
+  grafana_admin_password:
+    file: ./secrets/grafana_admin_password

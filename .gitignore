@@ -7,4 +7,5 @@ cluster-setup/volumes/*
 aws_lambda
 
 # env files
-cluster-setup/env
+cluster-setup/container/secrets/
+env/
