@@ -43,8 +43,6 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_LOG_DIRS: "/opt/kafka/data/log"
       KAFKA_OPTS: "-javaagent:/usr/share/jmx_prometheus_javaagent-1.2.0.jar=19092:/usr/share/kafka_jmx_config.yml"
-    deploy:
-      replicas: ${KAFKA_REPLICAS:-1}
     volumes:
       - ../jmx_exporter/:/usr/share/
       - ../volumes/kafka-data:/opt/kafka/data
@@ -104,7 +102,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 10s
+      start_period: 120s
     networks:
       - pinot-network
 
@@ -127,7 +125,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 10s
+      start_period: 90s
     networks:
       - pinot-network
 
@@ -153,7 +151,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 10s
+      start_period: 120s
     networks:
       - pinot-network
 
