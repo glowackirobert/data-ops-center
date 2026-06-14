@@ -5,3 +5,6 @@ cluster-setup/volumes/*
 
 # AWS Lambda
 aws_lambda
+
+# env files
+cluster-setup/env
