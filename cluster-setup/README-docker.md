@@ -59,33 +59,33 @@ docker build -t apache-pinot:1.4.0 -f cluster-setup/container/Dockerfile.apache-
 
 Run all containers:
 ```bash
-docker-compose --env-file env/env.dev -f cluster-setup/container/container-compose.yml up
+docker-compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml up
 ```
 
 Run all  in initialization mode, which means that the initialization containers: `kafka-producer` and `pinot-command-runner` will be executed:
 ```bash
-docker-compose --env-file env/env.dev -f cluster-setup/container/container-compose.yml --profile init up
+docker-compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml --profile init up
 ```
 
 Stop all containers:
 ```bash
-docker-compose --env-file env/env.dev -f cluster-setup/container/container-compose.yml down
+docker-compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml down
 ```
 
 ### Run cluster in production mode
 
 Run all containers, ensure that the most recent images are pulled:
 ```bash
-docker-compose --env-file env/env.prod -f cluster-setup/container/container-compose.yml up --pull always
+docker-compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml up --pull always
 ```
 
 Stop all containers:
 ```bash
-docker-compose --env-file env/env.prod -f cluster-setup/container/container-compose.yml down
+docker-compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml down
 ```
 
 ### Convert Docker compose to Kubernetes manifests
 
 ```bash
-docker compose -f cluster-setup/container/container-compose.yml --env-file env/env.dev bridge convert
+docker compose -f cluster-setup/container/container-compose.yml --env-file cluster-setup/env/env.dev bridge convert
 ```
