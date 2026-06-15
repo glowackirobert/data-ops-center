@@ -8,4 +8,3 @@ aws_lambda
 
 # env files
 cluster-setup/container/secrets/
-env/
