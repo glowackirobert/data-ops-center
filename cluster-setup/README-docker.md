@@ -62,7 +62,7 @@ Run all containers:
 docker-compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml up
 ```
 
-Run all  in initialization mode, which means that the initialization containers: `kafka-producer` and `pinot-command-runner` will be executed:
+Run all in initialization mode, which means that the initialization containers: `kafka-producer` and `pinot-command-runner` will be executed:
 ```bash
 docker-compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml --profile init up
 ```

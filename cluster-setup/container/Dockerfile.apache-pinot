@@ -5,9 +5,10 @@ FROM apachepinot/pinot:${APACHE_PINOT_VERSION}
 
 # Define build-time arguments
 ENV OUTPUT_DIR=/opt/pinot/scripts
+ENV LOG_DIR=/opt/pinot/logs
 
-# Create directories for schema and table creation scripts
-RUN mkdir -p ${OUTPUT_DIR}
+# Create directories for schema and table creation scripts, and GC logs
+RUN mkdir -p ${OUTPUT_DIR} ${LOG_DIR}
 
 # Copy the scripts into the image
 COPY cluster-setup/table_config/* /opt/pinot/scripts/
