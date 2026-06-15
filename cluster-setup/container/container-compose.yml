@@ -222,7 +222,7 @@ services:
     profiles: ["init"]
     image: ${DOCKER_IMAGE_BASE_PATH}kafka-producer-app:1.0.0
     container_name: kafka-producer-app
-    restart: no
+    restart: "no"
     depends_on:
       schema-registry:
         condition: service_healthy
