@@ -76,7 +76,7 @@ docker-compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/c
 
 Run all containers, ensure that the most recent images are pulled:
 ```bash
-docker-compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml up --pull always
+docker-compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml up --pull always -d
 ```
 
 Stop all containers:
