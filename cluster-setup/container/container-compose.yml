@@ -45,7 +45,7 @@ services:
       KAFKA_LOG_RETENTION_HOURS: 168
       KAFKA_LOG_RETENTION_BYTES: 10737418240
       KAFKA_LOG_SEGMENT_BYTES: 1073741824
-      KAFKA_OPTS: "-javaagent:/usr/share/jmx_prometheus_javaagent-1.2.0.jar=19092:/usr/share/kafka_jmx_config.yml"
+      KAFKA_OPTS: "-javaagent:/usr/share/jmx_prometheus_javaagent-1.6.0.jar=19092:/usr/share/kafka_jmx_config.yml"
     volumes:
       - ../jmx_exporter/:/usr/share/
       - ../volumes/kafka-data:/opt/kafka/data
