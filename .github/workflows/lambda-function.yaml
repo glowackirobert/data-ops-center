@@ -47,6 +47,8 @@ jobs:
           aws lambda update-function-code \
             --function-name GdanskPublicTransportHandler \
             --zip-file fileb://../function.zip
+          aws lambda wait function-updated \
+            --function-name GdanskPublicTransportHandler
           aws lambda update-function-configuration \
             --function-name GdanskPublicTransportHandler \
             --handler gdansk_public_transport_aws.lambda_handler \
