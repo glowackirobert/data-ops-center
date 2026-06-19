@@ -2,7 +2,6 @@
   "tableName": "gdansk_public_transport",
   "tableType": "OFFLINE",
   "segmentsConfig": {
-    "schemaName": "gdansk_public_transport",
     "timeColumnName": "generatedTransformed",
     "timeType": "MILLISECONDS",
     "replication": "1",
