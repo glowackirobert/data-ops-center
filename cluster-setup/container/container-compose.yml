@@ -230,7 +230,6 @@ services:
       - pinot-network
 
   pinot-command-runner:
-    profiles: ["init"]
     image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:${APACHE_PINOT_VERSION}
     container_name: pinot-command-runner
     entrypoint: [ "/bin/bash" ]
