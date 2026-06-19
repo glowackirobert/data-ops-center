@@ -229,6 +229,25 @@ services:
     networks:
       - pinot-network
 
+  kafka-topic-init:
+    image: apache/kafka:4.1.1
+    container_name: kafka-topic-init
+    restart: "no"
+    entrypoint: [ "/bin/bash", "-c" ]
+    command:
+      - |
+        env -u KAFKA_OPTS /opt/kafka/bin/kafka-topics.sh \
+          --bootstrap-server kafka:9092 \
+          --create --if-not-exists \
+          --topic trade \
+          --partitions 1 \
+          --replication-factor 1
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - pinot-network
+
   pinot-command-runner:
     image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:${APACHE_PINOT_VERSION}
     container_name: pinot-command-runner
@@ -240,6 +259,8 @@ services:
     depends_on:
       pinot-server:
         condition: service_healthy
+      kafka-topic-init:
+        condition: service_completed_successfully
     networks:
       - pinot-network
 
