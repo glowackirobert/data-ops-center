@@ -218,17 +218,6 @@ services:
     networks:
       - pinot-network
 
-  kafka-producer:
-    profiles: ["init"]
-    image: ${DOCKER_IMAGE_BASE_PATH}kafka-producer-app:1.0.0
-    container_name: kafka-producer-app
-    restart: "no"
-    depends_on:
-      schema-registry:
-        condition: service_healthy
-    networks:
-      - pinot-network
-
   kafka-topic-init:
     image: apache/kafka:4.1.1
     container_name: kafka-topic-init
@@ -260,6 +249,35 @@ services:
       pinot-server:
         condition: service_healthy
       kafka-topic-init:
+        condition: service_completed_successfully
+    networks:
+      - pinot-network
+
+  kafka-producer:
+    profiles: ["init"]
+    image: ${DOCKER_IMAGE_BASE_PATH}kafka-producer-app:1.0.0
+    container_name: kafka-producer-app
+    restart: "no"
+    depends_on:
+      schema-registry:
+        condition: service_healthy
+    networks:
+      - pinot-network
+
+  pinot-ingestion-runner:
+    profiles: ["init"]
+    image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:${APACHE_PINOT_VERSION}
+    container_name: pinot-ingestion-runner
+    entrypoint: [ "/opt/pinot/bin/pinot-admin.sh" ]
+    command: [ "LaunchDataIngestionJob", "-jobSpecFile", "/opt/pinot/scripts/gdansk_public_transport_ingestion_job_spec.yaml" ]
+    restart: "no"
+    environment:
+      JAVA_OPTS: "-Dpinot.admin.system.exit=true -Dplugins.dir=/opt/pinot/plugins -Xmx1G"
+      AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
+    secrets:
+      - aws_credentials
+    depends_on:
+      pinot-command-runner:
         condition: service_completed_successfully
     networks:
       - pinot-network
