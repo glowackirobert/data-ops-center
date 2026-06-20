@@ -21,14 +21,24 @@ Create network:
 docker network create -d bridge pinot-network
 ```
 
-Run zookeeper:
+Run zookeeper (required by Apache Pinot):
 ```bash
 docker run --rm -it --network pinot-network --name zookeeper -e ZOOKEEPER_CLIENT_PORT=2181 zookeeper:3.9.2
 ```
 
-Run kafka:
+Run kafka in KRaft mode:
 ```bash
-docker run --rm -it --network pinot-network --name kafka -p 9092:9092 -p 29092:29092 -e KAFKA_BROKER_ID=0 -e KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181 -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092 -e KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092 -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP="PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT" -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 bitnami/kafka:3.6
+docker run --rm -it --network pinot-network --name kafka -p 9092:9092 -p 29092:29092 \
+  -e KAFKA_NODE_ID=1 \
+  -e KAFKA_PROCESS_ROLES=controller,broker \
+  -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER \
+  -e KAFKA_LISTENERS="CONTROLLER://:9093,INTERNAL://:9092,EXTERNAL://:29092" \
+  -e KAFKA_ADVERTISED_LISTENERS="INTERNAL://kafka:9092,EXTERNAL://localhost:29092" \
+  -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP="CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT" \
+  -e KAFKA_INTER_BROKER_LISTENER_NAME=INTERNAL \
+  -e KAFKA_CONTROLLER_QUORUM_VOTERS="1@kafka:9093" \
+  -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 \
+  apache/kafka:4.1.1
 ```
 
 Run schema registry:
@@ -45,8 +55,14 @@ docker run --rm -it --network pinot-network --name kafka-producer-app robertglow
 
 Check kafka producer publish messages:
 ```bash
-docker exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/bitnami/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic trade --from-beginning"
+MSYS_NO_PATHCONV=1 docker exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic trade --from-beginning"
 ```
+
+List kafka topics:
+```bash
+MSYS_NO_PATHCONV=1 docker exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/kafka/bin/kafka-topics.sh --list --bootstrap-server localhost:9092"
+```
+
 
 ### Create the Apache Pinot image with custom configuration
 
@@ -59,29 +75,39 @@ docker build -t apache-pinot:1.4.0 -f cluster-setup/container/Dockerfile.apache-
 
 Run all containers:
 ```bash
-docker-compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml up
+docker compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml up
 ```
 
-Run all in initialization mode, which means that the initialization containers: `kafka-producer` and `pinot-command-runner` will be executed:
+Run all in initialization mode, which means that the containers `kafka-producer` and `pinot-ingestion-runner` will be initialized:
 ```bash
-docker-compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml --profile init up
+docker compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml --profile init up
 ```
 
 Stop all containers:
 ```bash
-docker-compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml down
+docker compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml down
 ```
 
 ### Run cluster in production mode
 
-Run all containers, ensure that the most recent images are pulled:
+Run all containers - without those marked as init, ensure that the most recent images are pulled:
 ```bash
-docker-compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml up --pull always -d
+docker compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml up --pull always
+```
+
+Run only containers included in `init` profile, which means that the containers `kafka-producer` and `pinot-ingestion-runner` will be initialized:
+```bash
+docker compose --env-file cluster-setup/env/env.prod --profile init -f cluster-setup/container/container-compose.yml up --pull always --no-deps 
+```
+
+Run all containers
+```bash
+docker compose --env-file cluster-setup/env/env.prod --profile init -f cluster-setup/container/container-compose.yml up --pull always
 ```
 
 Stop all containers:
 ```bash
-docker-compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml down
+docker compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml down
 ```
 
 ### Convert Docker compose to Kubernetes manifests
