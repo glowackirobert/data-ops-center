@@ -219,6 +219,7 @@ services:
       - pinot-network
 
   kafka-topic-init:
+    profiles: ["init"]
     image: apache/kafka:4.1.1
     container_name: kafka-topic-init
     restart: "no"
@@ -238,6 +239,7 @@ services:
       - pinot-network
 
   pinot-command-runner:
+    profiles: ["init"]
     image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:${APACHE_PINOT_VERSION}
     container_name: pinot-command-runner
     entrypoint: [ "/bin/bash" ]
