@@ -43,20 +43,6 @@
       "segmentIngestionFrequency": "DAILY"
     }
   },
-  "task": {
-    "taskTypeConfigsMap": {
-      "SegmentGenerationAndPushTask": {
-        "inputDirURI": "s3://gdansk-public-transport/",
-        "inputFormat": "json",
-        "includeFileNamePattern": "glob:**/*.txt",
-        "searchRecursively": "true",
-        "maxNumConcurrentTasks": "1",
-        "push.mode": "tar",
-        "outputDirURI": "/tmp/pinot/segments",
-        "pinotFSSpecs": "[{\"scheme\":\"s3\",\"className\":\"org.apache.pinot.plugin.filesystem.S3PinotFS\",\"configs\":{\"region\":\"eu-north-1\"}}]"
-      }
-    }
-  },
   "metadata": {
     "customConfigs": {}
   },
