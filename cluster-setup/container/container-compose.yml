@@ -170,6 +170,9 @@ services:
       - "127.0.0.1:17500:17500"
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-minion.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=17500:/opt/pinot/etc/jmx_prometheus_javaagent/configs/minion.yml"
+      AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
+    secrets:
+      - aws_credentials
     depends_on:
       pinot-server:
         condition: service_healthy
