@@ -8,9 +8,18 @@ This module contains all configs related to set up data ops center cluster.
 
 Before you begin, ensure you have the following installed on your machine:
 
-1. Java Development Kit (JDK) 21
-2. Apache Maven 3.6
-3. Docker
+1. Docker
+
+
+
+### Secrets
+
+Before the first run, populate the secrets files:
+
+```
+cluster-setup/container/secrets/aws_credentials
+cluster-setup/container/secrets/grafana_admin_password
+```
 
 
 
@@ -28,7 +37,7 @@ docker run --rm -it --network pinot-network --name zookeeper -e ZOOKEEPER_CLIENT
 
 Run kafka in KRaft mode:
 ```bash
-docker run --rm -it --network pinot-network --name kafka -p 9092:9092 -p 29092:29092 \
+docker run --rm -it --network pinot-network --name kafka -p 127.0.0.1:9092:9092 -p 127.0.0.1:29092:29092 \
   -e KAFKA_NODE_ID=1 \
   -e KAFKA_PROCESS_ROLES=controller,broker \
   -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER \
@@ -43,7 +52,7 @@ docker run --rm -it --network pinot-network --name kafka -p 9092:9092 -p 29092:2
 
 Run schema registry:
 ```bash
-docker run --rm -it --network pinot-network --name schema-registry -p 8081:8081 -e SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=PLAINTEXT://kafka:9092 -e SCHEMA_REGISTRY_HOST_NAME=schema-registry -e SCHEMA_REGISTRY_LISTENERS=http://0.0.0.0:8081 confluentinc/cp-schema-registry:7.6.5
+docker run --rm -it --network pinot-network --name schema-registry -p 127.0.0.1:8081:8081 -e SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=PLAINTEXT://kafka:9092 -e SCHEMA_REGISTRY_HOST_NAME=schema-registry -e SCHEMA_REGISTRY_LISTENERS=http://0.0.0.0:8081 confluentinc/cp-schema-registry:7.6.5
 ```
 
 ### Run the Producer Application in the container
@@ -98,21 +107,15 @@ docker compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/
 
 Run only containers included in `init` profile:
 ```bash
-docker compose --env-file cluster-setup/env/env.prod --profile init -f cluster-setup/container/container-compose.yml up --pull always --no-deps 
+docker compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml --profile init up --pull always --no-deps 
 ```
 
 Run all containers:
 ```bash
-docker compose --env-file cluster-setup/env/env.prod --profile init -f cluster-setup/container/container-compose.yml up --pull always
+docker compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml --profile init up --pull always
 ```
 
 Stop all containers:
 ```bash
 docker compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml down
-```
-
-### Convert Docker compose to Kubernetes manifests
-
-```bash
-docker compose -f cluster-setup/container/container-compose.yml --env-file cluster-setup/env/env.dev bridge convert
 ```

@@ -62,7 +62,7 @@ docker build -f kafka-producer-app/Dockerfile.kafka-producer-app -t kafka-produc
 
 Run kafka producer app in the container:
 ```bash
-docker run --rm -it --network pinot-network --name kafka-producer-app robertglowacki83/kafka-producer-app:1.0.0
+docker run --rm -it --network pinot-network --name kafka-producer-app kafka-producer-app:1.0.0
 ```
 
 Check if topic exists:
