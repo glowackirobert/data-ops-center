@@ -210,6 +210,7 @@ services:
       - 3000:3000
     environment:
       GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      PROMETHEUS_URL: ${PROMETHEUS_URL}
     secrets:
       - grafana_admin_password
     volumes:
