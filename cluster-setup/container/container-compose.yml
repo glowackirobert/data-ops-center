@@ -275,7 +275,7 @@ services:
     image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:${APACHE_PINOT_VERSION}
     container_name: pinot-ingestion-runner
     entrypoint: [ "/opt/pinot/bin/pinot-admin.sh" ]
-    command: [ "LaunchDataIngestionJob", "-jobSpecFile", "/opt/pinot/scripts/${DATA_INGESTION_JOB_SPEC_FILE_NAME}.yaml" ]
+    command: [ "LaunchDataIngestionJob", "-jobSpecFile", "/opt/pinot/scripts/${DATA_INGESTION_JOB_SPEC_FILE_NAME}" ]
     restart: "no"
     environment:
       JAVA_OPTS: "-Dpinot.admin.system.exit=true -Dplugins.dir=/opt/pinot/plugins -Xmx1G"
