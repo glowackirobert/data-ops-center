@@ -73,12 +73,12 @@ docker build -t apache-pinot:1.4.0 -f cluster-setup/container/Dockerfile.apache-
 
 ### Run cluster in development mode
 
-Run all containers:
+Run containers without those marked as init:
 ```bash
 docker compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml up
 ```
 
-Run all in initialization mode, which means that the containers `kafka-producer` and `pinot-ingestion-runner` will be initialized:
+Run all containers:
 ```bash
 docker compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml --profile init up
 ```
@@ -88,19 +88,20 @@ Stop all containers:
 docker compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml down
 ```
 
+
 ### Run cluster in production mode
 
-Run all containers - without those marked as init, ensure that the most recent images are pulled:
+Run all containers without those marked as init, the most recent images are pulled:
 ```bash
 docker compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml up --pull always
 ```
 
-Run only containers included in `init` profile, which means that the containers `kafka-producer` and `pinot-ingestion-runner` will be initialized:
+Run only containers included in `init` profile:
 ```bash
 docker compose --env-file cluster-setup/env/env.prod --profile init -f cluster-setup/container/container-compose.yml up --pull always --no-deps 
 ```
 
-Run all containers
+Run all containers:
 ```bash
 docker compose --env-file cluster-setup/env/env.prod --profile init -f cluster-setup/container/container-compose.yml up --pull always
 ```
