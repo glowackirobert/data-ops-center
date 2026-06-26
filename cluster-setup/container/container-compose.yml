@@ -52,9 +52,9 @@ services:
     healthcheck:
       test: [ "CMD-SHELL", "env -u KAFKA_OPTS /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
       interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 120s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
     networks:
       - pinot-network
 
@@ -105,8 +105,8 @@ services:
       test: ["CMD-SHELL", "curl -f http://localhost:9000/health || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 5
-      start_period: 120s
+      retries: 10
+      start_period: 180s
     networks:
       - pinot-network
 
@@ -128,8 +128,8 @@ services:
       test: ["CMD-SHELL", "curl -f http://localhost:8099/health || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 5
-      start_period: 90s
+      retries: 10
+      start_period: 150s
     networks:
       - pinot-network
 
@@ -154,8 +154,8 @@ services:
       test: ["CMD-SHELL", "curl -f http://localhost:8097/health || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 5
-      start_period: 120s
+      retries: 10
+      start_period: 180s
     networks:
       - pinot-network
 
@@ -180,8 +180,8 @@ services:
       test: ["CMD-SHELL", "curl -f http://localhost:7500/health || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 5
-      start_period: 90s
+      retries: 10
+      start_period: 150s
     networks:
       - pinot-network
 
@@ -278,7 +278,7 @@ services:
     command: [ "LaunchDataIngestionJob", "-jobSpecFile", "/opt/pinot/scripts/${DATA_INGESTION_JOB_SPEC_FILE_NAME}" ]
     restart: "no"
     environment:
-      JAVA_OPTS: "-Dpinot.admin.system.exit=true -Dplugins.dir=/opt/pinot/plugins -Xmx1G"
+      JAVA_OPTS: "-Dpinot.admin.system.exit=true -Xmx1G"
       AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
     secrets:
       - aws_credentials
