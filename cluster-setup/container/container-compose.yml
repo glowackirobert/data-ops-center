@@ -117,7 +117,7 @@ services:
     hostname: pinot-broker
     restart: unless-stopped
     ports:
-      - "8099:8099"
+      - "${INTERNAL_BIND}:8099:8099"
       - "${INTERNAL_BIND}:18099:18099"
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-broker.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18099:/opt/pinot/etc/jmx_prometheus_javaagent/configs/broker.yml"
