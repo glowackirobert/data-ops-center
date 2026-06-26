@@ -1,121 +1,110 @@
-# Cluster setup
+# Cluster Setup
 
-This module contains all configs related to set up data ops center cluster.
+Docker Compose based setup for the Data Ops Center cluster.
+
+## Services
+
+### Core services (always running)
+
+| Service          | Port         | Description                                                                                                                      |
+|------------------|--------------|----------------------------------------------------------------------------------------------------------------------------------|
+| Zookeeper        | 2181         | Coordination service required by Apache Pinot                                                                                    |
+| Kafka            | 9092 / 29092 | Message broker in KRaft mode. Port 9092 is internal (container network), 29092 is for external clients (e.g. local producer app) |
+| Schema Registry  | 8081         | Confluent Schema Registry for Avro schema management                                                                             |
+| Pinot Controller | 9000         | Manages cluster metadata, table configs and segment assignment. Web UI available at `:9000`                                      |
+| Pinot Broker     | 8099         | Accepts SQL queries and routes them to the appropriate servers                                                                   |
+| Pinot Server     | 8097 / 8098  | Stores and serves segments. Admin API on 8097, query port on 8098                                                                |
+| Pinot Minion     | 7500         | Background task executor for offline segment operations                                                                          |
+| Prometheus       | 9090         | Scrapes JMX metrics from Kafka and all Pinot components                                                                          |
+| Grafana          | 3000         | Dashboards over Prometheus metrics. Admin password set via secret file                                                           |
+| Superset         | 8088         | BI and data exploration UI connected to Pinot via `pinotdb`. Admin credentials set via secret files                              |
+
+### Init containers (run once, `--profile init`)
+
+| Container | Description |
+|---|---|
+| `kafka-topic-init` | Creates the `trade` Kafka topic |
+| `kafka-producer` | Publishes Avro-serialized trade events to Kafka |
+| `pinot-command-runner` | Registers schemas and tables with the Pinot Controller |
+| `pinot-ingestion-runner` | Runs a batch ingestion job that reads from S3 and pushes segments to Pinot |
+| `superset-init` | Runs DB migrations, creates the admin user, and initialises Superset roles |
+
+Init containers are one-shot — they exit after completing their task. Run them once on first setup, or whenever you need to re-seed the cluster.
 
 
 
 ## Requirements
 
-Before you begin, ensure you have the following installed on your machine:
-
-1. Docker
+- Docker with Docker Compose
 
 
 
-### Secrets
+## Secrets
 
-Before the first run, populate the secrets files:
+Populate the following files before the first run:
 
 ```
-cluster-setup/container/secrets/aws_credentials
-cluster-setup/container/secrets/grafana_admin_password
+cluster-setup/container/secrets/aws_credentials          # AWS credentials for S3/Pinot access
+cluster-setup/container/secrets/grafana_admin_password   # Grafana admin password
+cluster-setup/container/secrets/superset_secret_key      # Long random string for Flask session signing
+cluster-setup/container/secrets/superset_admin_password  # Superset admin password
+cluster-setup/container/secrets/superset_admin_username  # Superset admin username
+cluster-setup/container/secrets/superset_admin_email     # Superset admin email
 ```
 
 
 
-### Run Zk, Kafka and Schema Registry 
+## Custom Images
 
-Create network:
+Two services use custom-built images that must be built before first run in dev mode:
+
 ```bash
-docker network create -d bridge pinot-network
-```
-
-Run zookeeper (required by Apache Pinot):
-```bash
-docker run --rm -it --network pinot-network --name zookeeper -e ZOOKEEPER_CLIENT_PORT=2181 zookeeper:3.9.2
-```
-
-Run kafka in KRaft mode:
-```bash
-docker run --rm -it --network pinot-network --name kafka -p 127.0.0.1:9092:9092 -p 127.0.0.1:29092:29092 \
-  -e KAFKA_NODE_ID=1 \
-  -e KAFKA_PROCESS_ROLES=controller,broker \
-  -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER \
-  -e KAFKA_LISTENERS="CONTROLLER://:9093,INTERNAL://:9092,EXTERNAL://:29092" \
-  -e KAFKA_ADVERTISED_LISTENERS="INTERNAL://kafka:9092,EXTERNAL://localhost:29092" \
-  -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP="CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT" \
-  -e KAFKA_INTER_BROKER_LISTENER_NAME=INTERNAL \
-  -e KAFKA_CONTROLLER_QUORUM_VOTERS="1@kafka:9093" \
-  -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 \
-  apache/kafka:4.1.1
-```
-
-Run schema registry:
-```bash
-docker run --rm -it --network pinot-network --name schema-registry -p 127.0.0.1:8081:8081 -e SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=PLAINTEXT://kafka:9092 -e SCHEMA_REGISTRY_HOST_NAME=schema-registry -e SCHEMA_REGISTRY_LISTENERS=http://0.0.0.0:8081 confluentinc/cp-schema-registry:7.6.5
-```
-
-### Run the Producer Application in the container
-
-Run kafka producer app in the container:
-```bash
-docker run --rm -it --network pinot-network --name kafka-producer-app robertglowacki83/kafka-producer-app:1.0.0
-```
-
-Check kafka producer publish messages:
-```bash
-MSYS_NO_PATHCONV=1 docker exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic trade --from-beginning"
-```
-
-List kafka topics:
-```bash
-MSYS_NO_PATHCONV=1 docker exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/kafka/bin/kafka-topics.sh --list --bootstrap-server localhost:9092"
-```
-
-
-### Create the Apache Pinot image with custom configuration
-
-Build the Apache Pinot custom image:
-```bash
+# Apache Pinot — adds table configs, JMX exporter and ingestion scripts
 docker build -t apache-pinot:1.4.0 -f cluster-setup/container/Dockerfile.apache-pinot .
+
+# Apache Superset — adds pinotdb driver on top of the official image
+docker build -t superset:4.1.2 -f cluster-setup/container/Dockerfile.superset .
 ```
 
-### Run cluster in development mode
+For prod, push these images to Docker Hub under `robertglowacki83/` and they will be pulled automatically.
 
-Run containers without those marked as init:
+
+
+## Running the Cluster
+
+All commands use an env file to switch between dev and prod behaviour (port bindings, image sources).
+
+### Development
+
 ```bash
+# Start core services
 docker compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml up
-```
 
-Run all containers:
-```bash
+# First-time setup — also run init containers
 docker compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml --profile init up
-```
 
-Stop all containers:
-```bash
+# Stop
 docker compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml down
 ```
 
+### Production
 
-### Run cluster in production mode
-
-Run all containers without those marked as init, the most recent images are pulled:
 ```bash
-docker compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml up --pull always
-```
+# Start core services, pull latest images
+docker compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml up --pull always -d
 
-Run only containers included in `init` profile:
-```bash
-docker compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml --profile init up --pull always --no-deps 
-```
-
-Run all containers:
-```bash
+# First-time setup — also run init containers
 docker compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml --profile init up --pull always
-```
 
-Stop all containers:
-```bash
+# Stop
 docker compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml down
 ```
+
+### Port binding
+
+Controlled by the `BIND` variable in the env files:
+
+| Env m  | `BIND`      | Effect                                                         |
+|--------|-------------|----------------------------------------------------------------|
+| dev    | `0.0.0.0`   | All ports reachable from any machine on the network            |
+| prod   | `127.0.0.1` | All ports bound to localhost only (sit behind a reverse proxy) |
