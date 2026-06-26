@@ -282,6 +282,8 @@ services:
       AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
     secrets:
       - aws_credentials
+    volumes:
+      - ../volumes/pinot/ingestion-logs:/opt/pinot/logs
     depends_on:
       pinot-command-runner:
         condition: service_completed_successfully
