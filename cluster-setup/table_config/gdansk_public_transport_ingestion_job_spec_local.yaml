@@ -23,11 +23,11 @@ recordReaderSpec:
 
 tableSpec:
   tableName: 'gdansk_public_transport'
-  schemaURI: 'http://localhost:9000/tables/gdansk_public_transport/schema'
-  tableConfigURI: 'http://localhost:9000/tables/gdansk_public_transport_OFFLINE'
+  schemaURI: 'http://pinot-controller:9000/tables/gdansk_public_transport/schema'
+  tableConfigURI: 'http://pinot-controller:9000/tables/gdansk_public_transport_OFFLINE'
 
 pinotClusterSpecs:
-  - controllerURI: 'http://localhost:9000'
+  - controllerURI: 'http://pinot-controller:9000'
 
 pushJobSpec:
   pushAttempts: 2
