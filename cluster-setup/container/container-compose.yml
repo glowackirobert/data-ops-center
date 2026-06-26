@@ -4,7 +4,7 @@ services:
     container_name: zookeeper
     restart: unless-stopped
     ports:
-      - "127.0.0.1:2181:2181"
+      - "${INTERNAL_BIND}:2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -26,9 +26,9 @@ services:
     container_name: kafka
     restart: unless-stopped
     ports:
-      - "127.0.0.1:9092:9092"   # internal (Docker network only)
-      - "127.0.0.1:29092:29092" # localhost clients
-      - "127.0.0.1:19092:19092" # metrics
+      - "${INTERNAL_BIND}:9092:9092"   # internal (Docker network only)
+      - "${INTERNAL_BIND}:29092:29092" # localhost clients
+      - "${INTERNAL_BIND}:19092:19092" # metrics
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: "controller,broker"
@@ -63,7 +63,7 @@ services:
     container_name: schema-registry
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8081:8081"
+      - "${INTERNAL_BIND}:8081:8081"
     environment:
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "PLAINTEXT://kafka:9092"
       SCHEMA_REGISTRY_HOST_NAME: "schema-registry"
@@ -87,8 +87,8 @@ services:
     hostname: pinot-controller
     restart: unless-stopped
     ports:
-      - "9000:9000"
-      - "127.0.0.1:19000:19000"
+      - "${CONTROLLER_BIND}:9000:9000"
+      - "${INTERNAL_BIND}:19000:19000"
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-controller.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=19000:/opt/pinot/etc/jmx_prometheus_javaagent/configs/controller.yml"
       AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
@@ -118,7 +118,7 @@ services:
     restart: unless-stopped
     ports:
       - "8099:8099"
-      - "127.0.0.1:18099:18099"
+      - "${INTERNAL_BIND}:18099:18099"
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-broker.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18099:/opt/pinot/etc/jmx_prometheus_javaagent/configs/broker.yml"
     depends_on:
@@ -140,9 +140,9 @@ services:
     hostname: pinot-server
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8098:8098" # client queries (via broker only)
-      - "127.0.0.1:8097:8097" # admin API
-      - "127.0.0.1:18098:18098" # metrics
+      - "${INTERNAL_BIND}:8098:8098" # client queries (via broker only)
+      - "${INTERNAL_BIND}:8097:8097" # admin API
+      - "${INTERNAL_BIND}:18098:18098" # metrics
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms2G -Xmx8G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-server.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18098:/opt/pinot/etc/jmx_prometheus_javaagent/configs/server.yml"
     volumes:
@@ -166,8 +166,8 @@ services:
     hostname: pinot-minion
     restart: unless-stopped
     ports:
-      - "127.0.0.1:7500:7500"
-      - "127.0.0.1:17500:17500"
+      - "${INTERNAL_BIND}:7500:7500"
+      - "${INTERNAL_BIND}:17500:17500"
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-minion.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=17500:/opt/pinot/etc/jmx_prometheus_javaagent/configs/minion.yml"
 #      AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
@@ -190,7 +190,7 @@ services:
     container_name: prometheus
     restart: unless-stopped
     ports:
-      - "127.0.0.1:9090:9090"
+      - "${INTERNAL_BIND}:9090:9090"
     volumes:
       - ../prometheus:/etc/prometheus
     healthcheck:
@@ -207,7 +207,7 @@ services:
     container_name: grafana
     restart: unless-stopped
     ports:
-      - 3000:3000
+      - "${GRAFANA_BIND}:3000:3000"
     environment:
       GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
       PROMETHEUS_URL: ${PROMETHEUS_URL}
