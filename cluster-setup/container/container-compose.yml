@@ -290,6 +290,35 @@ services:
     networks:
       - pinot-network
 
+  superset-init:
+    image: ${DOCKER_IMAGE_BASE_PATH}superset:4.1.2
+    container_name: superset-init
+    restart: "no"
+    environment:
+      SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
+    secrets:
+      - superset_secret_key
+      - superset_admin_password
+      - superset_admin_username
+      - superset_admin_email
+    volumes:
+      - ../superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+      - ../volumes/superset:/app/superset_home
+    command:
+      - /bin/sh
+      - -c
+      - |
+        superset db upgrade &&
+        superset fab create-admin \
+          --username $$(cat /run/secrets/superset_admin_username) \
+          --firstname Admin \
+          --lastname Admin \
+          --email $$(cat /run/secrets/superset_admin_email) \
+          --password $$(cat /run/secrets/superset_admin_password) &&
+        superset init
+    networks:
+      - pinot-network
+
 networks:
   pinot-network:
     name: pinot-network
@@ -300,3 +329,11 @@ secrets:
     file: ./secrets/aws_credentials
   grafana_admin_password:
     file: ./secrets/grafana_admin_password
+  superset_secret_key:
+    file: ./secrets/superset_secret_key
+  superset_admin_password:
+    file: ./secrets/superset_admin_password
+  superset_admin_username:
+    file: ./secrets/superset_admin_username
+  superset_admin_email:
+    file: ./secrets/superset_admin_email
