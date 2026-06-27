@@ -296,6 +296,28 @@ services:
     networks:
       - pinot-network
 
+  gdansk-kafka-producer:
+    profiles: ["init"]
+    image: python:3.12-slim
+    container_name: gdansk-kafka-producer
+    restart: "no"
+    entrypoint: [ "/bin/sh", "-c" ]
+    command:
+      - |
+        pip install --quiet confluent-kafka requests &&
+        python /scripts/gdansk_public_transport_kafka.py
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    volumes:
+      - ../py:/scripts:ro
+    depends_on:
+      pinot-server:
+        condition: service_healthy
+      pinot-command-runner:
+        condition: service_completed_successfully
+    networks:
+      - pinot-network
+
   superset-init:
     profiles: ["init"]
     image: ${DOCKER_IMAGE_BASE_PATH}superset:4.1.2

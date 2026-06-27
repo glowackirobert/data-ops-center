@@ -11,6 +11,16 @@ else
   echo "Table $GDANSK_PUBLIC_TRANSPORT_TABLE does not exist, skipping"
 fi
 
+GDANSK_PUBLIC_TRANSPORT_REALTIME_TABLE="gdansk_public_transport_REALTIME"
+URL="http://pinot-controller:9000/tables/$GDANSK_PUBLIC_TRANSPORT_REALTIME_TABLE"
+if [ "$(curl -s -o /dev/null -w "%{http_code}" "$URL")" = "200" ]; then
+  echo "Deleting table: $GDANSK_PUBLIC_TRANSPORT_REALTIME_TABLE"
+  curl -X DELETE "$URL"
+  echo
+else
+  echo "Table $GDANSK_PUBLIC_TRANSPORT_REALTIME_TABLE does not exist, skipping"
+fi
+
 
 GDANSK_PUBLIC_TRANSPORT_SCHEMA="gdansk_public_transport"
 URL="http://pinot-controller:9000/schemas/$GDANSK_PUBLIC_TRANSPORT_SCHEMA"
@@ -53,10 +63,17 @@ curl --fail -X POST \
   http://pinot-controller:9000/schemas
 echo
 
-# Add gdansk public transport table
+# Add gdansk public transport offline table
 curl --fail -X POST \
   -H "Content-Type: application/json" \
   -d @/opt/pinot/scripts/gdansk_public_transport_table_config.json \
+  http://pinot-controller:9000/tables
+echo
+
+# Add gdansk public transport realtime table
+curl --fail -X POST \
+  -H "Content-Type: application/json" \
+  -d @/opt/pinot/scripts/gdansk_public_transport_realtime_table_config.json \
   http://pinot-controller:9000/tables
 echo
 
