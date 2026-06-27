@@ -325,6 +325,7 @@ services:
     restart: "no"
     environment:
       SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
+      SUPERSET_PINOT_URI: ${SUPERSET_PINOT_URI}
     secrets:
       - superset_secret_key
       - superset_admin_password
@@ -344,7 +345,10 @@ services:
           --lastname Admin \
           --email $$(cat /run/secrets/superset_admin_email) \
           --password $$(cat /run/secrets/superset_admin_password) &&
-        superset init
+        superset init &&
+        superset set_database_uri \
+          -d "Apache Pinot" \
+          -u "${SUPERSET_PINOT_URI}"
     networks:
       - pinot-network
 
