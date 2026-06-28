@@ -214,8 +214,8 @@ services:
     secrets:
       - grafana_admin_password
     volumes:
-      - ../volumes/grafana/provisioning:/etc/grafana/provisioning
-      - ../volumes/grafana/dashboards:/var/lib/grafana/dashboards
+      - ../grafana/provisioning:/etc/grafana/provisioning
+      - ../grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       prometheus:
         condition: service_healthy
