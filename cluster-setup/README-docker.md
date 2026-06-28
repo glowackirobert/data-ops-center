@@ -23,12 +23,12 @@ Docker Compose based setup for the Data Ops Center cluster.
 
 | Container | Description |
 |---|---|
-| `kafka-topic-init` | Creates the `trade` and `gdansk_public_transport` Kafka topics |
+| `kafka-topic-init` | Creates the `trade` and `gdansk-public-transport` Kafka topics |
 | `kafka-producer` | Publishes Avro-serialized trade events to Kafka |
 | `pinot-command-runner` | Registers schemas and tables with the Pinot Controller (trade REALTIME, gdansk_public_transport OFFLINE + REALTIME) |
-| `gdansk-kafka-producer` | Fetches current GPS positions from the Gdansk public transport API and publishes them as JSON to the `gdansk_public_transport` Kafka topic |
+| `gdansk-kafka-producer` | Fetches current GPS positions from the Gdansk public transport API and publishes them as JSON to the `gdansk-public-transport` Kafka topic |
 | `pinot-ingestion-runner` | Runs a batch ingestion job that reads from S3 and pushes segments to Pinot |
-| `superset-init` | Runs DB migrations, creates the admin user, and initialises Superset roles |
+| `superset-init` | Runs DB migrations, creates the admin user, initialises Superset roles, and registers the Apache Pinot database connection |
 
 Init containers are one-shot — they exit after completing their task. Run them once on first setup, or whenever you need to re-seed the cluster.
 
