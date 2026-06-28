@@ -5,7 +5,7 @@ import requests
 from datetime import datetime, timezone
 from confluent_kafka import Producer
 
-TOPIC = 'gdansk_public_transport'
+TOPIC = 'gdansk-public-transport'
 API_URL = 'https://ckan2.multimediagdansk.pl/gpsPositions?v=2'
 
 def fetch_vehicles():

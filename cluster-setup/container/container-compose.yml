@@ -239,7 +239,7 @@ services:
         env -u KAFKA_OPTS /opt/kafka/bin/kafka-topics.sh \
           --bootstrap-server kafka:9092 \
           --create --if-not-exists \
-          --topic gdansk_public_transport \
+          --topic gdansk-public-transport \
           --partitions 1 \
           --replication-factor 1
     depends_on:
