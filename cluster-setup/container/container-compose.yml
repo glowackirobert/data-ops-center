@@ -296,11 +296,10 @@ services:
     networks:
       - pinot-network
 
-  gdansk-kafka-producer:
-    profiles: ["init"]
+  gdansk-public-transport-kafka-producer:
     image: python:3.12-slim
-    container_name: gdansk-kafka-producer
-    restart: "no"
+    container_name: gdansk-public-transport-kafka-producer
+    restart: unless-stopped
     entrypoint: [ "/bin/sh", "-c" ]
     command:
       - |
@@ -311,10 +310,8 @@ services:
     volumes:
       - ../py:/scripts:ro
     depends_on:
-      pinot-server:
+      kafka:
         condition: service_healthy
-      pinot-command-runner:
-        condition: service_completed_successfully
     networks:
       - pinot-network
 
