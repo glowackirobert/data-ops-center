@@ -66,7 +66,7 @@ echo
 # Add gdansk public transport offline table
 curl --fail -X POST \
   -H "Content-Type: application/json" \
-  -d @/opt/pinot/scripts/gdansk_public_transport_table_config.json \
+  -d @/opt/pinot/scripts/gdansk_public_transport_offline_table_config.json \
   http://pinot-controller:9000/tables
 echo
 
