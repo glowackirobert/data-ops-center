@@ -3,7 +3,6 @@ import os
 import sys
 import time
 import requests
-from datetime import datetime, timezone
 from confluent_kafka import Producer
 
 TOPIC = 'gdansk-public-transport'
@@ -33,18 +32,25 @@ def publish_to_kafka(producer, vehicles):
 def main():
     bootstrap_servers = os.environ.get('KAFKA_BOOTSTRAP_SERVERS', 'localhost:29092')
     producer = Producer({'bootstrap.servers': bootstrap_servers})
+    last_generated: dict[str, str] = {}
 
     while True:
         try:
             vehicles = fetch_vehicles()
-            if not vehicles:
-                print("No vehicles data returned.")
+            fresh = [
+                v for v in vehicles
+                if v.get('generated') != last_generated.get(str(v.get('vehicleId')))
+            ]
+            if fresh:
+                sent = publish_to_kafka(producer, fresh)
+                for v in fresh:
+                    last_generated[str(v.get('vehicleId'))] = v.get('generated')
+                print(f"Published {sent} updated vehicles out of {len(vehicles)} total")
             else:
-                sent = publish_to_kafka(producer, vehicles)
-                print(f"Published {sent} messages to '{TOPIC}' at {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC")
+                print("No vehicle positions changed, skipping.")
         except Exception as e:
             print(f"Error: {e}", file=sys.stderr)
-        time.sleep(1)
+        time.sleep(4)
 
 if __name__ == '__main__':
     main()
