@@ -5,8 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 Data Operations Center is a data engineering platform that:
-- streams data through Kafka into Apache Pinot for real-time analytics,
-- ingests offline data from S3 bucket into offline tables. 
+- streams data through Kafka into realtime Apache Pinot tables,
+- ingests offline data from S3 bucket into Apache Pinot offline tables. 
+
 Monitoring is provided by Prometheus + Grafana.
 
 ## Modules
@@ -30,14 +31,7 @@ mvn package -DskipTests
 
 The Avro Maven plugin auto-generates Java classes from `kafka-producer-app/src/main/avro/Trade.avsc` into `kafka-producer-app/src/main/java/avro/` during the `generate-sources` phase. Never edit these generated files directly — edit the `.avsc` schema instead.
 
-The JAR entry point is `KafkaProducerApp`. Dependencies land in `target/lib/`. Run locally with:
-```bash
-java -jar kafka-producer-app/target/kafka-producer-app-1.0.0.jar local
-# or inside container network:
-java -jar kafka-producer-app/target/kafka-producer-app-1.0.0.jar container
-```
-
-Config type (`local` or `container`) selects the matching `kafka-producer-{type}.properties` from the classpath.
+The JAR entry point is `KafkaProducerApp`. Dependencies land in `target/lib/`. The app runs in container mode only — configuration is loaded from `kafka-producer.properties` on the classpath.
 
 ## Running the Cluster (Docker Compose)
 
@@ -62,7 +56,7 @@ docker-compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/c
 docker-compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml down
 ```
 
-**Prod mode** (pulls images from Docker Hub `robertglowacki83/`):
+**Prod mode** (pulls images from Docker Hub `robertglowacki83/` — images are built and pushed automatically by `.github/workflows/docker-ci.yml` on every push to `master`):
 ```bash
 docker-compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml up --pull always -d
 docker-compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml down
@@ -72,7 +66,7 @@ docker-compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/
 
 | Service                  | Port              | Notes                                    |
 |--------------------------|-------------------|------------------------------------------|
-| Kafka (external clients) | `localhost:29092` | Use in `kafka-producer-local.properties` |
+| Kafka (external clients) | `localhost:9092`  | For external tooling only (e.g. console consumer) |
 | Schema Registry          | `localhost:8081`  |                                          |
 | Pinot Controller UI      | `0.0.0.0:9000`    | Web UI + REST API                        |
 | Pinot Broker             | `localhost:8099`  | Query endpoint                           |
@@ -87,13 +81,17 @@ docker exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/kafka/bin/kafka-conso
 
 ## Apache Pinot Tables
 
-Two tables are managed by `cluster-setup/table_config/add-tables.sh`:
+Three tables are managed by `cluster-setup/table_config/add-tables.sh`:
 
 - **`trade` (REALTIME)** — consumes from the Kafka `trade` topic; schema in `trade_table_schema.json`
+- **`gdansk_public_transport` (REALTIME)** — consumes from the Kafka `gdansk-public-transport` topic; JSON-decoded; 7-day retention; schema in `gdansk_public_transport_table_schema.json`
 - **`gdansk_public_transport` (OFFLINE)** — batch-ingested from S3; schema in `gdansk_public_transport_table_schema.json`
 
 The `pinot-command-runner` init container runs this script automatically when starting with `--profile init`. To re-register tables against a running controller directly:
 ```bash
+curl -X POST -H "Content-Type: application/json" -d @cluster-setup/table_config/gdansk_public_transport_table_schema.json http://localhost:9000/schemas
+curl -X POST -H "Content-Type: application/json" -d @cluster-setup/table_config/gdansk_public_transport_offline_table_config.json http://localhost:9000/tables
+curl -X POST -H "Content-Type: application/json" -d @cluster-setup/table_config/gdansk_public_transport_realtime_table_config.json http://localhost:9000/tables
 curl -X POST -H "Content-Type: application/json" -d @cluster-setup/table_config/trade_table_schema.json http://localhost:9000/schemas
 curl -X POST -H "Content-Type: application/json" -d @cluster-setup/table_config/trade_table_config.json http://localhost:9000/tables
 ```

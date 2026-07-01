@@ -6,15 +6,7 @@ public class KafkaProducerApp {
     public static void main(String[] args) {
         log.info("Starting Kafka Producer Application");
 
-        if (args.length < 1) {
-            log.error("Please provide configuration type (local or container)");
-            System.exit(1);
-        }
-
-        String configType = args[0];
-        log.info("Starting Kafka Producer with configuration: {}", configType);
-
-        try (KafkaTopicProducer kafkaProducer = new KafkaCustomTopicProducer(configType)) {
+        try (KafkaTopicProducer kafkaProducer = new KafkaCustomTopicProducer()) {
             kafkaProducer.produce();
             log.info("Kafka Producer Application finished");
         } catch (Exception e) {
