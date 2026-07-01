@@ -26,16 +26,15 @@ services:
     container_name: kafka
     restart: unless-stopped
     ports:
-      - "${BIND}:9092:9092"   # internal (Docker network only)
-      - "${BIND}:29092:29092" # localhost clients
+      - "${BIND}:9092:9092"
       - "${BIND}:19092:19092" # metrics
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: "controller,broker"
       KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-      KAFKA_LISTENERS: "CONTROLLER://:9093, INTERNAL://:9092, EXTERNAL://:29092"
-      KAFKA_ADVERTISED_LISTENERS: "INTERNAL://kafka:9092, EXTERNAL://localhost:29092"
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT"
+      KAFKA_LISTENERS: "CONTROLLER://:9093, INTERNAL://:9092"
+      KAFKA_ADVERTISED_LISTENERS: "INTERNAL://kafka:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT"
       KAFKA_INTER_BROKER_LISTENER_NAME: "INTERNAL"
       KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -328,24 +327,13 @@ services:
       - superset_admin_password
       - superset_admin_username
       - superset_admin_email
+      - superset_maptiler_api_key
     volumes:
       - ../superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+      - ../superset/superset-init.sh:/app/pythonpath/superset-init.sh:ro
+      - ../superset/dashboards:/app/pythonpath/dashboards:ro
       - ../volumes/superset:/app/superset_home
-    command:
-      - /bin/sh
-      - -c
-      - |
-        superset db upgrade &&
-        superset fab create-admin \
-          --username $$(cat /run/secrets/superset_admin_username) \
-          --firstname Admin \
-          --lastname Admin \
-          --email $$(cat /run/secrets/superset_admin_email) \
-          --password $$(cat /run/secrets/superset_admin_password) &&
-        superset init &&
-        superset set_database_uri \
-          -d "Apache Pinot" \
-          -u "${SUPERSET_PINOT_URI}"
+    command: ["/bin/sh", "/app/pythonpath/superset-init.sh"]
     networks:
       - pinot-network
 
@@ -359,6 +347,7 @@ services:
       SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
     secrets:
       - superset_secret_key
+      - superset_maptiler_api_key
     volumes:
       - ../superset/superset_config.py:/app/pythonpath/superset_config.py:ro
       - ../volumes/superset:/app/superset_home
@@ -392,3 +381,5 @@ secrets:
     file: ./secrets/superset_admin_username
   superset_admin_email:
     file: ./secrets/superset_admin_email
+  superset_maptiler_api_key:
+    file: ./secrets/superset_maptiler_api_key
