@@ -45,12 +45,12 @@ Init containers are one-shot — they exit after completing their task. Run them
 Populate the following files before the first run:
 
 ```
-cluster-setup/container/secrets/aws_credentials          # AWS credentials for S3/Pinot access
-cluster-setup/container/secrets/grafana_admin_password   # Grafana admin password
-cluster-setup/container/secrets/superset_secret_key      # Long random string for Flask session signing
-cluster-setup/container/secrets/superset_admin_password  # Superset admin password
-cluster-setup/container/secrets/superset_admin_username  # Superset admin username
-cluster-setup/container/secrets/superset_admin_email     # Superset admin email
+cluster-setup/container/secrets/aws_credentials            # AWS credentials for S3/Pinot access
+cluster-setup/container/secrets/grafana_admin_password     # Grafana admin password
+cluster-setup/container/secrets/superset_secret_key        # Long random string for Flask session signing
+cluster-setup/container/secrets/superset_admin_password    # Superset admin password
+cluster-setup/container/secrets/superset_admin_username    # Superset admin username
+cluster-setup/container/secrets/superset_admin_email       # Superset admin email
 cluster-setup/container/secrets/superset_maptiler_api_key  # MapTiler API key for map visualisations
 ```
 

@@ -8,16 +8,18 @@ Data Operations Center is a data engineering platform that:
 - streams data through Kafka into realtime Apache Pinot tables,
 - ingests offline data from S3 bucket into Apache Pinot offline tables. 
 
+BI dashboards are served by Apache Superset (connected to Pinot). 
 Monitoring is provided by Prometheus + Grafana.
+Additional docs: `BUSINESS_OVERVIEW.md` (architecture and use cases), `cluster-setup/README-docker.md` (detailed Docker stack reference).
 
 ## Modules
 
 | Directory             | Language               | Purpose                                                               |
 |-----------------------|------------------------|-----------------------------------------------------------------------|
 | `kafka-producer-app/` | Java 21 / Maven        | Kafka producer that publishes Avro-serialized `Trade` events          |
-| `cluster-setup/`      | Docker Compose, shell  | Infrastructure: Kafka, Schema Registry, Pinot, Prometheus, Grafana    |
+| `cluster-setup/`      | Docker Compose, shell  | Infrastructure: Kafka, Schema Registry, Pinot, Superset, Prometheus, Grafana |
 | `k8s/`                | Kubernetes / Kustomize | Kubernetes manifests for Zookeeper, Kafka (KRaft mode), Apache Pinot  |
-| `cluster-setup/py/`   | Python                 | Py script that fetches Gdansk GPS data (via AWS Lambda) → S3          |
+| `cluster-setup/py/`   | Python                 | Gdansk GPS fetchers: `_aws.py` (Lambda → S3), `_github_action.py` (CI → local file), `_kafka.py` (streams to Kafka, runs as compose service) |
 
 ## Building the Kafka Producer App
 
@@ -35,13 +37,20 @@ The JAR entry point is `KafkaProducerApp`. Dependencies land in `target/lib/`. T
 
 ## Running the Cluster (Docker Compose)
 
-Before first run, populate the secrets files:
+Before first run, populate the secrets files (the `secrets/` directory is gitignored):
 - `cluster-setup/container/secrets/aws_credentials` — AWS credentials for Pinot's S3 access
 - `cluster-setup/container/secrets/grafana_admin_password` — Grafana admin password
+- `cluster-setup/container/secrets/superset_secret_key` — long random string for Flask session signing
+- `cluster-setup/container/secrets/superset_admin_password` — Superset admin password
+- `cluster-setup/container/secrets/superset_admin_username` — Superset admin username
+- `cluster-setup/container/secrets/superset_admin_email` — Superset admin email
+- `cluster-setup/container/secrets/superset_maptiler_api_key` — MapTiler API key for map visualizations
 
-Build the custom Apache Pinot image (must be done before first start in dev mode):
+Build the custom images 
+(must be done before first start in dev mode):
 ```bash
 docker build -t apache-pinot:1.4.0 -f cluster-setup/container/Dockerfile.apache-pinot .
+docker build -t superset:4.1.2 -f cluster-setup/container/Dockerfile.superset .
 ```
 
 **Dev mode** (uses locally built images, `DOCKER_IMAGE_BASE_PATH` is empty):
@@ -49,7 +58,8 @@ docker build -t apache-pinot:1.4.0 -f cluster-setup/container/Dockerfile.apache-
 # Start core services
 docker-compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml up
 
-# Also run init containers (kafka-producer + pinot-command-runner to seed tables)
+# Also run init containers (kafka-topic-init, pinot-command-runner to seed tables,
+# kafka-producer, pinot-ingestion-runner for S3 batch ingestion, superset-init)
 docker-compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml --profile init up
 
 # Stop
@@ -64,14 +74,15 @@ docker-compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/
 
 ### Service Ports
 
-| Service                  | Port              | Notes                                    |
-|--------------------------|-------------------|------------------------------------------|
+| Service                  | Port              | Notes                                             |
+|--------------------------|-------------------|---------------------------------------------------|
 | Kafka (external clients) | `localhost:9092`  | For external tooling only (e.g. console consumer) |
-| Schema Registry          | `localhost:8081`  |                                          |
-| Pinot Controller UI      | `0.0.0.0:9000`    | Web UI + REST API                        |
-| Pinot Broker             | `localhost:8099`  | Query endpoint                           |
-| Prometheus               | `localhost:9090`  |                                          |
-| Grafana                  | `0.0.0.0:3000`    |                                          |
+| Schema Registry          | `localhost:8081`  |                                                   |
+| Pinot Controller UI      | `0.0.0.0:9000`    | Web UI + REST API                                 |
+| Pinot Broker             | `localhost:8099`  | Query endpoint                                    |
+| Prometheus               | `localhost:9090`  |                                                   |
+| Grafana                  | `0.0.0.0:3000`    |                                                   |
+| Superset                 | `0.0.0.0:8088`    | BI dashboards over Pinot (via `pinotdb` driver)   |
 
 ### Verifying Kafka Messages
 
@@ -124,19 +135,19 @@ kubectl get pods,svc,pvc -n data-ops-center
 
 The Lambda fetches GPS positions from the Gdansk public transport API and stores JSON-lines files in S3 bucket `gdansk-public-transport` under `artifacts/YYYY/MM/DD/HH-MM.txt`.
 
-To package and deploy:
+Deployment is automated by `.github/workflows/lambda-function.yaml`. To package manually:
 ```bash
 rm -rf aws_lambda
 mkdir -p aws_lambda
 cd aws_lambda
 pip install requests schedule boto3 -t .
-cp ../cluster-setup/py/gdansk_public_transport.py .
+cp ../cluster-setup/py/gdansk_public_transport_aws.py .
 # Windows PowerShell:
 Compress-Archive -Path * -DestinationPath function.zip
 # Upload function.zip to AWS Lambda
 ```
 
-Handler entry point: `gdansk_public_transport.handler`.
+Handler entry point: `gdansk_public_transport_aws.lambda_handler`.
 
 ## Architecture Notes
 
@@ -144,3 +155,6 @@ Handler entry point: `gdansk_public_transport.handler`.
 - The custom Pinot Docker image (`Dockerfile.apache-pinot`) copies all files from `cluster-setup/table_config/` and `cluster-setup/pinot/` into the image at build time, so rebuilding is required when those configs change.
 - Prometheus scrapes JMX metrics from Kafka (port 19092) and from each Pinot component via their respective JMX exporter ports. The JMX config lives in `cluster-setup/jmx_exporter/kafka_jmx_config.yml`.
 - The `gdansk_public_transport_github_action.py` script is the CI/GitHub Actions variant of the Lambda fetcher — it appends to a local file instead of uploading to S3.
+- The `gdansk-public-transport-kafka-producer` compose service (always on, not init-only) runs `gdansk_public_transport_kafka.py`: it polls the Gdansk API every 120 s and publishes only changed vehicle positions to the `gdansk-public-transport` topic, keyed by `vehicleId`.
+- The `pinot-ingestion-runner` init container launches a batch ingestion job; the job spec file is selected per env via `DATA_INGESTION_JOB_SPEC_FILE_NAME` (`env.dev` uses the local-filesystem spec, `env.prod` the S3 spec).
+- Superset dashboards are version-controlled as YAML under `cluster-setup/superset/dashboards/`. The MapTiler API key is never stored there — `superset-init.sh` substitutes the `__MAPTILER_API_KEY__` placeholder from the secret at import time. Sample Pinot queries live in `cluster-setup/table_config/gdansk_public_transport_queries.sql`.

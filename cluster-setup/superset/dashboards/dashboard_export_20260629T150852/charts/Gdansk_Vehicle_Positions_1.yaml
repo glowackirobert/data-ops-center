@@ -14,7 +14,7 @@
     filter_nulls: true
     adhoc_filters:
     - clause: WHERE
-      comparator: No filter
+      comparator: 'DATEADD(DATETIME("now"), -2, minute) : now'
       expressionType: SIMPLE
       operator: TEMPORAL_RANGE
       subject: generatedTransformed
@@ -42,7 +42,17 @@
     legend_format: SMART_NUMBER
     dimension: routeShortName
     color_scheme: supersetColors
-    js_columns: []
+    js_columns:
+    - direction
+    - delay
+    - lat
+    - lon
+    js_tooltip: "function(o) {\n  if (!o || !o.object) return '';\n  var d = o.object;\n\
+      \  var lat = Math.abs(d.lat).toFixed(5);\n  var lon = Math.abs(d.lon).toFixed(5);\n\
+      \  var ns = d.lat >= 0 ? 'N' : 'S';\n  var ew = d.lon >= 0 ? 'E' : 'W';\n\
+      \  return '<b>Direction:</b> ' + d.direction + '\xb0<br>'\n       + '<b>Delay:</b>\
+      \ ' + d.delay + ' s<br>'\n       + '<b>Position:</b> ' + lat + '\xb0' + ns +\
+      \ ', ' + lon + '\xb0' + ew;\n}"
     time_grain_sqla: null
     granularity: null
     extra_form_data: {}
