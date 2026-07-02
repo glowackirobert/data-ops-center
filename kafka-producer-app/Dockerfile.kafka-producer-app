@@ -13,16 +13,39 @@ RUN mvn dependency:go-offline -B
 # Build the project
 RUN mvn clean package -U
 
-# Runtime stage
-FROM eclipse-temurin:21-jre-alpine
+# jlink stage - create minimal custom JRE containing only required modules
+FROM eclipse-temurin:21-alpine AS jre-build
 
 WORKDIR /app
 
-# Copy the JAR file and its dependencies
+COPY --from=build /app/target/lib/ ./lib/
 COPY --from=build /app/target/kafka-producer-*.jar ./
-COPY --from=build /app/target/lib/ /app/lib/
+
+# jdeps detects required modules; extras cover Kafka JMX, JNDI, and reflection-heavy libs
+RUN JAR=$(ls kafka-producer-*.jar) && \
+    MODULES=$(jdeps --ignore-missing-deps \
+        --print-module-deps \
+        --multi-release 21 \
+        --class-path 'lib/*' \
+        "$JAR") && \
+    jlink \
+        --add-modules "${MODULES},java.naming,java.management,jdk.unsupported,java.security.jgss" \
+        --strip-debug \
+        --no-man-pages \
+        --no-header-files \
+        --compress=2 \
+        --output /jre
+
+# Runtime stage - plain alpine + custom JRE (no full JDK/JRE base image)
+FROM alpine:3.20
+
+WORKDIR /app
+
+COPY --from=jre-build /jre /jre
+COPY --from=build /app/target/kafka-producer-*.jar ./
+COPY --from=build /app/target/lib/ ./lib/
 
 ENV CONFIG_TYPE=container
+ENV PATH="/jre/bin:${PATH}"
 
-# Run the application using the manifest-defined main class
 CMD ["sh", "-c", "java -jar kafka-producer-*.jar ${CONFIG_TYPE}"]
