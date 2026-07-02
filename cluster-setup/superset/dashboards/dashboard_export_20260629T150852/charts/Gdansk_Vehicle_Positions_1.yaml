@@ -45,16 +45,25 @@
     js_columns:
     - headsign
     - delay
-    js_tooltip: "function(o) {\n  if (!o || !o.object) return '';\n  var d = o.object;\n\
-      \  var extra = d.extraProps || {};\n  function toDMS(dec, posLabel, negLabel)\
-      \ {\n    var abs = Math.abs(dec);\n    var deg = Math.floor(abs);\n    var minFull\
-      \ = (abs - deg) * 60;\n    var min = Math.floor(minFull);\n    var sec = Math.round((minFull\
-      \ - min) * 60);\n    return deg + '\\xb0 ' + min + \"' \" + sec + '\" ' + (dec\
-      \ >= 0 ? posLabel : negLabel);\n  }\n  return '<b>Route:</b> ' + (d.cat_color\
-      \ || '?') + '<br>'\n       + '<b>Headsign:</b> ' + (extra.headsign || '\\u2014') + '<br>'\n       + '<b>Delay:</b>\
-      \ ' + (extra.delay !== undefined ? extra.delay + ' s' : '\\u2014') + '<br>'\n\
-      \       + '<b>Lat:</b> ' + toDMS(d.position[1], 'N', 'S') + '<br>'\n       +\
-      \ '<b>Lon:</b> ' + toDMS(d.position[0], 'E', 'W');\n}"
+    js_tooltip: |
+      function(o) {
+        if (!o || !o.object) return '';
+        var d = o.object;
+        var extra = d.extraProps || {};
+        function toDMS(dec, posLabel, negLabel) {
+          var abs = Math.abs(dec);
+          var deg = Math.floor(abs);
+          var minFull = (abs - deg) * 60;
+          var min = Math.floor(minFull);
+          var sec = Math.round((minFull - min) * 60);
+          return deg + '\xb0 ' + min + "' " + sec + '" ' + (dec >= 0 ? posLabel : negLabel);
+        }
+        return '<b>Route:</b> ' + (d.cat_color || '?') + '<br>'
+             + '<b>Headsign:</b> ' + (extra.headsign || '—') + '<br>'
+             + '<b>Delay:</b> ' + (extra.delay !== undefined ? extra.delay + ' s' : '—') + '<br>'
+             + '<b>Lat:</b> ' + toDMS(d.position[1], 'N', 'S') + '<br>'
+             + '<b>Lon:</b> ' + toDMS(d.position[0], 'E', 'W');
+      }
     time_grain_sqla: null
     granularity: null
     extra_form_data: {}
