@@ -43,16 +43,18 @@
     dimension: routeShortName
     color_scheme: supersetColors
     js_columns:
-    - direction
+    - headsign
     - delay
-    - lat
-    - lon
     js_tooltip: "function(o) {\n  if (!o || !o.object) return '';\n  var d = o.object;\n\
-      \  var lat = Math.abs(d.lat).toFixed(5);\n  var lon = Math.abs(d.lon).toFixed(5);\n\
-      \  var ns = d.lat >= 0 ? 'N' : 'S';\n  var ew = d.lon >= 0 ? 'E' : 'W';\n\
-      \  return '<b>Direction:</b> ' + d.direction + '\xb0<br>'\n       + '<b>Delay:</b>\
-      \ ' + d.delay + ' s<br>'\n       + '<b>Position:</b> ' + lat + '\xb0' + ns +\
-      \ ', ' + lon + '\xb0' + ew;\n}"
+      \  var extra = d.extraProps || {};\n  function toDMS(dec, posLabel, negLabel)\
+      \ {\n    var abs = Math.abs(dec);\n    var deg = Math.floor(abs);\n    var minFull\
+      \ = (abs - deg) * 60;\n    var min = Math.floor(minFull);\n    var sec = Math.round((minFull\
+      \ - min) * 60);\n    return deg + '\\xb0 ' + min + \"' \" + sec + '\" ' + (dec\
+      \ >= 0 ? posLabel : negLabel);\n  }\n  return '<b>Route:</b> ' + (d.cat_color\
+      \ || '?') + '<br>'\n       + '<b>Headsign:</b> ' + (extra.headsign || '\\u2014') + '<br>'\n       + '<b>Delay:</b>\
+      \ ' + (extra.delay !== undefined ? extra.delay + ' s' : '\\u2014') + '<br>'\n\
+      \       + '<b>Lat:</b> ' + toDMS(d.position[1], 'N', 'S') + '<br>'\n       +\
+      \ '<b>Lon:</b> ' + toDMS(d.position[0], 'E', 'W');\n}"
     time_grain_sqla: null
     granularity: null
     extra_form_data: {}

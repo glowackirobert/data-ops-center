@@ -42,8 +42,28 @@ for entry in sorted(os.listdir(src)):
     print(f'Prepared /tmp/{entry}.zip')
 PYEOF
 
-for zip_file in /tmp/*.zip; do
-  [ -f "$zip_file" ] || continue
-  superset import_dashboards -p "$zip_file" --username "$(cat /run/secrets/superset_admin_username)" || true
-  rm -f "$zip_file"
-done
+python3 << 'IMPORTEOF'
+import os, io, zipfile
+from superset.app import create_app
+
+app = create_app()
+with app.app_context():
+    from superset.commands.importers.v1.assets import ImportAssetsCommand
+    from superset import security_manager
+    from superset.utils.core import override_user
+
+    admin_username = open('/run/secrets/superset_admin_username').read().strip()
+    admin = security_manager.find_user(username=admin_username)
+
+    for zip_path in sorted(f for f in os.listdir('/tmp') if f.endswith('.zip')):
+        full_path = f'/tmp/{zip_path}'
+        contents = {}
+        with zipfile.ZipFile(full_path) as zf:
+            for name in zf.namelist():
+                if name.endswith('.yaml'):
+                    contents[name] = zf.read(name).decode('utf-8')
+        with override_user(admin):
+            ImportAssetsCommand(contents).run()
+        os.remove(full_path)
+        print(f'Imported {zip_path} ({len(contents)} files, overwrite=True)')
+IMPORTEOF
