@@ -6,10 +6,10 @@
     "segmentUriPushJobRunnerClassName": "org.apache.pinot.plugin.ingestion.batch.standalone.SegmentUriPushJobRunner"
   },
   "jobType": "SegmentCreationAndTarPush",
-  "inputDirURI": "s3://gdansk-public-transport/2026/01/28",
+  "inputDirURI": "s3://gdansk-public-transport/artifacts/${DATE}",
   "searchRecursively": true,
   "includeFileNamePattern": "glob:**/*.txt",
-  "outputDirURI": "/tmp/pinot/segments",
+  "outputDirURI": "/tmp/pinot/segments/${DATE}",
   "overwriteOutput": true,
   "pinotFSSpecs": [
     {
@@ -24,18 +24,27 @@
     "dataFormat": "json",
     "className": "org.apache.pinot.plugin.inputformat.json.JSONRecordReader"
   },
+  "segmentNameGeneratorSpec": {
+    "type": "normalizedDate",
+    "configs": {
+      "segment.name.prefix": "gdansk_public_transport",
+      "segment.name.postfix": "",
+      "use.global.directory.sequence.id": "false"
+    }
+  },
   "tableSpec": {
     "tableName": "gdansk_public_transport",
-    "schemaURI": "http://localhost:9000/tables/gdansk_public_transport/schema",
-    "tableConfigURI": "http://localhost:9000/tables/gdansk_public_transport_OFFLINE"
+    "schemaURI": "http://pinot-controller:9000/tables/gdansk_public_transport/schema",
+    "tableConfigURI": "http://pinot-controller:9000/tables/gdansk_public_transport_OFFLINE"
   },
   "pinotClusterSpecs": [
     {
-      "controllerURI": "http://localhost:9000"
+      "controllerURI": "http://pinot-controller:9000"
     }
   ],
   "pushJobSpec": {
-    "pushAttempts": 2,
-    "pushRetryIntervalMillis": 1000
+    "pushAttempts": 3,
+    "pushRetryIntervalMillis": 5000,
+    "pushParallelism": 1
   }
 }
