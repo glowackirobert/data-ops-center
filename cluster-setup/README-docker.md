@@ -107,6 +107,25 @@ docker compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/
 docker compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml down
 ```
 
+## S3 Batch Ingestion
+
+The `gdansk_public_transport_ingestion_job_spec.json` spec reads from `s3://gdansk-public-transport/artifacts/YYYY/MM/DD/` and pushes segments to the offline Pinot table.
+
+Pass the date via `INGESTION_DATE` (format `YYYY/MM/DD`). The compose command substitutes it into the spec before running.
+
+```bash
+# Run against an already-running cluster (skip init dependencies)
+INGESTION_DATE=2026/06/29 docker compose \
+  --env-file cluster-setup/env/env.prod \
+  -f cluster-setup/container/container-compose.yml \
+  --profile init \
+  run --no-deps pinot-ingestion-runner
+```
+
+To change the default date, edit `INGESTION_DATE` in `cluster-setup/env/env.prod`.
+
+It is safe to re-run — segments are named by date and overwritten, not duplicated.
+
 ## Superset Dashboards
 
 Dashboard definitions are version-controlled as YAML files under `cluster-setup/superset/dashboards/`. The MapTiler API key is **not** stored in those files — the placeholder `__MAPTILER_API_KEY__` is used instead.

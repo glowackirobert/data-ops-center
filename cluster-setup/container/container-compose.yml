@@ -279,12 +279,16 @@ services:
     profiles: ["init"]
     image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:${APACHE_PINOT_VERSION}
     container_name: pinot-ingestion-runner
-    entrypoint: [ "/opt/pinot/bin/pinot-admin.sh" ]
-    command: [ "LaunchDataIngestionJob", "-jobSpecFile", "/opt/pinot/scripts/${DATA_INGESTION_JOB_SPEC_FILE_NAME}" ]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        sed "s|\$${DATE}|$$INGESTION_DATE|g" /opt/pinot/scripts/gdansk_public_transport_ingestion_job_spec.json > /tmp/ingestion_spec.json &&
+        /opt/pinot/bin/pinot-admin.sh LaunchDataIngestionJob -jobSpecFile /tmp/ingestion_spec.json
     restart: "no"
     environment:
       JAVA_OPTS: "-Dpinot.admin.system.exit=true -Xmx1G"
       AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
+      INGESTION_DATE: ${INGESTION_DATE}
     secrets:
       - aws_credentials
     volumes:
