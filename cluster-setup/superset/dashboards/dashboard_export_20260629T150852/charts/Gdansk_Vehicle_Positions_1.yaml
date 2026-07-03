@@ -60,7 +60,7 @@
         }
         return '<b>Route:</b> ' + (d.cat_color || '?') + '<br>'
              + '<b>Headsign:</b> ' + (extra.headsign || '—') + '<br>'
-             + '<b>Delay:</b> ' + (extra.delay !== undefined ? extra.delay + ' s' : '—') + '<br>'
+             + '<b>Delay:</b> ' + (extra.delay !== undefined ? (extra.delay / 60).toFixed(1) + ' min' : '—') + '<br>'
              + '<b>Lat:</b> ' + toDMS(d.position[1], 'N', 'S') + '<br>'
              + '<b>Lon:</b> ' + toDMS(d.position[0], 'E', 'W');
       }
