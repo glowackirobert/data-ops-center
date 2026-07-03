@@ -49,6 +49,16 @@
       }
     ]
   },
+  "task": {
+    "taskTypeConfigsMap": {
+      "RealtimeToOfflineSegmentsTask": {
+        "schedule": "0 * * * * ?",
+        "bucketTimePeriod": "1d",
+        "bufferTimePeriod": "2h",
+        "maxNumRecordsPerSegment": "5000000"
+      }
+    }
+  },
   "metadata": {
     "customConfigs": {}
   },
