@@ -14,11 +14,11 @@ Additional docs: `BUSINESS_OVERVIEW.md` (architecture and use cases), `cluster-s
 
 ## Modules
 
-| Directory             | Language               | Purpose                                                               |
-|-----------------------|------------------------|-----------------------------------------------------------------------|
-| `kafka-producer-app/` | Java 21 / Maven        | Kafka producer that publishes Avro-serialized `Trade` events          |
-| `cluster-setup/`      | Docker Compose, shell  | Infrastructure: Kafka, Schema Registry, Pinot, Superset, Prometheus, Grafana |
-| `k8s/`                | Kubernetes / Kustomize | Kubernetes manifests for Zookeeper, Kafka (KRaft mode), Apache Pinot  |
+| Directory             | Language               | Purpose                                                                                                                                      |
+|-----------------------|------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| `kafka-producer-app/` | Java 21 / Maven        | Kafka producer that publishes Avro-serialized `Trade` events                                                                                 |
+| `cluster-setup/`      | Docker Compose, shell  | Infrastructure: Kafka, Schema Registry, Pinot, Superset, Prometheus, Grafana                                                                 |
+| `k8s/`                | Kubernetes / Kustomize | Kubernetes manifests for Zookeeper, Kafka (KRaft mode), Apache Pinot                                                                         |
 | `cluster-setup/py/`   | Python                 | Gdansk GPS fetchers: `_aws.py` (Lambda → S3), `_github_action.py` (CI → local file), `_kafka.py` (streams to Kafka, runs as compose service) |
 
 ## Building the Kafka Producer App

@@ -2,9 +2,10 @@ import json
 import requests
 from datetime import datetime, timezone
 import boto3
+from botocore.config import Config
 from io import StringIO
 
-s3 = boto3.client('s3')
+s3 = boto3.client('s3', config=Config(connect_timeout=5, read_timeout=10))
 S3_BUCKET_NAME = 'gdansk-public-transport'
 
 def fetch_vehicles_data():
@@ -25,7 +26,7 @@ def upload_vehicles_data_to_s3(vehicles, bucket_name):
         return
 
     now = datetime.now(timezone.utc)
-    s3_key = now.strftime('%Y/%m/%d/%Y-%m-%d-%H-%M.txt')
+    s3_key = now.strftime('raw/%Y/%m/%d/%Y-%m-%d-%H-%M.txt')
 
     # Serialize vehicles JSON lines to a string buffer
     buffer = StringIO()

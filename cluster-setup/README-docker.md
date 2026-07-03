@@ -74,8 +74,8 @@ docker build -t superset:4.1.2 -f cluster-setup/container/Dockerfile.superset .
 docker build -t kafka-producer-app:1.0.0 -f kafka-producer-app/Dockerfile.kafka-producer-app .
 ```
 
-For prod images are pulled from Docker Hub `robertglowacki83/` — 
-images are built and pushed automatically by `.github/workflows/docker-ci.yml` on every push to `master`.
+For prod - images are pulled from Docker Hub `robertglowacki83/` — 
+Images are built and pushed automatically by `.github/workflows/docker-ci.yml` on every push to `master`.
 
 
 
