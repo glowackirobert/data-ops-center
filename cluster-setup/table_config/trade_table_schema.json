@@ -37,15 +37,15 @@
     {
       "name": "ingestionTime",
       "dataType": "LONG",
-      "format": "EPOCH",
-      "granularity": "DAYS",
+      "format": "1:MILLISECONDS:EPOCH",
+      "granularity": "1:MILLISECONDS",
       "defaultNullValue": -1
     },
     {
       "name": "tradeDate",
       "dataType": "LONG",
-      "format": "EPOCH",
-      "granularity": "DAYS",
+      "format": "1:NANOSECONDS:EPOCH",
+      "granularity": "1:NANOSECONDS",
       "defaultNullValue": -1
     }
   ]

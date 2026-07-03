@@ -6,29 +6,30 @@ Docker Compose based setup for the Data Ops Center cluster.
 
 ### Core services (always running)
 
-| Service          | Port         | Description                                                                                                                      |
-|------------------|--------------|----------------------------------------------------------------------------------------------------------------------------------|
-| Zookeeper        | 2181         | Coordination service required by Apache Pinot                                                                                    |
-| Kafka            | 9092 / 29092 | Message broker in KRaft mode. Port 9092 is internal (container network), 29092 is for external clients (e.g. local producer app) |
-| Schema Registry  | 8081         | Confluent Schema Registry for Avro schema management                                                                             |
-| Pinot Controller | 9000         | Manages cluster metadata, table configs and segment assignment. Web UI available at `:9000`                                      |
-| Pinot Broker     | 8099         | Accepts SQL queries and routes them to the appropriate servers                                                                   |
-| Pinot Server     | 8097 / 8098  | Stores and serves segments. Admin API on 8097, query port on 8098                                                                |
-| Pinot Minion     | 7500         | Background task executor for offline segment operations                                                                          |
-| Prometheus       | 9090         | Scrapes JMX metrics from Kafka and all Pinot components                                                                          |
-| Grafana          | 3000         | Dashboards over Prometheus metrics. Admin password set via secret file                                                           |
-| Superset         | 8088         | BI and data exploration UI connected to Pinot via `pinotdb`. Admin credentials set via secret files                              |
+| Service               | Port | Description                                                                                         |
+|-----------------------|-------|-----------------------------------------------------------------------------------------------------|
+| Zookeeper             | 2181  | Coordination service required by Apache Pinot                                                       |
+| Kafka                 | 9092  | Message broker in KRaft mode.                                                                       |
+| Schema Registry       | 8081  | Confluent Schema Registry for Avro schema management                                                |
+| Pinot Controller /UI/ | 9000  | Manages cluster metadata, table configs and segment assignment.                                     |
+| Pinot Broker          | 8099  | Accepts SQL queries and routes them to the appropriate servers                                      |
+| Pinot Server /API/    | 8097  | Stores and serves segments.                                                                         |
+| Pinot Server /query/  | 8098  | Stores and serves segments.                                                                         |
+| Pinot Minion          | 7500  | Background task executor for offline segment operations                                             |
+| Prometheus            | 9090  | Scrapes JMX metrics from Kafka and all Pinot components                                             |
+| Grafana               | 3000  | Dashboards over Prometheus metrics. Admin password set via secret file                              |
+| Superset              | 8088  | BI and data exploration UI connected to Pinot via `pinotdb`. Admin credentials set via secret files |
 
 ### Init containers (run once, `--profile init`)
 
-| Container                | Description                                                                                                                                |
-|--------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
-| `kafka-topic-init`       | Creates the `trade` and `gdansk-public-transport` Kafka topics                                                                             |
-| `kafka-producer`         | Publishes Avro-serialized trade events to Kafka                                                                                            |
-| `pinot-command-runner`   | Registers schemas and tables with the Pinot Controller (trade REALTIME, gdansk_public_transport OFFLINE + REALTIME)                        |
-| `gdansk-kafka-producer`  | Fetches current GPS positions from the Gdansk public transport API and publishes them as JSON to the `gdansk-public-transport` Kafka topic |
-| `pinot-ingestion-runner` | Runs a batch ingestion job that reads from S3 and pushes segments to Pinot                                                                 |
-| `superset-init`          | Runs DB migrations, creates the admin user, initialises Superset roles, registers the Apache Pinot database connection, and imports dashboards with the MapTiler API key injected at runtime |
+| Container                                | Description                                                                                                                                                                                  |
+|------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `kafka-topic-init`                       | Creates the `trade` and `gdansk-public-transport` Kafka topics                                                                                                                               |
+| `kafka-producer`                         | Publishes Avro-serialized trade events to Kafka                                                                                                                                              |
+| `pinot-command-runner`                   | Registers schemas and tables with the Pinot Controller                                                                                                                                       |
+| `gdansk-public-transport-kafka-producer` | Fetches current GPS positions from the Gdansk public transport API and publishes them as JSON to the `gdansk-public-transport` Kafka topic                                                   |
+| `pinot-ingestion-runner`                 | Runs a batch ingestion job that reads from S3 and pushes segments to Pinot                                                                                                                   |
+| `superset-init`                          | Runs DB migrations, creates the admin user, initialises Superset roles, registers the Apache Pinot database connection, and imports dashboards with the MapTiler API key injected at runtime |
 
 Init containers are one-shot — they exit after completing their task. Run them once on first setup, or whenever you need to re-seed the cluster.
 
@@ -73,7 +74,8 @@ docker build -t superset:4.1.2 -f cluster-setup/container/Dockerfile.superset .
 docker build -t kafka-producer-app:1.0.0 -f kafka-producer-app/Dockerfile.kafka-producer-app .
 ```
 
-For prod, push these images to Docker Hub under `robertglowacki83/` and they will be pulled automatically.
+For prod images are pulled from Docker Hub `robertglowacki83/` — 
+images are built and pushed automatically by `.github/workflows/docker-ci.yml` on every push to `master`.
 
 
 

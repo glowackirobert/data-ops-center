@@ -1,60 +1,21 @@
 {
   "schemaName": "gdansk_public_transport",
   "dimensionFieldSpecs": [
-    {
-      "name": "routeShortName",
-      "dataType": "STRING"
-    },
-    {
-      "name": "headsign",
-      "dataType": "STRING"
-    },
-    {
-      "name": "vehicleCode",
-      "dataType": "STRING"
-    },
-    {
-      "name": "vehicleService",
-      "dataType": "STRING"
-    }
+    { "name": "vehicleId",      "dataType": "INT"    },
+    { "name": "vehicleCode",    "dataType": "STRING" },
+    { "name": "vehicleService", "dataType": "STRING" },
+    { "name": "routeId",        "dataType": "INT"    },
+    { "name": "routeShortName", "dataType": "STRING" },
+    { "name": "tripId",         "dataType": "INT"    },
+    { "name": "headsign",       "dataType": "STRING" },
+    { "name": "direction",      "dataType": "INT"    },
+    { "name": "gpsQuality",     "dataType": "INT"    }
   ],
   "metricFieldSpecs": [
-    {
-      "name": "tripId",
-      "dataType": "INT"
-    },
-    {
-      "name": "routeId",
-      "dataType": "INT"
-    },
-    {
-      "name": "vehicleId",
-      "dataType": "INT"
-    },
-    {
-      "name": "speed",
-      "dataType": "FLOAT"
-    },
-    {
-      "name": "direction",
-      "dataType": "INT"
-    },
-    {
-      "name": "delay",
-      "dataType": "INT"
-    },
-    {
-      "name": "lat",
-      "dataType": "DOUBLE"
-    },
-    {
-      "name": "lon",
-      "dataType": "DOUBLE"
-    },
-    {
-      "name": "gpsQuality",
-      "dataType": "INT"
-    }
+    { "name": "lat",   "dataType": "DOUBLE" },
+    { "name": "lon",   "dataType": "DOUBLE" },
+    { "name": "speed", "dataType": "FLOAT"  },
+    { "name": "delay", "dataType": "INT"    }
   ],
   "dateTimeFieldSpecs": [
     {
