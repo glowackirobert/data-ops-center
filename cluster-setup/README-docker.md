@@ -111,7 +111,7 @@ docker compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/
 
 ## S3 Batch Ingestion
 
-The `gdansk_public_transport_ingestion_job_spec.json` spec reads from `s3://gdansk-public-transport/artifacts/YYYY/MM/DD/` and pushes segments to the offline Pinot table.
+The `gdansk_public_transport_ingestion_job_spec.json` spec reads from `s3://gdansk-public-transport/raw/YYYY/MM/DD/` and pushes segments to the offline Pinot table.
 
 Pass the date via `INGESTION_DATE` (format `YYYY/MM/DD`). The compose command substitutes it into the spec before running.
 

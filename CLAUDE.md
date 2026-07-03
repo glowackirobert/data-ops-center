@@ -133,7 +133,7 @@ kubectl get pods,svc,pvc -n data-ops-center
 
 ## AWS Lambda (Gdansk Public Transport)
 
-The Lambda fetches GPS positions from the Gdansk public transport API and stores JSON-lines files in S3 bucket `gdansk-public-transport` under `artifacts/YYYY/MM/DD/HH-MM.txt`.
+The Lambda fetches GPS positions from the Gdansk public transport API and stores JSON-lines files in S3 bucket `gdansk-public-transport` under `raw/YYYY/MM/DD/HH-MM.txt`.
 
 Deployment is automated by `.github/workflows/lambda-function.yaml`. To package manually:
 ```bash
