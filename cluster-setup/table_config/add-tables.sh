@@ -1,6 +1,34 @@
 #!/bin/bash
 set -e
 
+MAX_RETRIES=5
+RETRY_DELAY=5
+
+post_with_retry() {
+  local description="$1"
+  local url="$2"
+  local file="$3"
+  local attempt=1
+
+  while [ $attempt -le $MAX_RETRIES ]; do
+    echo "Adding $description (attempt $attempt/$MAX_RETRIES)..."
+    if curl --fail -s -X POST \
+        -H "Content-Type: application/json" \
+        -d @"$file" \
+        "$url"; then
+      echo
+      echo "$description added successfully"
+      return 0
+    fi
+    echo "Attempt $attempt failed. Retrying in ${RETRY_DELAY}s..."
+    sleep $RETRY_DELAY
+    attempt=$((attempt + 1))
+  done
+
+  echo "ERROR: Failed to add $description after $MAX_RETRIES attempts"
+  return 1
+}
+
 GDANSK_PUBLIC_TRANSPORT_TABLE="gdansk_public_transport_OFFLINE"
 URL="http://pinot-controller:9000/tables/$GDANSK_PUBLIC_TRANSPORT_TABLE"
 if [ "$(curl -s -o /dev/null -w "%{http_code}" "$URL")" = "200" ]; then
@@ -24,7 +52,6 @@ fi
 
 GDANSK_PUBLIC_TRANSPORT_SCHEMA="gdansk_public_transport"
 URL="http://pinot-controller:9000/schemas/$GDANSK_PUBLIC_TRANSPORT_SCHEMA"
-
 if [ "$(curl -s -o /dev/null -w "%{http_code}" "$URL")" = "200" ]; then
   echo "Deleting schema: $GDANSK_PUBLIC_TRANSPORT_SCHEMA"
   curl -X DELETE "$URL"
@@ -56,39 +83,24 @@ else
 fi
 
 
-# Add gdansk public transport schema
-curl --fail -X POST \
-  -H "Content-Type: application/json" \
-  -d @/opt/pinot/scripts/gdansk_public_transport_table_schema.json \
-  http://pinot-controller:9000/schemas
-echo
+post_with_retry "gdansk_public_transport schema" \
+  "http://pinot-controller:9000/schemas" \
+  "/opt/pinot/scripts/gdansk_public_transport_table_schema.json"
 
-# Add gdansk public transport offline table
-curl --fail -X POST \
-  -H "Content-Type: application/json" \
-  -d @/opt/pinot/scripts/gdansk_public_transport_offline_table_config.json \
-  http://pinot-controller:9000/tables
-echo
+post_with_retry "gdansk_public_transport offline table" \
+  "http://pinot-controller:9000/tables" \
+  "/opt/pinot/scripts/gdansk_public_transport_offline_table_config.json"
 
-# Add gdansk public transport realtime table
-curl --fail -X POST \
-  -H "Content-Type: application/json" \
-  -d @/opt/pinot/scripts/gdansk_public_transport_realtime_table_config.json \
-  http://pinot-controller:9000/tables
-echo
+post_with_retry "gdansk_public_transport realtime table" \
+  "http://pinot-controller:9000/tables" \
+  "/opt/pinot/scripts/gdansk_public_transport_realtime_table_config.json"
 
-# Add trade schema
-curl --fail -X POST \
-  -H "Content-Type: application/json" \
-  -d @/opt/pinot/scripts/trade_table_schema.json \
-  http://pinot-controller:9000/schemas
-echo
+post_with_retry "trade schema" \
+  "http://pinot-controller:9000/tables" \
+  "/opt/pinot/scripts/trade_table_schema.json"
 
-# Add trade table
-curl --fail -X POST \
-  -H "Content-Type: application/json" \
-  -d @/opt/pinot/scripts/trade_table_config.json \
-  http://pinot-controller:9000/tables
-echo
+post_with_retry "trade table" \
+  "http://pinot-controller:9000/tables" \
+  "/opt/pinot/scripts/trade_table_config.json"
 
 echo "Tables added successfully"
