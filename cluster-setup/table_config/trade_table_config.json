@@ -5,7 +5,9 @@
 		"minimizeDataMovement": false,
 		"timeColumnName": "ingestionTime",
 		"timeType": "MILLISECONDS",
-		"replicasPerPartition": "1"
+		"replicasPerPartition": "1",
+		"retentionTimeUnit": "DAYS",
+		"retentionTimeValue": "7"
 	},
 	"tenants": {
 		"broker": "DefaultTenant",

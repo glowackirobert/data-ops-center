@@ -1,5 +1,6 @@
 {
   "schemaName": "gdansk_public_transport",
+  "enableColumnBasedNullHandling": true,
   "dimensionFieldSpecs": [
     { "name": "vehicleId",      "dataType": "INT"    },
     { "name": "vehicleCode",    "dataType": "STRING" },
@@ -22,13 +23,13 @@
       "name": "generatedTransformed",
       "dataType": "TIMESTAMP",
       "format": "1:MILLISECONDS:EPOCH",
-      "granularity": "1:MILLISECONDS"
+      "granularity": "1:SECONDS"
     },
     {
       "name": "scheduledTripStartTimeTransformed",
       "dataType": "TIMESTAMP",
       "format": "1:MILLISECONDS:EPOCH",
-      "granularity": "1:MILLISECONDS"
+      "granularity": "1:SECONDS"
     }
   ]
 }

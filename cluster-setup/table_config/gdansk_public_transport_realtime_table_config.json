@@ -28,7 +28,7 @@
     "enableDefaultStarTree": false,
     "enableDynamicStarTreeCreation": false,
     "aggregateMetrics": false,
-    "nullHandlingEnabled": false,
+    "nullHandlingEnabled": true,
     "columnMajorSegmentBuilderEnabled": true,
     "optimizeDictionary": false,
     "optimizeDictionaryForMetrics": false,
