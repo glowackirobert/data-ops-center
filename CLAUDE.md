@@ -44,7 +44,7 @@ Before first run, populate the secrets files (the `secrets/` directory is gitign
 - `cluster-setup/container/secrets/superset_admin_password` — Superset admin password
 - `cluster-setup/container/secrets/superset_admin_username` — Superset admin username
 - `cluster-setup/container/secrets/superset_admin_email` — Superset admin email
-- `cluster-setup/container/secrets/superset_maptiler_api_key` — MapTiler API key for map visualizations
+- `cluster-setup/container/secrets/superset_mapbox_api_key` — Mapbox API key for map visualizations
 
 Build the custom images 
 (must be done before first start in dev mode):
@@ -157,4 +157,4 @@ Handler entry point: `gdansk_public_transport_aws.lambda_handler`.
 - The `gdansk_public_transport_github_action.py` script is the CI/GitHub Actions variant of the Lambda fetcher — it appends to a local file instead of uploading to S3.
 - The `gdansk-public-transport-kafka-producer` compose service (always on, not init-only) runs `gdansk_public_transport_kafka.py`: it polls the Gdansk API every 120 s and publishes only changed vehicle positions to the `gdansk-public-transport` topic, keyed by `vehicleId`.
 - The `pinot-ingestion-runner` init container launches a batch ingestion job. The spec contains a `${DATE}` placeholder (format `YYYY/MM/DD`) that is substituted at runtime from the `INGESTION_DATE` env var.
-- Superset dashboards are version-controlled as YAML under `cluster-setup/superset/dashboards/`. The MapTiler API key is never stored there — `superset-init.sh` substitutes the `__MAPTILER_API_KEY__` placeholder from the secret at import time. Sample Pinot queries live in `cluster-setup/table_config/gdansk_public_transport_queries.sql`.
+- Superset dashboards are version-controlled as YAML under `cluster-setup/superset/dashboards/`. Map charts use built-in Mapbox styles authenticated at runtime via `MAPBOX_API_KEY` (from the `superset_mapbox_api_key` secret) — no key is stored in the YAML. `superset-init.sh` normalizes `metadata.yaml` to `type: assets` before import, since UI exports write `type: Dashboard`, which the assets importer rejects. Sample Pinot queries live in `cluster-setup/table_config/gdansk_public_transport_queries.sql`.

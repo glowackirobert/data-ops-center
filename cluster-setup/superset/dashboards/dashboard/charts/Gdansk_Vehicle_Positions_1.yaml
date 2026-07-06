@@ -18,7 +18,7 @@
       expressionType: SIMPLE
       operator: TEMPORAL_RANGE
       subject: generatedTransformed
-    mapbox_style: https://api.maptiler.com/maps/streets-v2/style.json?key=__MAPTILER_API_KEY__
+    mapbox_style: mapbox://styles/mapbox/streets-v9
     autozoom: true
     viewport:
       bearing: 0

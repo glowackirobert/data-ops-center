@@ -331,7 +331,7 @@ services:
       - superset_admin_password
       - superset_admin_username
       - superset_admin_email
-      - superset_maptiler_api_key
+      - superset_mapbox_api_key
     volumes:
       - ../superset/superset_config.py:/app/pythonpath/superset_config.py:ro
       - ../superset/superset-init.sh:/app/pythonpath/superset-init.sh:ro
@@ -351,12 +351,12 @@ services:
       SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
     secrets:
       - superset_secret_key
-      - superset_maptiler_api_key
+      - superset_mapbox_api_key
     volumes:
       - ../superset/superset_config.py:/app/pythonpath/superset_config.py:ro
       - ../volumes/superset:/app/superset_home
     depends_on:
-      pinot-broker:
+      pinot-server:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8088/health || exit 1"]
@@ -385,5 +385,5 @@ secrets:
     file: ./secrets/superset_admin_username
   superset_admin_email:
     file: ./secrets/superset_admin_email
-  superset_maptiler_api_key:
-    file: ./secrets/superset_maptiler_api_key
+  superset_mapbox_api_key:
+    file: ./secrets/superset_mapbox_api_key

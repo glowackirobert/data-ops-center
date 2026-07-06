@@ -12,13 +12,14 @@ superset fab create-admin \
 
 superset init
 
-# Build zips from YAML source dirs, substituting the MapTiler API key, then import.
+# Build zips from YAML source dirs, then import. The Mapbox API key is NOT baked
+# into the charts — Superset reads it at startup via MAPBOX_API_KEY in
+# superset_config.py (from the superset_mapbox_api_key secret).
 # metadata.yaml type is forced to "assets": UI exports say "type: Dashboard", but
 # ImportAssetsCommand only accepts "assets" and fails validation otherwise.
 python3 << 'PYEOF'
 import os, re, shutil
 
-maptiler_key = open('/run/secrets/superset_maptiler_api_key').read().strip()
 src = '/app/pythonpath/dashboards'
 
 for entry in sorted(os.listdir(src)):
@@ -29,13 +30,15 @@ for entry in sorted(os.listdir(src)):
     if os.path.exists(tmp_dir):
         shutil.rmtree(tmp_dir)
     shutil.copytree(src_dir, tmp_dir)
-    for root, _, files in os.walk(tmp_dir):
+    # Reset mtimes: Windows bind mounts can surface pre-1980 timestamps,
+    # which the ZIP format cannot encode.
+    for root, dirs, files in os.walk(tmp_dir):
+        for name in dirs + files:
+            os.utime(os.path.join(root, name))
         for fname in files:
-            if fname.endswith('.yaml'):
+            if fname == 'metadata.yaml':
                 fpath = os.path.join(root, fname)
-                content = open(fpath).read().replace('__MAPTILER_API_KEY__', maptiler_key)
-                if fname == 'metadata.yaml':
-                    content = re.sub(r'^type: .*$', 'type: assets', content, flags=re.M)
+                content = re.sub(r'^type: .*$', 'type: assets', open(fpath).read(), flags=re.M)
                 open(fpath, 'w').write(content)
     shutil.make_archive(f'/tmp/{entry}', 'zip', '/tmp', entry)
     shutil.rmtree(tmp_dir)

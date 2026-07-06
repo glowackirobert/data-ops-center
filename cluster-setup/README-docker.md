@@ -29,7 +29,7 @@ Docker Compose based setup for the Data Ops Center cluster.
 | `pinot-command-runner`                   | Registers schemas and tables with the Pinot Controller                                                                                                                                       |
 | `gdansk-public-transport-kafka-producer` | Fetches current GPS positions from the Gdansk public transport API and publishes them as JSON to the `gdansk-public-transport` Kafka topic                                                   |
 | `pinot-ingestion-runner`                 | Runs a batch ingestion job that reads from S3 and pushes segments to Pinot                                                                                                                   |
-| `superset-init`                          | Runs DB migrations, creates the admin user, initialises Superset roles, registers the Apache Pinot database connection, and imports dashboards with the MapTiler API key injected at runtime |
+| `superset-init`                          | Runs DB migrations, creates the admin user, initialises Superset roles, registers the Apache Pinot database connection, and imports dashboards |
 
 Init containers are one-shot — they exit after completing their task. Run them once on first setup, or whenever you need to re-seed the cluster.
 
@@ -52,7 +52,7 @@ cluster-setup/container/secrets/superset_secret_key        # Long random string 
 cluster-setup/container/secrets/superset_admin_password    # Superset admin password
 cluster-setup/container/secrets/superset_admin_username    # Superset admin username
 cluster-setup/container/secrets/superset_admin_email       # Superset admin email
-cluster-setup/container/secrets/superset_maptiler_api_key  # MapTiler API key for map visualisations
+cluster-setup/container/secrets/superset_mapbox_api_key    # Mapbox API key for map visualisations
 ```
 
 The `secrets/` directory is gitignored — these files must be created manually on every machine.
@@ -130,15 +130,14 @@ It is safe to re-run — segments are named by date and overwritten, not duplica
 
 ## Superset Dashboards
 
-Dashboard definitions are version-controlled as YAML files under `cluster-setup/superset/dashboards/`. The MapTiler API key is **not** stored in those files — the placeholder `__MAPTILER_API_KEY__` is used instead.
+Dashboard definitions are version-controlled as YAML files under `cluster-setup/superset/dashboards/`. The Mapbox API key is **not** stored in those files — map charts use built-in Mapbox styles (e.g. `mapbox://styles/mapbox/streets-v9`), and Superset authenticates them at runtime via `MAPBOX_API_KEY` in `superset_config.py`, read from the `superset_mapbox_api_key` secret.
 
-At init time, `superset-init` (via `superset-init.sh`) copies the YAML directory to a temp location, substitutes the placeholder with the value from the `superset_maptiler_api_key` secret, zips the result, imports it into Superset, and discards the zip. No zip file needs to exist before running init.
+At init time, `superset-init` (via `superset-init.sh`) copies the YAML directory to a temp location, normalizes `metadata.yaml` to `type: assets` (UI exports write `type: Dashboard`, which the assets importer rejects), zips the result, imports it into Superset, and discards the zip. No zip file needs to exist before running init.
 
 To add or update a dashboard:
 1. Export from the Superset UI (Settings → Export).
 2. Unzip the export and place the directory under `cluster-setup/superset/dashboards/`.
-3. In any chart YAML that contains a MapTiler URL, replace the key value with `__MAPTILER_API_KEY__`.
-4. Commit the YAML directory. Do **not** commit the zip (it is gitignored).
+3. Commit the YAML directory. Do **not** commit the zip (it is gitignored).
 
 ### Port binding
 
