@@ -367,6 +367,29 @@ services:
     networks:
       - pinot-network
 
+  web-app:
+    image: ${DOCKER_IMAGE_BASE_PATH}web-app:1.0.0
+    container_name: web-app
+    restart: unless-stopped
+    ports:
+      - "${BIND}:3001:3001"
+    environment:
+      PINOT_BROKER_URL: http://pinot-broker:8099
+      MAPBOX_KEY_FILE: /run/secrets/superset_mapbox_api_key
+    secrets:
+      - superset_mapbox_api_key
+    depends_on:
+      pinot-broker:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:3001/')\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+    networks:
+      - pinot-network
+
 networks:
   pinot-network:
     name: pinot-network

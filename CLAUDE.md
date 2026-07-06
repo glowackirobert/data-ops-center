@@ -20,6 +20,7 @@ Additional docs: `BUSINESS_OVERVIEW.md` (architecture and use cases), `cluster-s
 | `cluster-setup/`      | Docker Compose, shell  | Infrastructure: Kafka, Schema Registry, Pinot, Superset, Prometheus, Grafana                                                                 |
 | `k8s/`                | Kubernetes / Kustomize | Kubernetes manifests for Zookeeper, Kafka (KRaft mode), Apache Pinot                                                                         |
 | `cluster-setup/py/`   | Python                 | Gdansk GPS fetchers: `_aws.py` (Lambda → S3), `_github_action.py` (CI → local file), `_kafka.py` (streams to Kafka, runs as compose service) |
+| `web-app/`            | Python (stdlib), HTML  | Live vehicle map (Mapbox GL + deck.gl); flicker-free 30 s refresh — only the dot layer updates. Proxies queries to the Pinot broker          |
 
 ## Building the Kafka Producer App
 
@@ -51,6 +52,7 @@ Build the custom images
 ```bash
 docker build -t apache-pinot:1.4.0 -f cluster-setup/container/Dockerfile.apache-pinot .
 docker build -t superset:4.1.2 -f cluster-setup/container/Dockerfile.superset .
+docker build -t web-app:1.0.0 -f cluster-setup/container/Dockerfile.web-app .
 ```
 
 **Dev mode** (uses locally built images, `DOCKER_IMAGE_BASE_PATH` is empty):
@@ -83,6 +85,7 @@ docker-compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/
 | Prometheus               | `localhost:9090`  |                                                   |
 | Grafana                  | `0.0.0.0:3000`    |                                                   |
 | Superset                 | `0.0.0.0:8088`    | BI dashboards over Pinot (via `pinotdb` driver)   |
+| Vehicle map web app      | `0.0.0.0:3001`    | Live Gdansk vehicle map (`web-app/`)              |
 
 ### Verifying Kafka Messages
 

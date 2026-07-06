@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gdansk Vehicle Positions</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://unpkg.com/mapbox-gl@3/dist/mapbox-gl.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/mapbox-gl@3/dist/mapbox-gl.css">
+<script src="https://unpkg.com/deck.gl@9/dist.min.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; }
+  #map { position: absolute; inset: 0; }
+  #panel {
+    position: absolute; top: 10px; left: 10px; z-index: 10;
+    background: rgba(255, 255, 255, 0.92); border-radius: 6px;
+    padding: 8px 12px; font: 13px/1.5 system-ui, sans-serif;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="panel">Loading…</div>
+<script>
+const REFRESH_MS = 30000;
+
+const PALETTE = [
+  [31,119,180],[255,127,14],[44,160,44],[214,39,40],[148,103,189],
+  [140,86,75],[227,119,194],[127,127,127],[188,189,34],[23,190,207],
+  [0,122,135],[255,20,147],[70,130,180],[210,105,30],[60,179,113],
+];
+
+function colorForRoute(route) {
+  let h = 0;
+  for (const ch of String(route || '?')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+}
+
+function tooltip({ object: d }) {
+  if (!d) return null;
+  return {
+    html: `<b>Route:</b> ${d.route}<br>
+           <b>Headsign:</b> ${d.headsign || '—'}<br>
+           <b>Delay:</b> ${(d.delay / 60).toFixed(1)} min<br>
+           <b>Speed:</b> ${d.speed} km/h<br>
+           <b>Seen:</b> ${new Date(d.lastSeen).toLocaleTimeString()}`,
+  };
+}
+
+async function main() {
+  const cfg = await (await fetch('/api/config')).json();
+  mapboxgl.accessToken = cfg.mapboxToken;
+
+  // The map is created exactly once; refreshes below never touch it.
+  const map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/streets-v9',
+    center: [18.65, 54.35],
+    zoom: 11,
+  });
+  map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+  const overlay = new deck.MapboxOverlay({ layers: [], getTooltip: tooltip });
+  map.addControl(overlay);
+
+  // Debug hooks for automated testing
+  window._map = map;
+  window._log = [];
+  map.on('moveend', () => window._log.push(
+    { t: Date.now(), ev: 'moveend', zoom: map.getZoom() }));
+
+  const panel = document.getElementById('panel');
+
+  async function refresh() {
+    try {
+      const resp = await fetch('/api/positions');
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      // Only the scatter layer is replaced; deck.gl diffs it on the GPU and
+      // the base map keeps its tiles, camera and WebGL context.
+      overlay.setProps({
+        layers: [
+          new deck.ScatterplotLayer({
+            id: 'vehicles',
+            data,
+            getPosition: d => [d.lon, d.lat],
+            getFillColor: d => colorForRoute(d.route),
+            getRadius: 30,
+            radiusMinPixels: 3,
+            radiusMaxPixels: 18,
+            stroked: true,
+            getLineColor: [255, 255, 255, 200],
+            lineWidthMinPixels: 1,
+            pickable: true,
+            transitions: { getPosition: 1000 }, // dots glide to new positions
+          }),
+        ],
+      });
+      panel.textContent =
+        `${data.length} vehicles · updated ${new Date().toLocaleTimeString()}`;
+      window._log.push({ t: Date.now(), ev: 'refresh', n: data.length, zoom: map.getZoom() });
+    } catch (err) {
+      panel.textContent = `Refresh failed: ${err.message}`;
+      window._log.push({ t: Date.now(), ev: 'refresh-error', msg: err.message });
+    }
+  }
+
+  await refresh();
+  setInterval(refresh, REFRESH_MS);
+}
+
+main();
+</script>
+</body>
+</html>

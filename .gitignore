@@ -8,3 +8,6 @@ aws_lambda
 
 # env files
 cluster-setup/container/secrets/
+
+# web-app browser-test scratch dir
+web-app/.test/

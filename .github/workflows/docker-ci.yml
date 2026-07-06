@@ -11,6 +11,7 @@ jobs:
     env:
       KAFKA_PRODUCER_MODULE: kafka-producer-app
       APACHE_PINOT: apache-pinot
+      WEB_APP: web-app
 
     steps:
     - name: Checkout code
@@ -60,3 +61,19 @@ jobs:
         push: true
         tags: |
           docker.io/${{ vars.DOCKER_USERNAME }}/${{ env.APACHE_PINOT }}:${{ steps.extract_version_apache_pinot.outputs.version }}
+
+    - name: Extract web app version
+      id: extract_version_web_app
+      run: |
+        VERSION=$(grep -oP 'ARG WEB_APP_VERSION=\K[\d.]+' cluster-setup/container/Dockerfile.web-app)
+        echo "VERSION=$VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Build and push Docker image of vehicle map web app
+      uses: docker/build-push-action@v7
+      with:
+        context: .
+        file: ./cluster-setup/container/Dockerfile.${{ env.WEB_APP }}
+        push: true
+        tags: |
+          docker.io/${{ vars.DOCKER_USERNAME }}/${{ env.WEB_APP }}:${{ steps.extract_version_web_app.outputs.version }}
