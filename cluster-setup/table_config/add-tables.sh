@@ -12,15 +12,19 @@ post_with_retry() {
 
   while [ $attempt -le $MAX_RETRIES ]; do
     echo "Adding $description (attempt $attempt/$MAX_RETRIES)..."
-    if curl --fail -s -X POST \
+    local response http_code
+    response=$(curl -s -w "\n%{http_code}" -X POST \
         -H "Content-Type: application/json" \
         -d @"$file" \
-        "$url"; then
-      echo
+        "$url")
+    http_code=$(echo "$response" | tail -n1)
+    if [ "$http_code" = "200" ]; then
+      echo "$response" | sed '$d'
       echo "$description added successfully"
       return 0
     fi
-    echo "Attempt $attempt failed. Retrying in ${RETRY_DELAY}s..."
+    echo "Attempt $attempt failed (HTTP $http_code): $(echo "$response" | sed '$d')"
+    echo "Retrying in ${RETRY_DELAY}s..."
     sleep $RETRY_DELAY
     attempt=$((attempt + 1))
   done
@@ -96,7 +100,7 @@ post_with_retry "gdansk_public_transport realtime table" \
   "/opt/pinot/scripts/gdansk_public_transport_realtime_table_config.json"
 
 post_with_retry "trade schema" \
-  "http://pinot-controller:9000/tables" \
+  "http://pinot-controller:9000/schemas" \
   "/opt/pinot/scripts/trade_table_schema.json"
 
 post_with_retry "trade table" \
