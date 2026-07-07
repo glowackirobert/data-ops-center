@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - master
+    paths:
+      - 'cluster-setup/py/gdansk_public_transport_aws.py'
+      - '.github/workflows/lambda-function.yaml'
 
 permissions:
   id-token: write
@@ -25,9 +28,8 @@ jobs:
         run: |
           mkdir -p aws_lambda
           cd aws_lambda
-          pip install requests -t .
-          pip install schedule -t .
-          pip install boto3 -t .
+          # only requests is bundled: boto3 is provided by the Lambda runtime
+          pip install 'requests~=2.32' -t .
           cp ../cluster-setup/py/gdansk_public_transport_aws.py .
 
       - name: Configure AWS credentials

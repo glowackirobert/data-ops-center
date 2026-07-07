@@ -75,7 +75,9 @@ docker build -t kafka-producer-app:1.0.0 -f kafka-producer-app/Dockerfile.kafka-
 ```
 
 For prod - images are pulled from Docker Hub `robertglowacki83/` — 
-Images are built and pushed automatically by `.github/workflows/docker-ci.yml` on every push to `master`.
+Images (including the custom Superset image) are built and pushed automatically by
+`.github/workflows/docker-ci.yml` on pushes to `master` that touch image inputs
+(Dockerfiles, `kafka-producer-app/`, `web-app/`, Pinot configs).
 
 
 
