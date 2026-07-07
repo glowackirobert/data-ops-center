@@ -4,14 +4,25 @@ on:
   push:
     branches:
       - master
+    # Only rebuild when image inputs change; docs/config-only pushes would
+    # otherwise overwrite all prod tags (compose pulls with --pull always).
+    paths:
+      - 'kafka-producer-app/**'
+      - 'web-app/**'
+      - 'cluster-setup/container/Dockerfile.*'
+      - 'cluster-setup/table_config/**'
+      - 'cluster-setup/pinot/**'
+      - '.github/workflows/docker-ci.yml'
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     env:
       KAFKA_PRODUCER_MODULE: kafka-producer-app
       APACHE_PINOT: apache-pinot
       WEB_APP: web-app
+      SUPERSET: superset
 
     steps:
     - name: Checkout code
@@ -77,3 +88,19 @@ jobs:
         push: true
         tags: |
           docker.io/${{ vars.DOCKER_USERNAME }}/${{ env.WEB_APP }}:${{ steps.extract_version_web_app.outputs.version }}
+
+    - name: Extract Superset version
+      id: extract_version_superset
+      run: |
+        VERSION=$(grep -oP 'FROM apache/superset:\K[\d.]+' cluster-setup/container/Dockerfile.${{ env.SUPERSET }})
+        echo "VERSION=$VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Build and push Docker image of custom Superset
+      uses: docker/build-push-action@v7
+      with:
+        context: .
+        file: ./cluster-setup/container/Dockerfile.${{ env.SUPERSET }}
+        push: true
+        tags: |
+          docker.io/${{ vars.DOCKER_USERNAME }}/${{ env.SUPERSET }}:${{ steps.extract_version_superset.outputs.version }}
