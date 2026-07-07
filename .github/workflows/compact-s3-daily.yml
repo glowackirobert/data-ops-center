@@ -25,9 +25,16 @@ permissions:
   id-token: write
   contents: read
 
+# Queue runs instead of overlapping: a manual backfill and the nightly
+# schedule would otherwise compact the same days twice.
+concurrency:
+  group: compact-s3-daily
+  cancel-in-progress: false
+
 jobs:
   compact:
     runs-on: ubuntu-latest
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v7
 
@@ -35,7 +42,7 @@ jobs:
         with:
           python-version: '3.13'
 
-      - run: pip install boto3
+      - run: pip install 'boto3~=1.42'
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v6

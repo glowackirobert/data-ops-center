@@ -4,8 +4,11 @@ The Lambda fetcher stores ~1,440 small files per day under
 raw/YYYY/MM/DD/YYYY-MM-DD-HH-MM.txt. Pinot's standalone ingestion job maps
 input files to segments 1:1, so ingesting a raw day produces ~1,440 micro
 segments and needs a lot of memory. This script concatenates each day's files
-in chronological order into a single daily/YYYY/MM/DD/data.json.gz object,
+in chronological order into a single daily/YYYY/YYYY-MM-DD.json.gz object,
 which Pinot's JSON record reader consumes directly - one segment per day.
+It also gathers files from the older bucket layouts (hourly files under
+raw/YYYY/MM/YYYY-MM-DD/ and the Oct 2025 - Jun 2026 era when the Lambda wrote
+to the bucket root without the raw/ prefix).
 
 The raw/ files are never modified or deleted.
 
@@ -42,27 +45,31 @@ s3 = boto3.client('s3', config=Config(connect_timeout=5, read_timeout=30,
 
 
 def list_day_keys(bucket, day):
-    # The bucket holds two layouts: the current Lambda writes per-minute files
-    # under raw/YYYY/MM/DD/, while data up to Sep 2025 has hourly files under
-    # raw/YYYY/MM/YYYY-MM-DD/. A -00 day folder exists from an early Lambda
-    # bug; its files are matched to their real day via the filename date.
+    # The bucket holds several historical layouts: the current Lambda writes
+    # per-minute files under raw/YYYY/MM/DD/; data up to Sep 2025 has hourly
+    # files under raw/YYYY/MM/YYYY-MM-DD/; a -00 day folder exists from an
+    # early Lambda bug; and from Oct 2025 to Jun 2026 the Lambda wrote to the
+    # BUCKET ROOT (YYYY/MM/DD/, no raw/ prefix). Files are matched to their
+    # real day via the filename date, and deduplicated by filename (raw/
+    # locations win over the root layout).
     iso = day.isoformat()
     month = day.strftime('%Y/%m')
     prefixes = [
         f"{SRC_PREFIX}/{day.strftime('%Y/%m/%d')}/",
         f"{SRC_PREFIX}/{month}/{iso}/",
         f"{SRC_PREFIX}/{month}/{day.strftime('%Y-%m')}-00/",
+        f"{day.strftime('%Y/%m/%d')}/",
     ]
-    keys = []
+    by_name = {}
     paginator = s3.get_paginator('list_objects_v2')
     for prefix in prefixes:
         for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
-            keys.extend(obj['Key'] for obj in page.get('Contents', [])
-                        if obj['Key'].endswith('.txt')
-                        and obj['Key'].rsplit('/', 1)[-1].startswith(iso))
+            for obj in page.get('Contents', []):
+                name = obj['Key'].rsplit('/', 1)[-1]
+                if obj['Key'].endswith('.txt') and name.startswith(iso):
+                    by_name.setdefault(name, obj['Key'])
     # file names embed the timestamp, so sorting by name is chronological
-    keys.sort(key=lambda k: k.rsplit('/', 1)[-1])
-    return keys
+    return [by_name[name] for name in sorted(by_name)]
 
 
 def fetch(bucket, key):
@@ -73,7 +80,7 @@ def fetch(bucket, key):
 
 
 def dest_key(day):
-    return f"{DEST_PREFIX}/{day.strftime('%Y/%m/%d')}/data.json.gz"
+    return f"{DEST_PREFIX}/{day.strftime('%Y')}/{day.isoformat()}.json.gz"
 
 
 def dest_exists(bucket, key):
@@ -100,7 +107,10 @@ def compact_day(bucket, day, force=False, dry_run=False):
     raw_bytes = 0
     tmp = tempfile.NamedTemporaryFile(suffix='.json.gz', delete=False)
     try:
-        with gzip.open(tmp, 'wb', compresslevel=6) as gz:
+        # filename= sets the name stored in the gzip header, so decompressing
+        # yields e.g. 2025-08-01.json instead of the temp file's random name
+        with gzip.GzipFile(filename=f'{day.isoformat()}.json', fileobj=tmp,
+                           mode='wb', compresslevel=6) as gz:
             with concurrent.futures.ThreadPoolExecutor(DOWNLOAD_WORKERS) as pool:
                 # batched map keeps chronological order while bounding
                 # how many downloaded files are held in memory at once

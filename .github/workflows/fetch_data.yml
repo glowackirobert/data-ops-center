@@ -36,7 +36,7 @@ jobs:
           MONTH=$(date -u +"%m")
           DAY=$(date -u +"%d")
           FILENAME="./${NOW}.txt"
-          DEST_DIR="${YEAR}/${MONTH}/${DAY}"
+          DEST_DIR="raw/${YEAR}/${MONTH}/${DAY}"
           echo "file=${FILENAME}" >> $GITHUB_OUTPUT
           echo "date_dir=${DEST_DIR}" >> $GITHUB_OUTPUT
 
