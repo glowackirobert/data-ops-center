@@ -349,6 +349,7 @@ services:
       - "${BIND}:8088:8088"
     environment:
       SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
+      WEBAPP_ORIGIN: ${WEBAPP_ORIGIN:-http://localhost:3001}
     secrets:
       - superset_secret_key
       - superset_mapbox_api_key
@@ -375,11 +376,16 @@ services:
       - "${BIND}:3001:3001"
     environment:
       PINOT_BROKER_URL: http://pinot-broker:8099
-      MAPBOX_KEY_FILE: /run/secrets/superset_mapbox_api_key
+      SUPERSET_INTERNAL_URL: http://superset:8088
+      SUPERSET_DOMAIN: ${SUPERSET_DOMAIN:-http://localhost:8088}
     secrets:
       - superset_mapbox_api_key
+      - superset_admin_username
+      - superset_admin_password
     depends_on:
       pinot-broker:
+        condition: service_healthy
+      superset:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:3001/')\" || exit 1"]

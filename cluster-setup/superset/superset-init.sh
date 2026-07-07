@@ -105,6 +105,34 @@ with app.app_context():
             raise
 IMPORTEOF
 
+# Embedded dashboards: create the EmbeddedGuest role (Gamma perms + datasource
+# access) used for guest tokens, and register every dashboard for embedding so
+# the web-app (port 3001) can iframe it via the Embedded SDK.
+python3 << 'EMBEDEOF'
+from superset.app import create_app
+
+app = create_app()
+with app.app_context():
+    from superset import db, security_manager
+    from superset.connectors.sqla.models import SqlaTable
+    from superset.models.dashboard import Dashboard
+    from superset.daos.dashboard import EmbeddedDashboardDAO
+
+    role = security_manager.find_role('EmbeddedGuest') or security_manager.add_role('EmbeddedGuest')
+    gamma = security_manager.find_role('Gamma')
+    for pvm in gamma.permissions:
+        security_manager.add_permission_role(role, pvm)
+    for table in db.session.query(SqlaTable).all():
+        pvm = security_manager.find_permission_view_menu('datasource_access', table.perm)
+        if pvm:
+            security_manager.add_permission_role(role, pvm)
+
+    for dash in db.session.query(Dashboard).all():
+        embedded = EmbeddedDashboardDAO.upsert(dash, [])
+        print(f'Registered for embedding: {dash.dashboard_title} -> {embedded.uuid}')
+    db.session.commit()
+EMBEDEOF
+
 superset set_database_uri \
   -d "Apache Pinot" \
   -u "${SUPERSET_PINOT_URI}"
