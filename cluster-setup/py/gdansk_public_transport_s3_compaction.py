@@ -87,8 +87,12 @@ def dest_exists(bucket, key):
     try:
         s3.head_object(Bucket=bucket, Key=key)
         return True
-    except s3.exceptions.ClientError:
-        return False
+    except s3.exceptions.ClientError as e:
+        # only "not found" means the day is uncompacted; anything else
+        # (403, throttling, ...) must not be mistaken for that
+        if e.response['Error']['Code'] in ('404', 'NoSuchKey', 'NotFound'):
+            return False
+        raise
 
 
 def compact_day(bucket, day, force=False, dry_run=False):
@@ -124,7 +128,8 @@ def compact_day(bucket, day, force=False, dry_run=False):
         gz_bytes = os.path.getsize(tmp.name)
         s3.upload_file(tmp.name, bucket, out_key)
         return 'ok', (f'{len(keys)} files, {lines} lines, '
-                      f'{raw_bytes >> 20} MB -> {gz_bytes >> 20} MB, s3://{bucket}/{out_key}')
+                      f'{raw_bytes / 1048576:.1f} MB -> {gz_bytes / 1048576:.1f} MB, '
+                      f's3://{bucket}/{out_key}')
     finally:
         tmp.close()
         os.unlink(tmp.name)

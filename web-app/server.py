@@ -30,10 +30,11 @@ MAPBOX_KEY_FILE = os.environ.get(
 SUPERSET_INTERNAL_URL = os.environ.get('SUPERSET_INTERNAL_URL', 'http://localhost:8088')
 SUPERSET_DOMAIN = os.environ.get('SUPERSET_DOMAIN', 'http://localhost:8088')
 DASHBOARD_TITLE = os.environ.get('DASHBOARD_TITLE', 'Gdansk Public Transport')
+APPLICATION_JSON = 'application/json'
 
 # Latest position per vehicle seen in the last 10 minutes. The Kafka feed only
-# publishes changed positions (120 s poll), so a 10-minute window keeps parked
-# vehicles visible while LASTWITHTIME dedupes to the freshest row.
+# publishes changed positions, so a 10-minute window keeps parked vehicles
+# visible while LASTWITHTIME dedupes to the freshest row.
 POSITIONS_SQL = """
 SELECT vehicleId,
        LASTWITHTIME(lat, generatedTransformed, 'DOUBLE')             AS lat,
@@ -73,7 +74,7 @@ def fetch_guest_token():
         req = urllib.request.Request(
             SUPERSET_INTERNAL_URL + path,
             data=json.dumps(body).encode('utf-8') if body is not None else None,
-            headers={'Content-Type': 'application/json', **(headers or {})},
+            headers={'Content-Type': APPLICATION_JSON, **(headers or {})},
             method=method,
         )
         with opener.open(req, timeout=20) as resp:
@@ -122,44 +123,60 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _send_json(self, code, payload):
+        self._send(code, json.dumps(payload), APPLICATION_JSON)
+
     def do_GET(self):
+        routes = {
+            '/': self._serve_index,
+            '/index.html': self._serve_index,
+            '/api/config': self._serve_config,
+            '/api/guest-token': self._serve_guest_token,
+            '/api/positions': self._serve_positions,
+        }
+        route = routes.get(self.path)
         try:
-            if self.path in ('/', '/index.html'):
-                with open(os.path.join(BASE, 'index.html'), 'rb') as f:
-                    self._send(200, f.read(), 'text/html; charset=utf-8')
-            elif self.path == '/api/config':
-                with open(MAPBOX_KEY_FILE) as f:
-                    token = f.read().strip()
-                self._send(200, json.dumps({'mapboxToken': token}), 'application/json')
-            elif self.path == '/api/guest-token':
-                # Docker's embedded DNS occasionally fails a lookup; retry.
-                for attempt in range(3):
-                    try:
-                        payload = fetch_guest_token()
-                        break
-                    except urllib.error.URLError:
-                        if attempt == 2:
-                            raise
-                        time.sleep(1)
-                self._send(200, json.dumps(payload), 'application/json')
-            elif self.path == '/api/positions':
-                req = urllib.request.Request(
-                    PINOT_BROKER_URL + '/query/sql',
-                    data=json.dumps({'sql': POSITIONS_SQL}).encode('utf-8'),
-                    headers={'Content-Type': 'application/json'},
-                )
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    result = json.load(resp)
-                if result.get('exceptions'):
-                    self._send(502, json.dumps({'error': result['exceptions']}), 'application/json')
-                    return
-                cols = result['resultTable']['dataSchema']['columnNames']
-                rows = [dict(zip(cols, r)) for r in result['resultTable']['rows']]
-                self._send(200, json.dumps(rows), 'application/json')
+            if route:
+                route()
             else:
                 self._send(404, 'not found', 'text/plain')
         except Exception as e:  # keep the dev server alive on any request error
-            self._send(500, json.dumps({'error': str(e)}), 'application/json')
+            self._send_json(500, {'error': str(e)})
+
+    def _serve_index(self):
+        with open(os.path.join(BASE, 'index.html'), 'rb') as f:
+            self._send(200, f.read(), 'text/html; charset=utf-8')
+
+    def _serve_config(self):
+        with open(MAPBOX_KEY_FILE) as f:
+            self._send_json(200, {'mapboxToken': f.read().strip()})
+
+    def _serve_guest_token(self):
+        # Docker's embedded DNS occasionally fails a lookup; retry.
+        for attempt in range(3):
+            try:
+                payload = fetch_guest_token()
+                break
+            except urllib.error.URLError:
+                if attempt == 2:
+                    raise
+                time.sleep(1)
+        self._send_json(200, payload)
+
+    def _serve_positions(self):
+        req = urllib.request.Request(
+            PINOT_BROKER_URL + '/query/sql',
+            data=json.dumps({'sql': POSITIONS_SQL}).encode('utf-8'),
+            headers={'Content-Type': APPLICATION_JSON},
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            result = json.load(resp)
+        if result.get('exceptions'):
+            self._send_json(502, {'error': result['exceptions']})
+            return
+        cols = result['resultTable']['dataSchema']['columnNames']
+        rows = [dict(zip(cols, r)) for r in result['resultTable']['rows']]
+        self._send_json(200, rows)
 
     def log_message(self, fmt, *args):
         pass  # silence per-request noise

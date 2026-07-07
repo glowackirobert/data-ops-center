@@ -1,5 +1,6 @@
 import json
 import os
+import signal
 import sys
 import time
 import requests
@@ -31,8 +32,23 @@ def publish_to_kafka(producer, vehicles):
 
 def main():
     bootstrap_servers = os.environ.get('KAFKA_BOOTSTRAP_SERVERS', 'localhost:29092')
-    producer = Producer({'bootstrap.servers': bootstrap_servers})
+    # idempotence implies acks=all and retry-safe delivery, so broker restarts
+    # cannot duplicate or reorder messages within a partition
+    producer = Producer({
+        'bootstrap.servers': bootstrap_servers,
+        'enable.idempotence': True,
+    })
     last_generated: dict[str, str] = {}
+
+    def shutdown(signum, frame):
+        print("Received shutdown signal, flushing producer...", flush=True)
+        producer.flush(timeout=10)
+        sys.exit(0)
+
+    # docker stop sends SIGTERM; without a handler the poll sleep would be
+    # killed mid-cycle and any queued messages lost
+    signal.signal(signal.SIGTERM, shutdown)
+    signal.signal(signal.SIGINT, shutdown)
 
     while True:
         try:
@@ -50,7 +66,7 @@ def main():
                 print("No vehicle positions changed, skipping.")
         except Exception as e:
             print(f"Error: {e}", file=sys.stderr)
-        time.sleep(120)
+        time.sleep(10)
 
 if __name__ == '__main__':
     main()
