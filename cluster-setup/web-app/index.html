@@ -4,10 +4,18 @@
 <meta charset="utf-8">
 <title>Gdansk Public Transport</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="https://unpkg.com/mapbox-gl@3/dist/mapbox-gl.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/mapbox-gl@3/dist/mapbox-gl.css">
-<script src="https://unpkg.com/deck.gl@9/dist.min.js"></script>
-<script src="https://unpkg.com/@superset-ui/embedded-sdk@0.1.3/bundle/index.js"></script>
+<script src="https://unpkg.com/mapbox-gl@3.25.0/dist/mapbox-gl.js"
+        integrity="sha384-8BzM5kw/yLQ/0xcikcw1iUchzAgzTDpKxvDZ/UBmlheYzR4QhmFFYNgSFWHAEZls"
+        crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://unpkg.com/mapbox-gl@3.25.0/dist/mapbox-gl.css"
+      integrity="sha384-fML+8Zffp1mTkSYjqh4tm+BMWAuAz/AW8KbK6bv5/PptIdD2sVCGkmEbFpc6Cq6F"
+      crossorigin="anonymous">
+<script src="https://unpkg.com/deck.gl@9.3.6/dist.min.js"
+        integrity="sha384-UX+cI12FBGambH8nU4vd3AUqzXpQ/NHM4mLI4wbBRYT9AtLRJjKgzYQQeGShiAdR"
+        crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@superset-ui/embedded-sdk@0.1.3/bundle/index.js"
+        integrity="sha384-Owp1PydXFMoJUkKVVTEx/sJuBgNmoAibv3LOg60P6zCv+t+X6jISsuvrElGHTsRe"
+        crossorigin="anonymous"></script>
 <style>
   html, body { margin: 0; height: 100%; font: 14px/1.4 system-ui, sans-serif; }
   header {
@@ -50,7 +58,7 @@
 <div id="dash-view" class="view hidden">
   <div id="dash-status">Loading dashboard…</div>
 </div>
-<script>
+<script type="module">
 const REFRESH_MS = 30000;
 
 const PALETTE = [
@@ -61,7 +69,7 @@ const PALETTE = [
 
 function colorForRoute(route) {
   let h = 0;
-  for (const ch of String(route || '?')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  for (const ch of String(route || '?')) h = (h * 31 + ch.codePointAt(0)) >>> 0;
   return PALETTE[h % PALETTE.length];
 }
 
@@ -95,9 +103,9 @@ async function initMap() {
   map.addControl(overlay);
 
   // Debug hooks for automated testing
-  window._map = map;
-  window._log = [];
-  map.on('moveend', () => window._log.push(
+  globalThis._map = map;
+  globalThis._log = [];
+  map.on('moveend', () => globalThis._log.push(
     { t: Date.now(), ev: 'moveend', zoom: map.getZoom() }));
 
   const panel = document.getElementById('panel');
@@ -129,10 +137,10 @@ async function initMap() {
       });
       panel.textContent =
         `${data.length} vehicles · updated ${new Date().toLocaleTimeString()}`;
-      window._log.push({ t: Date.now(), ev: 'refresh', n: data.length, zoom: map.getZoom() });
+      globalThis._log.push({ t: Date.now(), ev: 'refresh', n: data.length, zoom: map.getZoom() });
     } catch (err) {
       panel.textContent = `Refresh failed: ${err.message}`;
-      window._log.push({ t: Date.now(), ev: 'refresh-error', msg: err.message });
+      globalThis._log.push({ t: Date.now(), ev: 'refresh-error', msg: err.message });
     }
   }
 
@@ -178,7 +186,7 @@ function showTab(name) {
 document.getElementById('tab-map').onclick = () => showTab('map');
 document.getElementById('tab-dash').onclick = () => showTab('dash');
 
-initMap();
+await initMap();
 </script>
 </body>
 </html>

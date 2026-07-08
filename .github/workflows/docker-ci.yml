@@ -8,7 +8,7 @@ on:
     # otherwise overwrite all prod tags (compose pulls with --pull always).
     paths:
       - 'kafka-producer-app/**'
-      - 'web-app/**'
+      - 'cluster-setup/web-app/**'
       - 'cluster-setup/container/Dockerfile.*'
       - 'cluster-setup/table_config/**'
       - 'cluster-setup/pinot/**'

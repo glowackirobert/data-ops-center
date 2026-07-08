@@ -10,4 +10,4 @@ aws_lambda
 cluster-setup/container/secrets/
 
 # web-app browser-test scratch dir
-web-app/.test/
+cluster-setup/web-app/.test/

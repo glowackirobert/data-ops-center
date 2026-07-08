@@ -26,7 +26,7 @@ Runnable commands live in the READMEs — do not duplicate them here:
 | `cluster-setup/`      | Docker Compose, shell  | Infrastructure: Kafka, Schema Registry, Pinot, Superset, Prometheus, Grafana                                                                                      |
 | `k8s/`                | Kubernetes / Kustomize | Kubernetes manifests for Zookeeper, Kafka (KRaft mode), Apache Pinot                                                                                              |
 | `cluster-setup/py/`   | Python                 | Gdansk GPS fetchers: `_aws.py` (Lambda → S3), `_kafka.py` (streams to Kafka, runs as compose service), `_s3_compaction.py` (merges raw S3 files into daily gzips) |
-| `web-app/`            | Python (stdlib), HTML  | Live vehicle map (Mapbox GL + deck.gl); flicker-free 30 s refresh — only the dot layer updates. Proxies queries to the Pinot broker                               |
+| `cluster-setup/web-app/` | Python (stdlib), HTML | Live vehicle map (Mapbox GL + deck.gl); flicker-free 30 s refresh — only the dot layer updates. Proxies queries to the Pinot broker                            |
 
 ## Running the Cluster (Docker Compose)
 
@@ -34,7 +34,7 @@ All commands are in `cluster-setup/README-docker.md`. Key facts:
 
 - The `secrets/` directory (`cluster-setup/container/secrets/`) is gitignored and must be populated before first run — the README lists the required files.
 - Custom images (`apache-pinot`, `superset`, `kafka-producer-app`, `web-app`) must be built locally before first start in **dev mode** (`env.dev`, `DOCKER_IMAGE_BASE_PATH` empty). **Prod mode** (`env.prod`) pulls them from Docker Hub `robertglowacki83/` — built and pushed automatically by `.github/workflows/docker-ci.yml` on pushes to `master` that touch image inputs.
-- Files are baked into the custom images at build time: `cluster-setup/table_config/` and `cluster-setup/pinot/` into `apache-pinot`, `web-app/server.py` and `web-app/index.html` into `web-app` — rebuild the image after changing them.
+- Files are baked into the custom images at build time: `cluster-setup/table_config/` and `cluster-setup/pinot/` into `apache-pinot`, `cluster-setup/web-app/server.py` and `cluster-setup/web-app/index.html` into `web-app` — rebuild the image after changing them.
 - `--profile init` additionally runs the one-shot seeding containers: `kafka-topic-init`, `pinot-command-runner` (registers schemas/tables), `kafka-producer`, `pinot-ingestion-runner` (S3 batch ingestion), `superset-init`.
 
 Service ports and dev/prod bind behaviour are documented in `cluster-setup/README-docker.md`.
@@ -76,7 +76,7 @@ The `pinot-ingestion-runner` init container launches a batch ingestion job. The 
 - `superset-init.sh` normalizes `metadata.yaml` to `type: assets` before import, since UI exports write `type: Dashboard`, which the assets importer rejects. It also creates the `EmbeddedGuest` role (Gamma permissions + datasource access) and registers dashboards for embedding.
 - Sample Pinot queries live in `cluster-setup/table_config/gdansk_public_transport_queries.sql`.
 
-## Web App (`web-app/`)
+## Web App (`cluster-setup/web-app/`)
 
 Serves two tabs:
 
