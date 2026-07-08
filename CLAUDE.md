@@ -10,154 +10,94 @@ Data Operations Center is a data engineering platform that:
 
 BI dashboards are served by Apache Superset (connected to Pinot). 
 Monitoring is provided by Prometheus + Grafana.
-Additional docs: `BUSINESS_OVERVIEW.md` (architecture and use cases), `cluster-setup/README-docker.md` (detailed Docker stack reference).
+
+Runnable commands live in the READMEs — do not duplicate them here:
+- `cluster-setup/README-docker.md` — secrets setup, custom image builds, dev/prod start/stop, Kafka verification, Pinot table registration, S3 batch ingestion, Superset dashboards, web app
+- `k8s/README.md` — Kubernetes deployment (Kustomize)
+- `cluster-setup/README-lambda.md` — AWS Lambda packaging/deployment
+- `kafka-producer-app/README-docker.md` — building and running the Kafka producer app
+- `BUSINESS_OVERVIEW.md` — architecture and use cases
 
 ## Modules
 
-| Directory             | Language               | Purpose                                                                                                                                      |
-|-----------------------|------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
-| `kafka-producer-app/` | Java 21 / Maven        | Kafka producer that publishes Avro-serialized `Trade` events                                                                                 |
-| `cluster-setup/`      | Docker Compose, shell  | Infrastructure: Kafka, Schema Registry, Pinot, Superset, Prometheus, Grafana                                                                 |
-| `k8s/`                | Kubernetes / Kustomize | Kubernetes manifests for Zookeeper, Kafka (KRaft mode), Apache Pinot                                                                         |
+| Directory             | Language               | Purpose                                                                                                                                                           |
+|-----------------------|------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `kafka-producer-app/` | Java 21 / Maven        | Kafka producer that publishes Avro-serialized `Trade` events                                                                                                      |
+| `cluster-setup/`      | Docker Compose, shell  | Infrastructure: Kafka, Schema Registry, Pinot, Superset, Prometheus, Grafana                                                                                      |
+| `k8s/`                | Kubernetes / Kustomize | Kubernetes manifests for Zookeeper, Kafka (KRaft mode), Apache Pinot                                                                                              |
 | `cluster-setup/py/`   | Python                 | Gdansk GPS fetchers: `_aws.py` (Lambda → S3), `_kafka.py` (streams to Kafka, runs as compose service), `_s3_compaction.py` (merges raw S3 files into daily gzips) |
-| `web-app/`            | Python (stdlib), HTML  | Live vehicle map (Mapbox GL + deck.gl); flicker-free 30 s refresh — only the dot layer updates. Proxies queries to the Pinot broker          |
-
-## Building the Kafka Producer App
-
-```bash
-# Build and package (from repo root or kafka-producer-app/)
-mvn package
-
-# Build without running tests
-mvn package -DskipTests
-```
-
-The Avro Maven plugin auto-generates Java classes from `kafka-producer-app/src/main/avro/Trade.avsc` into `kafka-producer-app/src/main/java/avro/` during the `generate-sources` phase. Never edit these generated files directly — edit the `.avsc` schema instead.
-
-The JAR entry point is `KafkaProducerApp`. Dependencies land in `target/lib/`. The app runs in container mode only — configuration is loaded from `kafka-producer.properties` on the classpath.
+| `web-app/`            | Python (stdlib), HTML  | Live vehicle map (Mapbox GL + deck.gl); flicker-free 30 s refresh — only the dot layer updates. Proxies queries to the Pinot broker                               |
 
 ## Running the Cluster (Docker Compose)
 
-Before first run, populate the secrets files (the `secrets/` directory is gitignored):
-- `cluster-setup/container/secrets/aws_credentials` — AWS credentials for Pinot's S3 access
-- `cluster-setup/container/secrets/grafana_admin_password` — Grafana admin password
-- `cluster-setup/container/secrets/superset_secret_key` — long random string for Flask session signing
-- `cluster-setup/container/secrets/superset_admin_password` — Superset admin password
-- `cluster-setup/container/secrets/superset_admin_username` — Superset admin username
-- `cluster-setup/container/secrets/superset_admin_email` — Superset admin email
-- `cluster-setup/container/secrets/superset_mapbox_api_key` — Mapbox API key for map visualizations
+All commands are in `cluster-setup/README-docker.md`. Key facts:
 
-Build the custom images 
-(must be done before first start in dev mode):
-```bash
-docker build -t apache-pinot:1.4.0 -f cluster-setup/container/Dockerfile.apache-pinot .
-docker build -t superset:4.1.2 -f cluster-setup/container/Dockerfile.superset .
-docker build -t web-app:1.0.0 -f cluster-setup/container/Dockerfile.web-app .
-```
+- The `secrets/` directory (`cluster-setup/container/secrets/`) is gitignored and must be populated before first run — the README lists the required files.
+- Custom images (`apache-pinot`, `superset`, `kafka-producer-app`, `web-app`) must be built locally before first start in **dev mode** (`env.dev`, `DOCKER_IMAGE_BASE_PATH` empty). **Prod mode** (`env.prod`) pulls them from Docker Hub `robertglowacki83/` — built and pushed automatically by `.github/workflows/docker-ci.yml` on pushes to `master` that touch image inputs.
+- Files are baked into the custom images at build time: `cluster-setup/table_config/` and `cluster-setup/pinot/` into `apache-pinot`, `web-app/server.py` and `web-app/index.html` into `web-app` — rebuild the image after changing them.
+- `--profile init` additionally runs the one-shot seeding containers: `kafka-topic-init`, `pinot-command-runner` (registers schemas/tables), `kafka-producer`, `pinot-ingestion-runner` (S3 batch ingestion), `superset-init`.
 
-**Dev mode** (uses locally built images, `DOCKER_IMAGE_BASE_PATH` is empty):
-```bash
-# Start core services
-docker-compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml up
+Service ports and dev/prod bind behaviour are documented in `cluster-setup/README-docker.md`.
 
-# Also run init containers (kafka-topic-init, pinot-command-runner to seed tables,
-# kafka-producer, pinot-ingestion-runner for S3 batch ingestion, superset-init)
-docker-compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml --profile init up
+## Kafka
 
-# Stop
-docker-compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml down
-```
+Two topics, created by the `kafka-topic-init` init container:
 
-**Prod mode** (pulls images from Docker Hub `robertglowacki83/` — images are built and pushed automatically by `.github/workflows/docker-ci.yml` on pushes to `master` that touch image inputs):
-```bash
-docker-compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml up --pull always -d
-docker-compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml down
-```
+- **`trade`** — Avro-serialized trade events from `kafka-producer-app` (Schema Registry holds the schema)
+- **`gdansk-public-transport`** — JSON vehicle positions from the Gdansk GPS producer
 
-### Service Ports
+The `gdansk-public-transport-kafka-producer` compose service runs `cluster-setup/py/gdansk_public_transport_kafka.py`: it polls the Gdansk API every 10 s and publishes only changed vehicle positions, keyed by `vehicleId`. It starts with the init profile but is not one-shot — `restart: unless-stopped` keeps it running afterwards, even across daemon restarts. Consequences: a plain `up` on a fresh machine will not start the GPS feed (the map stays empty until `--profile init up` has run once), and a plain `down` will not remove it — stop it with `docker stop gdansk-public-transport-kafka-producer` or run `down` with `--profile init`.
 
-| Service                  | Port              | Notes                                             |
-|--------------------------|-------------------|---------------------------------------------------|
-| Kafka (external clients) | `localhost:9092`  | For external tooling only (e.g. console consumer) |
-| Schema Registry          | `localhost:8081`  |                                                   |
-| Pinot Controller UI      | `0.0.0.0:9000`    | Web UI + REST API                                 |
-| Pinot Broker             | `localhost:8099`  | Query endpoint                                    |
-| Prometheus               | `localhost:9090`  |                                                   |
-| Grafana                  | `0.0.0.0:3000`    |                                                   |
-| Superset                 | `0.0.0.0:8088`    | BI dashboards over Pinot (via `pinotdb` driver)   |
-| Vehicle map web app      | `0.0.0.0:3001`    | Live Gdansk vehicle map (`web-app/`)              |
+## Kafka Producer App (`kafka-producer-app/`)
 
-### Verifying Kafka Messages
+Build with `mvn package` (`-DskipTests` to skip tests), from repo root or `kafka-producer-app/`.
 
-```bash
-docker exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic trade --from-beginning"
-```
+- The Avro Maven plugin auto-generates Java classes from `src/main/avro/Trade.avsc` into `src/main/java/avro/` during the `generate-sources` phase. Never edit these generated files directly — edit the `.avsc` schema instead.
+- The JAR entry point is `KafkaProducerApp`. Dependencies land in `target/lib/`. The app runs in container mode only — configuration is loaded from `kafka-producer.properties` on the classpath.
+- It runs 5 iterations of 1,000,000 messages each across 2 threads, flushing every 10,000 messages. Message volume is controlled by constants in `KafkaCustomTopicProducer.java`.
 
 ## Apache Pinot Tables
 
-Three tables are managed by `cluster-setup/table_config/add-tables.sh`:
+Three tables are managed by `cluster-setup/table_config/add-tables.sh`, run automatically by the `pinot-command-runner` init container (manual re-registration curls are in `cluster-setup/README-docker.md`):
 
 - **`trade` (REALTIME)** — consumes from the Kafka `trade` topic; schema in `trade_table_schema.json`
 - **`gdansk_public_transport` (REALTIME)** — consumes from the Kafka `gdansk-public-transport` topic; JSON-decoded; 7-day retention; schema in `gdansk_public_transport_table_schema.json`
 - **`gdansk_public_transport` (OFFLINE)** — batch-ingested from S3; schema in `gdansk_public_transport_table_schema.json`
 
-The `pinot-command-runner` init container runs this script automatically when starting with `--profile init`. To re-register tables against a running controller directly:
-```bash
-curl -X POST -H "Content-Type: application/json" -d @cluster-setup/table_config/gdansk_public_transport_table_schema.json http://localhost:9000/schemas
-curl -X POST -H "Content-Type: application/json" -d @cluster-setup/table_config/gdansk_public_transport_offline_table_config.json http://localhost:9000/tables
-curl -X POST -H "Content-Type: application/json" -d @cluster-setup/table_config/gdansk_public_transport_realtime_table_config.json http://localhost:9000/tables
-curl -X POST -H "Content-Type: application/json" -d @cluster-setup/table_config/trade_table_schema.json http://localhost:9000/schemas
-curl -X POST -H "Content-Type: application/json" -d @cluster-setup/table_config/trade_table_config.json http://localhost:9000/tables
-```
+The OFFLINE table config contains a minion task schedule, so the controller rejects it until a Pinot minion has registered — `pinot-command-runner` therefore depends on `pinot-minion` being healthy in the compose file.
+
+### S3 Batch Ingestion
+
+The `pinot-ingestion-runner` init container launches a batch ingestion job. The spec contains a `${DATE}` placeholder (format `YYYY/MM/DD`) substituted at runtime from the `INGESTION_DATE` env var; it reads from `s3://gdansk-public-transport/raw/YYYY/MM/DD`.
+
+## Superset
+
+- Dashboards are version-controlled as YAML under `cluster-setup/superset/dashboards/`. Map charts use built-in Mapbox styles authenticated at runtime via `MAPBOX_API_KEY` (from the `superset_mapbox_api_key` secret) — no key is stored in the YAML.
+- `superset-init.sh` normalizes `metadata.yaml` to `type: assets` before import, since UI exports write `type: Dashboard`, which the assets importer rejects. It also creates the `EmbeddedGuest` role (Gamma permissions + datasource access) and registers dashboards for embedding.
+- Sample Pinot queries live in `cluster-setup/table_config/gdansk_public_transport_queries.sql`.
+
+## Web App (`web-app/`)
+
+Serves two tabs:
+
+- **Live Map** — Mapbox GL base map created once; every 30 s only the deck.gl dot layer refreshes from Pinot, so pan/zoom is preserved. This is the reason the map lives here and not in a Superset chart.
+- **Analytics** — the Superset dashboard embedded via the Superset Embedded SDK.
+
+Backend endpoints: `/api/positions` (proxies the Pinot broker query, avoids CORS), `/api/config` (hands the Mapbox token to the browser), `/api/guest-token` (logs into Superset with the admin secrets and mints a guest token for the embedded dashboard).
+
+Embedding requires the `EMBEDDED_SUPERSET` feature flag, the `EmbeddedGuest` role, and CSP `frame-ancestors` allowing the web-app origin — all set up automatically.
+
+Two env-file variables must be reachable from the **user's browser** (container names never work there): `SUPERSET_DOMAIN` (`src` of the embedded dashboard iframe, local default `http://localhost:8088`) and `WEBAPP_ORIGIN` (Superset CSP `frame-ancestors` allowlist, local default `http://localhost:3001`). On EC2 or any remote host set both to the instance's public DNS/IP — see the comments in `cluster-setup/env/env.prod`; the localhost defaults are already correct when tunneling ports 8088 and 3001 over SSH.
+
+## Monitoring
+
+Prometheus scrapes JMX metrics from Kafka (port 19092) and from each Pinot component via their respective JMX exporter ports. The JMX config lives in `cluster-setup/jmx_exporter/kafka_jmx_config.yml`. Grafana dashboards are provisioned from `cluster-setup/grafana/`.
 
 ## Kubernetes
 
-The `k8s/` directory uses Kustomize with base + overlays (dev/prod). Kafka runs in KRaft mode. The Kafka pods use a custom `kafka-jmx:4.1.1` image that has the JMX agent baked in.
+The `k8s/` directory uses Kustomize with base + overlays (dev/prod); deployment commands are in `k8s/README.md`. Kafka runs in KRaft mode. The Kafka pods use a custom `kafka-jmx:4.1.1` image that has the JMX agent baked in (built by `k8s/02-kafka/build.sh`). `KAFKA_NODE_ID` and `KAFKA_ADVERTISED_LISTENERS` are injected per-pod by an init container at runtime, based on the pod's ordinal index.
 
-```bash
-# Create namespace
-kubectl apply -f k8s/00-ns/data-ops-center-cluster-ns.yaml
+## AWS Lambda & S3 Data (Gdansk Public Transport)
 
-# Switch context to namespace
-kubectl config set-context --current --namespace=data-ops-center
-
-# Deploy ZooKeeper
-kubectl apply -k k8s/01-zk/overlays/dev
-
-# Build + load custom Kafka JMX image, then deploy
-bash k8s/02-kafka/build.sh dev
-kubectl apply -k k8s/02-kafka/overlays/dev
-
-# Quick status
-kubectl get pods,svc,pvc -n data-ops-center
-```
-
-`KAFKA_NODE_ID` and `KAFKA_ADVERTISED_LISTENERS` are injected per-pod by an init container at runtime, based on the pod's ordinal index.
-
-## AWS Lambda (Gdansk Public Transport)
-
-The Lambda fetches GPS positions from the Gdansk public transport API and stores JSON-lines files in S3 bucket `gdansk-public-transport` under `raw/YYYY/MM/DD/HH-MM.txt`.
-
-Deployment is automated by `.github/workflows/lambda-function.yaml`. To package manually:
-```bash
-rm -rf aws_lambda
-mkdir -p aws_lambda
-cd aws_lambda
-pip install 'requests~=2.32' -t .  # boto3 is provided by the Lambda runtime
-cp ../cluster-setup/py/gdansk_public_transport_aws.py .
-# Windows PowerShell:
-Compress-Archive -Path * -DestinationPath function.zip
-# Upload function.zip to AWS Lambda
-```
-
-Handler entry point: `gdansk_public_transport_aws.lambda_handler`.
-
-## Architecture Notes
-
-- The Kafka producer runs 5 iterations of 1,000,000 messages each across 2 threads, flushing every 10,000 messages. Message volume is controlled by constants in `KafkaCustomTopicProducer.java`.
-- The custom Pinot Docker image (`Dockerfile.apache-pinot`) copies all files from `cluster-setup/table_config/` and `cluster-setup/pinot/` into the image at build time, so rebuilding is required when those configs change.
-- Prometheus scrapes JMX metrics from Kafka (port 19092) and from each Pinot component via their respective JMX exporter ports. The JMX config lives in `cluster-setup/jmx_exporter/kafka_jmx_config.yml`.
-- The `gdansk_public_transport_s3_compaction.py` script merges each day's raw S3 files into a single `daily/YYYY/YYYY-MM-DD.json.gz` object; it runs nightly via `.github/workflows/compact-s3-daily.yml` (manual dispatch with a date range for backfills). It reads all historical bucket layouts, including the Oct 2025 – Jun 2026 era when the Lambda wrote to the bucket root without the `raw/` prefix.
-- The `gdansk-public-transport-kafka-producer` compose service (always on, not init-only) runs `gdansk_public_transport_kafka.py`: it polls the Gdansk API every 10 s and publishes only changed vehicle positions to the `gdansk-public-transport` topic, keyed by `vehicleId`.
-- The `pinot-ingestion-runner` init container launches a batch ingestion job. The spec contains a `${DATE}` placeholder (format `YYYY/MM/DD`) that is substituted at runtime from the `INGESTION_DATE` env var.
-- Superset dashboards are version-controlled as YAML under `cluster-setup/superset/dashboards/`. Map charts use built-in Mapbox styles authenticated at runtime via `MAPBOX_API_KEY` (from the `superset_mapbox_api_key` secret) — no key is stored in the YAML. `superset-init.sh` normalizes `metadata.yaml` to `type: assets` before import, since UI exports write `type: Dashboard`, which the assets importer rejects. Sample Pinot queries live in `cluster-setup/table_config/gdansk_public_transport_queries.sql`.
+- The Lambda (`cluster-setup/py/gdansk_public_transport_aws.py`, handler `lambda_handler`) fetches GPS positions from the Gdansk public transport API and stores JSON-lines files in S3 bucket `gdansk-public-transport` under `raw/YYYY/MM/DD/HH-MM.txt`. Deployment is automated by `.github/workflows/lambda-function.yaml`; manual packaging steps are in `cluster-setup/README-lambda.md`.
+- The `gdansk_public_transport_s3_compaction.py` script merges each day's raw S3 files into a single `daily/YYYY/YYYY-MM-DD.json.gz` object; it runs nightly via `.github/workflows/compact-s3-daily.yml` (manual dispatch with a date range for backfills).

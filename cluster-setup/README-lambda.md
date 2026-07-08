@@ -1,10 +1,18 @@
-# This is set of instruction that needs to be performed in order to prepare zipped lambda function that could be manually uploaded into AWS Lambda 
+# AWS Lambda (Gdansk Public Transport)
 
+The Lambda fetches GPS positions from the Gdansk public transport API and stores JSON-lines files in the S3 bucket `gdansk-public-transport` under `raw/YYYY/MM/DD/HH-MM.txt`.
+
+Handler entry point: `gdansk_public_transport_aws.lambda_handler`.
+
+Deployment is automated by `.github/workflows/lambda-function.yaml`. To package manually:
+
+```bash
 rm -rf aws_lambda
 mkdir -p aws_lambda
 cd aws_lambda
-pip install requests -t .
-pip install schedule -t .
-pip install boto3 -t .
-cp ../cluster-setup/py/gdansk_public_transport.py .
+pip install 'requests~=2.32' -t .  # boto3 is provided by the Lambda runtime
+cp ../cluster-setup/py/gdansk_public_transport_aws.py .
+# Windows PowerShell:
 Compress-Archive -Path * -DestinationPath function.zip
+# Upload function.zip to AWS Lambda
+```
