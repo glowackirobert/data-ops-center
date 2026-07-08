@@ -66,7 +66,7 @@ def main():
                 print("No vehicle positions changed, skipping.")
         except Exception as e:
             print(f"Error: {e}", file=sys.stderr)
-        time.sleep(10)
+        time.sleep(30)
 
 if __name__ == '__main__':
     main()
