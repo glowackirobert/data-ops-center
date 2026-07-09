@@ -1,2 +1,2 @@
-FROM apache/kafka:4.1.1
+FROM apache/kafka:4.3.1
 COPY jmx_prometheus_javaagent-1.6.0.jar /usr/share/jmx_prometheus_javaagent-1.6.0.jar

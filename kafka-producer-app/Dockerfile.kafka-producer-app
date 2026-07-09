@@ -1,5 +1,5 @@
 # Build stage
-FROM maven:3.9.4-eclipse-temurin-21-alpine AS build
+FROM maven:3.9.16-eclipse-temurin-21-alpine AS build
 
 WORKDIR /app
 
@@ -37,7 +37,7 @@ RUN JAR=$(ls kafka-producer-*.jar) && \
         --output /jre
 
 # Runtime stage - plain alpine + custom JRE (no full JDK/JRE base image)
-FROM alpine:3.20
+FROM alpine:3.24
 
 WORKDIR /app
 

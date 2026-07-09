@@ -78,7 +78,7 @@ Services that use custom-built images must be built before first run in dev mode
 docker build -t apache-pinot:1.4.0 -f cluster-setup/container/Dockerfile.apache-pinot .
 
 # Apache Superset — adds pinotdb driver on top of the official image
-docker build -t superset:4.1.2 -f cluster-setup/container/Dockerfile.superset .
+docker build -t superset:4.1.4 -f cluster-setup/container/Dockerfile.superset .
 
 # Kafka producer app — Maven multi-stage build of the Java Avro producer
 docker build -t kafka-producer-app:1.0.0 -f kafka-producer-app/Dockerfile.kafka-producer-app .

@@ -35,7 +35,7 @@ spec:
       automountServiceAccountToken: false
       initContainers:
         - name: init-zookeeper
-          image: zookeeper:3.9.2
+          image: zookeeper:3.9.5
           command:
             - sh
             - -c
@@ -47,7 +47,7 @@ spec:
               mountPath: /data
       containers:
         - name: zookeeper
-          image: zookeeper:3.9.2
+          image: zookeeper:3.9.5
           ports:
             - name: client
               containerPort: 2181

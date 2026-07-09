@@ -4,7 +4,7 @@
 # Use an overlay: kubectl apply -k k8s/02-kafka/overlays/dev|prod
 #
 # - KAFKA_NODE_ID and KAFKA_ADVERTISED_LISTENERS set per-pod by init container
-# - Custom image kafka-jmx:4.1.1 has JMX agent JAR baked in;
+# - Custom image kafka-jmx:4.3.1 has JMX agent JAR baked in;
 #   build and load with: bash k8s/02-kafka/build.sh [dev|prod]
 # - CLUSTER_ID must be fixed so all pods agree; regenerate with:
 #   kubectl exec -it kafka-0 -n data-ops-center -- /opt/kafka/bin/kafka-storage.sh random-uuid
@@ -65,7 +65,7 @@ spec:
               mountPath: /opt/kafka-config
       containers:
         - name: kafka
-          image: kafka-jmx:4.1.1
+          image: kafka-jmx:4.3.1
           ports:
             - name: client
               containerPort: 9092

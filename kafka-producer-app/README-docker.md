@@ -33,7 +33,7 @@ docker run --rm -it --network pinot-network --name kafka -p 9092:9092 -p 29092:2
   -e KAFKA_INTER_BROKER_LISTENER_NAME=INTERNAL \
   -e KAFKA_CONTROLLER_QUORUM_VOTERS="1@kafka:9093" \
   -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 \
-  apache/kafka:4.1.1
+  apache/kafka:4.3.1
 ```
 
 Run schema registry:
