@@ -69,22 +69,38 @@ The `secrets/` directory is gitignored — these files must be created manually 
 
 
 
+## Image Versions
+
+All image versions (third-party and custom-built) live in a single file:
+`cluster-setup/env/versions.env`. It is read by the compose commands (as the
+first `--env-file`), by the build commands below (`source` it first), and by
+the CI workflow. To bump a version, edit only that file.
+
+The one exception is `kafka-producer-app`, whose version is owned by Maven in
+`kafka-producer-app/pom.xml`.
+
 ## Custom Images
 
 Services that use custom-built images must be built before first run in dev mode:
 
 ```bash
+# Image versions — single source of truth
+source cluster-setup/env/versions.env
+
 # Apache Pinot — adds table configs, JMX exporter and ingestion scripts
-docker build -t apache-pinot:1.5.1 -f cluster-setup/container/Dockerfile.apache-pinot .
+docker build --build-arg APACHE_PINOT_VERSION=$APACHE_PINOT_VERSION \
+  -t apache-pinot:$APACHE_PINOT_VERSION -f cluster-setup/container/Dockerfile.apache-pinot .
 
 # Apache Superset — adds pinotdb driver on top of the official image
-docker build -t superset:4.1.4 -f cluster-setup/container/Dockerfile.superset .
+docker build --build-arg SUPERSET_VERSION=$SUPERSET_VERSION \
+  -t superset:$SUPERSET_VERSION -f cluster-setup/container/Dockerfile.superset .
 
-# Kafka producer app — Maven multi-stage build of the Java Avro producer
+# Kafka producer app — Maven multi-stage build of the Java Avro producer (version from pom.xml)
 docker build -t kafka-producer-app:1.0.0 -f kafka-producer-app/Dockerfile.kafka-producer-app .
 
 # Web app — stdlib-only Python server serving the vehicle map UI
-docker build -t web-app:1.0.0 -f cluster-setup/container/Dockerfile.web-app .
+docker build --build-arg PYTHON_VERSION=$PYTHON_VERSION \
+  -t web-app:$WEB_APP_VERSION -f cluster-setup/container/Dockerfile.web-app .
 ```
 
 For prod - images are pulled from Docker Hub `robertglowacki83/` — 
@@ -94,7 +110,7 @@ Images are built and pushed automatically by `.github/workflows/docker-ci.yml` o
 
 ## Running the Cluster
 
-All commands use an env file to switch between dev and prod behaviour (port bindings, image sources, JVM heap sizes).
+All commands use two env files: `versions.env` (image versions, shared) plus `env.dev`/`env.prod` to switch between dev and prod behaviour (port bindings, image sources, JVM heap sizes). Multiple `--env-file` flags require Docker Compose v2.17+.
 
 JVM heaps (Zookeeper, Kafka, Schema Registry, all Pinot components and runners) are set per environment via the `*_HEAP` variables in the env files — dev uses small laptop-friendly sizes, prod the full sizes. Unset variables fall back to prod-sized defaults in `container-compose.yml`. Zookeeper's is `ZOOKEEPER_HEAP_MB` (a number in MB, its image's convention); all others take JVM flags like `-Xms256M -Xmx1G`.
 
@@ -102,26 +118,26 @@ JVM heaps (Zookeeper, Kafka, Schema Registry, all Pinot components and runners) 
 
 ```bash
 # Start core services
-docker compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml up
+docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml up
 
 # First-time setup — also run init containers
-docker compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml --profile init up
+docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml --profile init up
 
 # Stop
-docker compose --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml down
+docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml down
 ```
 
 ### Production
 
 ```bash
 # Start core services, pull latest images
-docker compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml up --pull always -d
+docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml up --pull always -d
 
 # First-time setup — also run init containers
-docker compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml --profile init up --pull always
+docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml --profile init up --pull always
 
 # Stop
-docker compose --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml down
+docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml down
 ```
 
 ### Verifying Kafka messages
@@ -153,6 +169,7 @@ Pass the date via `INGESTION_DATE` (format `YYYY-MM-DD`). The compose command su
 ```bash
 # Run against an already-running cluster (skip init dependencies)
 INGESTION_DATE=2026-06-29 docker compose \
+  --env-file cluster-setup/env/versions.env \
   --env-file cluster-setup/env/env.prod \
   -f cluster-setup/container/container-compose.yml \
   --profile init \

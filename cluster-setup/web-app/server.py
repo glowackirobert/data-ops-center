@@ -46,6 +46,7 @@ SELECT vehicleId,
        LASTWITHTIME(headsign, generatedTransformed, 'STRING')        AS headsign,
        LASTWITHTIME(delay, generatedTransformed, 'INT')              AS delay,
        LASTWITHTIME(speed, generatedTransformed, 'FLOAT')            AS speed,
+       LASTWITHTIME(direction, generatedTransformed, 'INT')          AS direction,
        MAX(generatedTransformed)                                     AS lastSeen
 FROM gdansk_public_transport_REALTIME
 WHERE generatedTransformed > ago('PT10M')

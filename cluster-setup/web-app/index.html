@@ -74,6 +74,12 @@ function colorForRoute(route) {
   return PALETTE[h % PALETTE.length];
 }
 
+// 24-hour clock regardless of the browser's locale (h23 avoids the "24:xx"
+// midnight quirk of hour12: false).
+function time24(ms) {
+  return new Date(ms).toLocaleTimeString([], { hourCycle: 'h23' });
+}
+
 function tooltip({ object: d }) {
   if (!d) return null;
   return {
@@ -81,15 +87,24 @@ function tooltip({ object: d }) {
            <b>Headsign:</b> ${d.headsign || '—'}<br>
            <b>Delay:</b> ${(d.delay / 60).toFixed(1)} min<br>
            <b>Speed:</b> ${d.speed} km/h<br>
-           <b>Seen:</b> ${new Date(d.lastSeen).toLocaleTimeString()}`,
+           <b>Seen:</b> ${time24(d.lastSeen)}`,
   };
+}
+
+// Compass bearing (degrees, 0 = north, clockwise) → screen-space pixel offset
+// that places the heading arrow just outside the route square, on the side
+// the vehicle is moving towards. Screen y grows downwards, hence -cos.
+const ARROW_RADIUS_PX = 16;
+function arrowOffset(direction) {
+  const rad = (direction || 0) * Math.PI / 180;
+  return [ARROW_RADIUS_PX * Math.sin(rad), -ARROW_RADIUS_PX * Math.cos(rad)];
 }
 
 let map = null;
 
 // deck.gl position transitions interpolate by array index, so every vehicle
 // must keep the same index across refreshes — Pinot's GROUP BY result order is
-// arbitrary, and feeding it straight in makes dots fly between unrelated
+// arbitrary, and feeding it straight in makes markers fly between unrelated
 // vehicles. Vehicles are therefore merged into stable slots by vehicleId.
 const slotByVehicle = new Map();
 let vehicles = [];
@@ -147,33 +162,53 @@ async function initMap() {
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const rows = await resp.json();
       const compacted = mergePositions(rows);
-      // Only the scatter layer is replaced; deck.gl diffs it on the GPU and
-      // the base map keeps its tiles, camera and WebGL context.
+      // Glide (linearly) for nearly the whole interval so markers move at
+      // roughly the vehicle's real pace instead of a 1 s hop. Skipped on the
+      // rare compaction frame, where slot indices have shifted.
+      const transitions = compacted
+        ? undefined
+        : { getPosition: { duration: REFRESH_MS - 3000, easing: t => t } };
+      // Only the vehicle layers are replaced; deck.gl diffs them on the GPU
+      // and the base map keeps its tiles, camera and WebGL context.
       overlay.setProps({
         layers: [
-          new deck.ScatterplotLayer({
-            id: 'vehicles',
+          // Heading arrow just outside the square, pointing where the
+          // vehicle is going.
+          new deck.TextLayer({
+            id: 'vehicle-arrows',
             data: [...vehicles], // fresh array so deck.gl notices the update
+            characterSet: ['▲'],
+            getText: () => '▲',
             getPosition: d => [d.lon, d.lat],
-            getFillColor: d => colorForRoute(d.route),
-            getRadius: 30,
-            radiusMinPixels: 3,
-            radiusMaxPixels: 18,
-            stroked: true,
-            getLineColor: [255, 255, 255, 200],
-            lineWidthMinPixels: 1,
+            getPixelOffset: d => arrowOffset(d.direction),
+            // deck.gl angles are counter-clockwise; compass bearings clockwise
+            getAngle: d => -(d.direction || 0),
+            getColor: d => colorForRoute(d.route),
+            getSize: 11,
+            transitions,
+          }),
+          // Route-number square — the text background is the square itself.
+          new deck.TextLayer({
+            id: 'vehicles',
+            data: [...vehicles],
+            getText: d => String(d.route || '?'),
+            getPosition: d => [d.lon, d.lat],
+            getSize: 12,
+            getColor: [255, 255, 255],
+            fontFamily: 'system-ui, sans-serif',
+            fontWeight: 700,
+            background: true,
+            getBackgroundColor: d => colorForRoute(d.route),
+            backgroundPadding: [4, 2],
+            getBorderColor: [255, 255, 255, 200],
+            getBorderWidth: 1,
             pickable: true,
-            // Glide (linearly) for nearly the whole interval so dots move at
-            // roughly the vehicle's real pace instead of a 1 s hop. Skipped on
-            // the rare compaction frame, where slot indices have shifted.
-            transitions: compacted
-              ? undefined
-              : { getPosition: { duration: REFRESH_MS - 3000, easing: t => t } },
+            transitions,
           }),
         ],
       });
       panel.textContent =
-        `${vehicles.length} vehicles · updated ${new Date().toLocaleTimeString()}`;
+        `${vehicles.length} vehicles · updated ${time24(Date.now())}`;
       globalThis._log.push({ t: Date.now(), ev: 'refresh', n: vehicles.length, zoom: map.getZoom() });
     } catch (err) {
       panel.textContent = `Refresh failed: ${err.message}`;
