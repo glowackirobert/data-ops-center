@@ -1,4 +1,7 @@
-ARG APACHE_PINOT_VERSION=1.5.1
+# check=skip=InvalidDefaultArgInFrom
+# The ARG deliberately has no default — the version comes from
+# cluster-setup/env/versions.env, passed as --build-arg (see README-docker.md)
+ARG APACHE_PINOT_VERSION
 
 # Start from the base Pinot image
 FROM apachepinot/pinot:${APACHE_PINOT_VERSION}

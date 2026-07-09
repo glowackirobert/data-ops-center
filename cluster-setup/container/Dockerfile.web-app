@@ -1,5 +1,8 @@
-ARG WEB_APP_VERSION=1.0.0
-FROM python:3.13-slim
+# check=skip=InvalidDefaultArgInFrom
+# The ARG deliberately has no default — the version comes from
+# cluster-setup/env/versions.env, passed as --build-arg (see README-docker.md)
+ARG PYTHON_VERSION
+FROM python:${PYTHON_VERSION}
 WORKDIR /app
 COPY cluster-setup/web-app/server.py cluster-setup/web-app/index.html ./
 EXPOSE 3001

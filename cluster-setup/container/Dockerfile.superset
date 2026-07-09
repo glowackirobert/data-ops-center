@@ -1,4 +1,8 @@
-FROM apache/superset:4.1.4
+# check=skip=InvalidDefaultArgInFrom
+# The ARG deliberately has no default — the version comes from
+# cluster-setup/env/versions.env, passed as --build-arg (see README-docker.md)
+ARG SUPERSET_VERSION
+FROM apache/superset:${SUPERSET_VERSION}
 USER root
 RUN pip install pinotdb
 USER superset

@@ -12,6 +12,7 @@ on:
       - 'cluster-setup/container/Dockerfile.*'
       - 'cluster-setup/table_config/**'
       - 'cluster-setup/pinot/**'
+      - 'cluster-setup/env/versions.env'
       - '.github/workflows/docker-ci.yml'
 
 jobs:
@@ -41,6 +42,9 @@ jobs:
     - name: Install xmllint
       run: sudo apt-get update && sudo apt-get install -y libxml2-utils
 
+    - name: Load image versions from versions.env
+      run: grep -E '^[A-Z_]+=' cluster-setup/env/versions.env >> "$GITHUB_ENV"
+
     - name: Extract kafka producer app version from pom.xml
       id: extract_version_kafka_producer_app
       run: |
@@ -57,28 +61,16 @@ jobs:
         tags: |
           docker.io/${{ vars.DOCKER_USERNAME }}/${{ env.KAFKA_PRODUCER_MODULE }}:${{ steps.extract_version_kafka_producer_app.outputs.version }}
 
-    - name: Extract Pinot version
-      id: extract_version_apache_pinot
-      run: |
-        VERSION=$(grep -oP 'ARG APACHE_PINOT_VERSION=\K[\d.]+' cluster-setup/container/Dockerfile.apache-pinot)
-        echo "VERSION=$VERSION"
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-
     - name: Build and push Docker image of custom Apache Pinot app
       uses: docker/build-push-action@v7
       with:
         context: .
         file: ./cluster-setup/container/Dockerfile.${{ env.APACHE_PINOT }}
         push: true
+        build-args: |
+          APACHE_PINOT_VERSION=${{ env.APACHE_PINOT_VERSION }}
         tags: |
-          docker.io/${{ vars.DOCKER_USERNAME }}/${{ env.APACHE_PINOT }}:${{ steps.extract_version_apache_pinot.outputs.version }}
-
-    - name: Extract web app version
-      id: extract_version_web_app
-      run: |
-        VERSION=$(grep -oP 'ARG WEB_APP_VERSION=\K[\d.]+' cluster-setup/container/Dockerfile.web-app)
-        echo "VERSION=$VERSION"
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
+          docker.io/${{ vars.DOCKER_USERNAME }}/${{ env.APACHE_PINOT }}:${{ env.APACHE_PINOT_VERSION }}
 
     - name: Build and push Docker image of vehicle map web app
       uses: docker/build-push-action@v7
@@ -86,15 +78,10 @@ jobs:
         context: .
         file: ./cluster-setup/container/Dockerfile.${{ env.WEB_APP }}
         push: true
+        build-args: |
+          PYTHON_VERSION=${{ env.PYTHON_VERSION }}
         tags: |
-          docker.io/${{ vars.DOCKER_USERNAME }}/${{ env.WEB_APP }}:${{ steps.extract_version_web_app.outputs.version }}
-
-    - name: Extract Superset version
-      id: extract_version_superset
-      run: |
-        VERSION=$(grep -oP 'FROM apache/superset:\K[\d.]+' cluster-setup/container/Dockerfile.${{ env.SUPERSET }})
-        echo "VERSION=$VERSION"
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
+          docker.io/${{ vars.DOCKER_USERNAME }}/${{ env.WEB_APP }}:${{ env.WEB_APP_VERSION }}
 
     - name: Build and push Docker image of custom Superset
       uses: docker/build-push-action@v7
@@ -102,5 +89,7 @@ jobs:
         context: .
         file: ./cluster-setup/container/Dockerfile.${{ env.SUPERSET }}
         push: true
+        build-args: |
+          SUPERSET_VERSION=${{ env.SUPERSET_VERSION }}
         tags: |
-          docker.io/${{ vars.DOCKER_USERNAME }}/${{ env.SUPERSET }}:${{ steps.extract_version_superset.outputs.version }}
+          docker.io/${{ vars.DOCKER_USERNAME }}/${{ env.SUPERSET }}:${{ env.SUPERSET_VERSION }}

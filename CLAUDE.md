@@ -32,6 +32,7 @@ Runnable commands live in the READMEs — do not duplicate them here:
 
 All commands are in `cluster-setup/README-docker.md`. Key facts:
 
+- All Docker image versions live in `cluster-setup/env/versions.env` — the single source of truth, read by the compose commands (first `--env-file`), the README build commands, and the CI workflow. Exception: `kafka-producer-app` is versioned by its `pom.xml`. The k8s manifests do **not** read it.
 - The `secrets/` directory (`cluster-setup/container/secrets/`) is gitignored and must be populated before first run — the README lists the required files.
 - Custom images (`apache-pinot`, `superset`, `kafka-producer-app`, `web-app`) must be built locally before first start in **dev mode** (`env.dev`, `DOCKER_IMAGE_BASE_PATH` empty). **Prod mode** (`env.prod`) pulls them from Docker Hub `robertglowacki83/` — built and pushed automatically by `.github/workflows/docker-ci.yml` on pushes to `master` that touch image inputs.
 - Files are baked into the custom images at build time: `cluster-setup/table_config/` and `cluster-setup/pinot/` into `apache-pinot`, `cluster-setup/web-app/server.py` and `cluster-setup/web-app/index.html` into `web-app` — rebuild the image after changing them.

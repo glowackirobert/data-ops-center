@@ -1,6 +1,6 @@
 services:
   zookeeper:
-    image: zookeeper:3.9.5
+    image: zookeeper:${ZOOKEEPER_VERSION}
     container_name: zookeeper
     restart: unless-stopped
     ports:
@@ -21,7 +21,7 @@ services:
       - pinot-network
 
   kafka:
-    image: apache/kafka:4.3.1
+    image: apache/kafka:${KAFKA_VERSION}
     container_name: kafka
     restart: unless-stopped
     ports:
@@ -58,7 +58,7 @@ services:
       - pinot-network
 
   schema-registry:
-    image: confluentinc/cp-schema-registry:7.6.5
+    image: confluentinc/cp-schema-registry:${SCHEMA_REGISTRY_VERSION}
     container_name: schema-registry
     restart: unless-stopped
     ports:
@@ -187,7 +187,7 @@ services:
       - pinot-network
 
   prometheus:
-    image: prom/prometheus:v3.13.0
+    image: prom/prometheus:${PROMETHEUS_VERSION}
     container_name: prometheus
     restart: unless-stopped
     ports:
@@ -204,7 +204,7 @@ services:
       - pinot-network
 
   grafana:
-    image: grafana/grafana:11.4.8
+    image: grafana/grafana:${GRAFANA_VERSION}
     container_name: grafana
     restart: unless-stopped
     ports:
@@ -225,7 +225,7 @@ services:
 
   kafka-topic-init:
     profiles: ["init"]
-    image: apache/kafka:4.3.1
+    image: apache/kafka:${KAFKA_VERSION}
     container_name: kafka-topic-init
     restart: "no"
     entrypoint: [ "/bin/bash", "-c" ]
@@ -304,7 +304,7 @@ services:
       - pinot-network
 
   gdansk-public-transport-kafka-producer:
-    image: python:3.13-slim
+    image: python:${PYTHON_VERSION}
     container_name: gdansk-public-transport-kafka-producer
     restart: unless-stopped
     entrypoint: [ "/bin/sh", "-c" ]
@@ -324,7 +324,7 @@ services:
 
   superset-init:
     profiles: ["init"]
-    image: ${DOCKER_IMAGE_BASE_PATH}superset:4.1.4
+    image: ${DOCKER_IMAGE_BASE_PATH}superset:${SUPERSET_VERSION}
     container_name: superset-init
     restart: "no"
     healthcheck:
@@ -350,7 +350,7 @@ services:
       - pinot-network
 
   superset:
-    image: ${DOCKER_IMAGE_BASE_PATH}superset:4.1.4
+    image: ${DOCKER_IMAGE_BASE_PATH}superset:${SUPERSET_VERSION}
     container_name: superset
     restart: unless-stopped
     ports:
@@ -377,7 +377,7 @@ services:
       - pinot-network
 
   web-app:
-    image: ${DOCKER_IMAGE_BASE_PATH}web-app:1.0.0
+    image: ${DOCKER_IMAGE_BASE_PATH}web-app:${WEB_APP_VERSION}
     container_name: web-app
     restart: unless-stopped
     ports:
