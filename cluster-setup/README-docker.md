@@ -144,13 +144,13 @@ curl -X POST -H "Content-Type: application/json" -d @cluster-setup/table_config/
 
 ## S3 Batch Ingestion
 
-The `gdansk_public_transport_ingestion_job_spec.json` spec reads from `s3://gdansk-public-transport/raw/YYYY/MM/DD/` and pushes segments to the offline Pinot table.
+The `gdansk_public_transport_ingestion_job_spec.json` spec reads the compacted daily file `s3://gdansk-public-transport/daily/YYYY/YYYY-MM-DD.json.gz` and pushes one segment per day, named `gdansk_public_transport_YYYY-MM-DD`, to the offline Pinot table.
 
-Pass the date via `INGESTION_DATE` (format `YYYY/MM/DD`). The compose command substitutes it into the spec before running.
+Pass the date via `INGESTION_DATE` (format `YYYY-MM-DD`). The compose command substitutes it into the spec before running. The daily file is produced by the nightly S3 compaction workflow, so only completed (already-compacted) days can be ingested.
 
 ```bash
 # Run against an already-running cluster (skip init dependencies)
-INGESTION_DATE=2026/06/29 docker compose \
+INGESTION_DATE=2026-06-29 docker compose \
   --env-file cluster-setup/env/env.prod \
   -f cluster-setup/container/container-compose.yml \
   --profile init \

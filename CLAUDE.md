@@ -68,7 +68,7 @@ The OFFLINE table config contains a minion task schedule, so the controller reje
 
 ### S3 Batch Ingestion
 
-The `pinot-ingestion-runner` init container launches a batch ingestion job. The spec contains a `${DATE}` placeholder (format `YYYY/MM/DD`) substituted at runtime from the `INGESTION_DATE` env var; it reads from `s3://gdansk-public-transport/raw/YYYY/MM/DD`.
+The `pinot-ingestion-runner` init container launches a batch ingestion job for the single day selected by the `INGESTION_DATE` env var (substituted into the `${DATE}` placeholder in the job spec). S3 paths, segment naming, and manual run commands are in `cluster-setup/README-docker.md`.
 
 ## Superset
 
