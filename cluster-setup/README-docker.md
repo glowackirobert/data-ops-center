@@ -75,7 +75,7 @@ Services that use custom-built images must be built before first run in dev mode
 
 ```bash
 # Apache Pinot — adds table configs, JMX exporter and ingestion scripts
-docker build -t apache-pinot:1.4.0 -f cluster-setup/container/Dockerfile.apache-pinot .
+docker build -t apache-pinot:1.5.1 -f cluster-setup/container/Dockerfile.apache-pinot .
 
 # Apache Superset — adds pinotdb driver on top of the official image
 docker build -t superset:4.1.4 -f cluster-setup/container/Dockerfile.superset .

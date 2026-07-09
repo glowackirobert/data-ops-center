@@ -58,4 +58,4 @@ Order findings by severity:
 
 For each finding give the file and line (`path:line`), what is wrong, and the concrete fix. If everything passes, say so explicitly per checklist section rather than staying silent.
 
-Always end with this reminder when any file in scope changed: these files are baked into the custom Pinot image, so `docker build -t apache-pinot:1.4.0 -f cluster-setup/container/Dockerfile.apache-pinot .` (or a CI-triggered rebuild) is required for changes to take effect, and existing tables need re-registration via `add-tables.sh` or the controller REST API.
+Always end with this reminder when any file in scope changed: these files are baked into the custom Pinot image, so `docker build -t apache-pinot:1.5.1 -f cluster-setup/container/Dockerfile.apache-pinot .` (or a CI-triggered rebuild) is required for changes to take effect, and existing tables need re-registration via `add-tables.sh` or the controller REST API.

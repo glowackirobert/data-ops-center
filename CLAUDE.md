@@ -95,7 +95,7 @@ Prometheus scrapes JMX metrics from Kafka (port 19092) and from each Pinot compo
 
 ## Kubernetes
 
-The `k8s/` directory uses Kustomize with base + overlays (dev/prod); deployment commands are in `k8s/README.md`. Kafka runs in KRaft mode. The Kafka pods use a custom `kafka-jmx:4.1.1` image that has the JMX agent baked in (built by `k8s/02-kafka/build.sh`). `KAFKA_NODE_ID` and `KAFKA_ADVERTISED_LISTENERS` are injected per-pod by an init container at runtime, based on the pod's ordinal index.
+The `k8s/` directory uses Kustomize with base + overlays (dev/prod); deployment commands are in `k8s/README.md`. Kafka runs in KRaft mode. The Kafka pods use a custom `kafka-jmx:4.3.1` image that has the JMX agent baked in (built by `k8s/02-kafka/build.sh`). `KAFKA_NODE_ID` and `KAFKA_ADVERTISED_LISTENERS` are injected per-pod by an init container at runtime, based on the pod's ordinal index.
 
 ## AWS Lambda & S3 Data (Gdansk Public Transport)
 
