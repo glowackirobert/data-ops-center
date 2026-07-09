@@ -7,19 +7,19 @@ Docker Compose based setup for the Data Ops Center cluster.
 ### Core services (always running)
 
 | Service               | Port | Description                                                                                   |
-|-----------------------|-------|-----------------------------------------------------------------------------------------------|
-| Zookeeper             | 2181  | Coordination service required by Apache Pinot.                                                |
-| Kafka                 | 9092  | Message broker in KRaft mode.                                                                 |
-| Schema Registry       | 8081  | Confluent Schema Registry for Avro schema management.                                         |
-| Pinot Controller /UI/ | 9000  | Manages cluster metadata, table configs and segment assignment.                               |
-| Pinot Broker          | 8099  | Accepts SQL queries and routes them to the appropriate servers.                               |
-| Pinot Server /API/    | 8097  | Stores and serves segments.                                                                   |
-| Pinot Server /query/  | 8098  | Stores and serves segments.                                                                   |
-| Pinot Minion          | 7500  | Background task executor for offline segment operations.                                      |
-| Prometheus            | 9090  | Scrapes JMX metrics from Kafka and all Pinot components.                                      |
-| Grafana               | 3000  | Dashboards over Prometheus metrics.                                                           |
-| Superset              | 8088  | BI and data exploration UI connected to Pinot via `pinotdb`.                                  |
-| Web app               | 3001  | Live vehicle map (flicker-free 30 s refresh) + Analytics tab embedding the Superset dashboard |
+|-----------------------|------|-----------------------------------------------------------------------------------------------|
+| Zookeeper             | 2181 | Coordination service required by Apache Pinot.                                                |
+| Kafka                 | 9092 | Message broker in KRaft mode.                                                                 |
+| Schema Registry       | 8081 | Confluent Schema Registry for Avro schema management.                                         |
+| Pinot Controller /UI/ | 9000 | Manages cluster metadata, table configs and segment assignment.                               |
+| Pinot Broker          | 8099 | Accepts SQL queries and routes them to the appropriate servers.                               |
+| Pinot Server /API/    | 8097 | Stores and serves segments.                                                                   |
+| Pinot Server /query/  | 8098 | Stores and serves segments.                                                                   |
+| Pinot Minion          | 7500 | Background task executor for offline segment operations.                                      |
+| Prometheus            | 9090 | Scrapes JMX metrics from Kafka and all Pinot components.                                      |
+| Grafana               | 3000 | Dashboards over Prometheus metrics.                                                           |
+| Superset              | 8088 | BI and data exploration UI connected to Pinot via `pinotdb`.                                  |
+| Web app               | 3001 | Live vehicle map (flicker-free 30 s refresh) + Analytics tab embedding the Superset dashboard |
 
 ### Init containers (run once, `--profile init`)
 
