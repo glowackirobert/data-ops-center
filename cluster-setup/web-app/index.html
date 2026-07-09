@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>Gdansk Public Transport</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
 <script src="https://unpkg.com/mapbox-gl@3.25.0/dist/mapbox-gl.js"
         integrity="sha384-8BzM5kw/yLQ/0xcikcw1iUchzAgzTDpKxvDZ/UBmlheYzR4QhmFFYNgSFWHAEZls"
         crossorigin="anonymous"></script>
@@ -86,6 +87,36 @@ function tooltip({ object: d }) {
 
 let map = null;
 
+// deck.gl position transitions interpolate by array index, so every vehicle
+// must keep the same index across refreshes — Pinot's GROUP BY result order is
+// arbitrary, and feeding it straight in makes dots fly between unrelated
+// vehicles. Vehicles are therefore merged into stable slots by vehicleId.
+const slotByVehicle = new Map();
+let vehicles = [];
+
+// Returns true when slots were compacted (indices shifted) — the caller must
+// skip the transition for that one frame.
+function mergePositions(rows) {
+  const seen = new Set(rows.map(r => r.vehicleId));
+  const compacted = vehicles.some(v => !seen.has(v.vehicleId));
+  if (compacted) {
+    // Drop vehicles that left the query window and rebuild the slot index.
+    vehicles = vehicles.filter(v => seen.has(v.vehicleId));
+    slotByVehicle.clear();
+    vehicles.forEach((v, i) => slotByVehicle.set(v.vehicleId, i));
+  }
+  for (const row of rows) {
+    const i = slotByVehicle.get(row.vehicleId);
+    if (i === undefined) {
+      slotByVehicle.set(row.vehicleId, vehicles.length);
+      vehicles.push(row);
+    } else {
+      vehicles[i] = row;
+    }
+  }
+  return compacted;
+}
+
 async function initMap() {
   const cfg = await (await fetch('/api/config')).json();
   mapboxgl.accessToken = cfg.mapboxToken;
@@ -114,14 +145,15 @@ async function initMap() {
     try {
       const resp = await fetch('/api/positions');
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
+      const rows = await resp.json();
+      const compacted = mergePositions(rows);
       // Only the scatter layer is replaced; deck.gl diffs it on the GPU and
       // the base map keeps its tiles, camera and WebGL context.
       overlay.setProps({
         layers: [
           new deck.ScatterplotLayer({
             id: 'vehicles',
-            data,
+            data: [...vehicles], // fresh array so deck.gl notices the update
             getPosition: d => [d.lon, d.lat],
             getFillColor: d => colorForRoute(d.route),
             getRadius: 30,
@@ -131,13 +163,18 @@ async function initMap() {
             getLineColor: [255, 255, 255, 200],
             lineWidthMinPixels: 1,
             pickable: true,
-            transitions: { getPosition: 1000 }, // dots glide to new positions
+            // Glide (linearly) for nearly the whole interval so dots move at
+            // roughly the vehicle's real pace instead of a 1 s hop. Skipped on
+            // the rare compaction frame, where slot indices have shifted.
+            transitions: compacted
+              ? undefined
+              : { getPosition: { duration: REFRESH_MS - 3000, easing: t => t } },
           }),
         ],
       });
       panel.textContent =
-        `${data.length} vehicles · updated ${new Date().toLocaleTimeString()}`;
-      globalThis._log.push({ t: Date.now(), ev: 'refresh', n: data.length, zoom: map.getZoom() });
+        `${vehicles.length} vehicles · updated ${new Date().toLocaleTimeString()}`;
+      globalThis._log.push({ t: Date.now(), ev: 'refresh', n: vehicles.length, zoom: map.getZoom() });
     } catch (err) {
       panel.textContent = `Refresh failed: ${err.message}`;
       globalThis._log.push({ t: Date.now(), ev: 'refresh-error', msg: err.message });

@@ -35,6 +35,9 @@ APPLICATION_JSON = 'application/json'
 # Latest position per vehicle seen in the last 10 minutes. The Kafka feed only
 # publishes changed positions, so a 10-minute window keeps parked vehicles
 # visible while LASTWITHTIME dedupes to the freshest row.
+# _REALTIME suffix: skips the OFFLINE side of the hybrid table — its many
+# batch-ingested segments add broker planning overhead, and a 10-minute window
+# is always within realtime retention (7 days).
 POSITIONS_SQL = """
 SELECT vehicleId,
        LASTWITHTIME(lat, generatedTransformed, 'DOUBLE')             AS lat,
@@ -44,7 +47,7 @@ SELECT vehicleId,
        LASTWITHTIME(delay, generatedTransformed, 'INT')              AS delay,
        LASTWITHTIME(speed, generatedTransformed, 'FLOAT')            AS speed,
        MAX(generatedTransformed)                                     AS lastSeen
-FROM gdansk_public_transport
+FROM gdansk_public_transport_REALTIME
 WHERE generatedTransformed > ago('PT10M')
 GROUP BY vehicleId
 LIMIT 2000

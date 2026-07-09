@@ -5,8 +5,8 @@ superset db upgrade
 
 superset fab create-admin \
   --username "$(cat /run/secrets/superset_admin_username)" \
-  --firstname Admin \
-  --lastname Admin \
+  --firstname Robert \
+  --lastname Glowacki \
   --email "$(cat /run/secrets/superset_admin_email)" \
   --password "$(cat /run/secrets/superset_admin_password)" || true
 
@@ -129,6 +129,7 @@ with app.app_context():
 
     for dash in db.session.query(Dashboard).all():
         embedded = EmbeddedDashboardDAO.upsert(dash, [])
+        db.session.flush()  # uuid is generated at flush; without it the print shows None
         print(f'Registered for embedding: {dash.dashboard_title} -> {embedded.uuid}')
     db.session.commit()
 EMBEDEOF
