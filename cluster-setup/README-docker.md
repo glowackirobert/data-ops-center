@@ -94,7 +94,9 @@ Images are built and pushed automatically by `.github/workflows/docker-ci.yml` o
 
 ## Running the Cluster
 
-All commands use an env file to switch between dev and prod behaviour (port bindings, image sources).
+All commands use an env file to switch between dev and prod behaviour (port bindings, image sources, JVM heap sizes).
+
+JVM heaps (Zookeeper, Kafka, Schema Registry, all Pinot components and runners) are set per environment via the `*_HEAP` variables in the env files — dev uses small laptop-friendly sizes, prod the full sizes. Unset variables fall back to prod-sized defaults in `container-compose.yml`. Zookeeper's is `ZOOKEEPER_HEAP_MB` (a number in MB, its image's convention); all others take JVM flags like `-Xms256M -Xmx1G`.
 
 ### Development
 

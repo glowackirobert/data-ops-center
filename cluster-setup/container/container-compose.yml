@@ -7,6 +7,7 @@ services:
       - "${BIND}:2181:2181"
     environment:
       ZOO_4LW_COMMANDS_WHITELIST: "ruok,stat,conf,isro"
+      ZK_SERVER_HEAP: ${ZOOKEEPER_HEAP_MB:-1000}
     volumes:
       - ../volumes/zoo-data:/data
       - ../volumes/zoo-log:/datalog
@@ -43,6 +44,7 @@ services:
       KAFKA_LOG_RETENTION_BYTES: 10737418240
       KAFKA_LOG_SEGMENT_BYTES: 1073741824
       KAFKA_OPTS: "-javaagent:/usr/share/jmx_prometheus_javaagent-1.6.0.jar=19092:/usr/share/kafka_jmx_config.yml"
+      KAFKA_HEAP_OPTS: ${KAFKA_HEAP:--Xms1G -Xmx1G}
     volumes:
       - ../jmx_exporter/:/usr/share/
       - ../volumes/kafka-data:/opt/kafka/data
@@ -66,6 +68,7 @@ services:
       SCHEMA_REGISTRY_HOST_NAME: "schema-registry"
       SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8081"
       SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: "1"
+      SCHEMA_REGISTRY_HEAP_OPTS: ${SCHEMA_REGISTRY_HEAP:--Xmx512M}
     depends_on:
       kafka:
         condition: service_healthy
@@ -88,7 +91,7 @@ services:
       - "${BIND}:9000:9000"
       - "${BIND}:19000:19000"
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms256M -Xmx1G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-controller.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=19000:/opt/pinot/etc/jmx_prometheus_javaagent/configs/controller.yml"
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_CONTROLLER_HEAP:--Xms256M -Xmx1G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-controller.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=19000:/opt/pinot/etc/jmx_prometheus_javaagent/configs/controller.yml"
       AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
     secrets:
       - aws_credentials
@@ -118,7 +121,7 @@ services:
       - "${BIND}:8099:8099"
       - "${BIND}:18099:18099"
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms256M -Xmx1G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-broker.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18099:/opt/pinot/etc/jmx_prometheus_javaagent/configs/broker.yml"
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_BROKER_HEAP:--Xms256M -Xmx1G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-broker.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18099:/opt/pinot/etc/jmx_prometheus_javaagent/configs/broker.yml"
     depends_on:
       pinot-controller:
         condition: service_healthy
@@ -142,7 +145,7 @@ services:
       - "${BIND}:8097:8097" # admin API
       - "${BIND}:18098:18098" # metrics
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms512M -Xmx3G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-server.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18098:/opt/pinot/etc/jmx_prometheus_javaagent/configs/server.yml"
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_SERVER_HEAP:--Xms512M -Xmx3G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-server.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18098:/opt/pinot/etc/jmx_prometheus_javaagent/configs/server.yml"
     volumes:
       - ../volumes/pinot/server:/opt/pinot/pinotServerData
     depends_on:
@@ -167,7 +170,7 @@ services:
       - "${BIND}:7500:7500"
       - "${BIND}:17500:17500"
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Xms256M -Xmx1G -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-minion.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=17500:/opt/pinot/etc/jmx_prometheus_javaagent/configs/minion.yml"
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_MINION_HEAP:--Xms256M -Xmx1G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-minion.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=17500:/opt/pinot/etc/jmx_prometheus_javaagent/configs/minion.yml"
     #      AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
     #    secrets:
     #      - aws_credentials
@@ -254,7 +257,7 @@ services:
     command: [ "/opt/pinot/scripts/add-tables.sh" ]
     restart: "no"
     environment:
-      - JAVA_OPTS=-Dpinot.admin.system.exit=true -Xmx512m
+      - JAVA_OPTS=-Dpinot.admin.system.exit=true ${PINOT_COMMAND_RUNNER_HEAP:--Xmx512M}
     depends_on:
       pinot-server:
         condition: service_healthy
@@ -287,7 +290,7 @@ services:
         /opt/pinot/bin/pinot-admin.sh LaunchDataIngestionJob -jobSpecFile /tmp/ingestion_spec.json
     restart: "no"
     environment:
-      JAVA_OPTS: "-Dpinot.admin.system.exit=true -Xmx1G"
+      JAVA_OPTS: "-Dpinot.admin.system.exit=true ${PINOT_INGESTION_RUNNER_HEAP:--Xmx1G}"
       AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
       INGESTION_DATE: ${INGESTION_DATE}
     secrets:
