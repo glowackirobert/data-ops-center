@@ -6,8 +6,6 @@ services:
     ports:
       - "${BIND}:2181:2181"
     environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
       ZOO_4LW_COMMANDS_WHITELIST: "ruok,stat,conf,isro"
     volumes:
       - ../volumes/zoo-data:/data
@@ -67,6 +65,7 @@ services:
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "PLAINTEXT://kafka:9092"
       SCHEMA_REGISTRY_HOST_NAME: "schema-registry"
       SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8081"
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: "1"
     depends_on:
       kafka:
         condition: service_healthy

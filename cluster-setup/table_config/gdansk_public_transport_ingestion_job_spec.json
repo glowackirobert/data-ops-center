@@ -6,9 +6,9 @@
     "segmentUriPushJobRunnerClassName": "org.apache.pinot.plugin.ingestion.batch.standalone.SegmentUriPushJobRunner"
   },
   "jobType": "SegmentCreationAndTarPush",
-  "inputDirURI": "s3://gdansk-public-transport/raw/${DATE}",
+  "inputDirURI": "s3://gdansk-public-transport/daily",
   "searchRecursively": true,
-  "includeFileNamePattern": "glob:**/*.txt",
+  "includeFileNamePattern": "glob:**/${DATE}.json.gz",
   "outputDirURI": "/tmp/pinot/segments/${DATE}",
   "overwriteOutput": true,
   "pinotFSSpecs": [
@@ -25,11 +25,10 @@
     "className": "org.apache.pinot.plugin.inputformat.json.JSONRecordReader"
   },
   "segmentNameGeneratorSpec": {
-    "type": "normalizedDate",
+    "type": "inputFile",
     "configs": {
-      "segment.name.prefix": "gdansk_public_transport",
-      "segment.name.postfix": "",
-      "use.global.directory.sequence.id": "false"
+      "file.path.pattern": ".+/daily/(\\d{4})/(\\d{4}-\\d{2}-\\d{2})\\.json\\.gz",
+      "segment.name.template": "gdansk_public_transport_${filePathPattern:\\2}"
     }
   },
   "tableSpec": {
