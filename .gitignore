@@ -11,3 +11,13 @@ cluster-setup/container/secrets/
 
 # web-app browser-test scratch dir
 cluster-setup/web-app/.test/
+
+# build artifacts
+target/
+__pycache__/
+
+# IDE config
+.idea/
+
+# generated from src/main/avro/Trade.avsc by the Avro Maven plugin
+kafka-producer-app/src/main/java/avro/
