@@ -1,4 +1,4 @@
-slice_name: P5 · Route 9 hourly profile (last day)
+slice_name: P6 · Route 9 hourly profile (last 24 h)
 description: 'How does route 9 behave through the day? Hour-by-hour speed and delay
   on the same x-axis — rush hours drag speed down and delay up. Source: gdansk_public_transport_queries.sql
   (P5).'

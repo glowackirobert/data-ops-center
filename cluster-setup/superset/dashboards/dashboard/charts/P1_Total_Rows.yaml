@@ -1,4 +1,4 @@
-slice_name: Total Rows
+slice_name: P1 · Total rows
 description: 'Total number of rows currently in the gdansk_public_transport table.'
 certified_by: null
 certification_details: null
@@ -17,6 +17,6 @@ params:
   dashboards: []
 query_context: ''
 cache_timeout: 0
-uuid: e8687dd9-8d18-42f2-928d-042d24f9ebc8
+uuid: 2b3e54e1-db7a-4d4e-bfd1-4c8196b6d875
 version: 1.0.0
 dataset_uuid: 0fd033bf-2b72-4a3d-9cc5-740588b70c37

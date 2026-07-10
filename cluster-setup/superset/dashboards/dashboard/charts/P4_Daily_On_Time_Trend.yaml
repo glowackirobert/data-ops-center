@@ -1,4 +1,4 @@
-slice_name: P3 · Daily on-time trend
+slice_name: P4 · Daily on-time trend
 description: 'Is punctuality getting better or worse? Daily on-time % over the whole
   history, in Gdansk local time. Source: gdansk_public_transport_queries.sql (P3).'
 certified_by: null

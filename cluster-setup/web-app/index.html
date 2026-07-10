@@ -38,7 +38,9 @@
     background: rgba(255, 255, 255, 0.92); border-radius: 6px;
     padding: 8px 12px; font-size: 13px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    display: flex; align-items: center; gap: 10px;
   }
+  #route-filter { font: inherit; max-width: 140px; }
   #dash-view iframe { width: 100%; height: 100%; border: 0; }
   #dash-status { padding: 24px; color: #374151; }
   #dash-status.error { color: #b91c1c; }
@@ -54,7 +56,12 @@
 </header>
 <div id="map-view" class="view">
   <div id="map" style="position:absolute; inset:0;"></div>
-  <div id="panel">Loading…</div>
+  <div id="panel">
+    <select id="route-filter" disabled>
+      <option value="">All vehicles</option>
+    </select>
+    <span id="panel-status">Loading…</span>
+  </div>
 </div>
 <div id="dash-view" class="view hidden">
   <div id="dash-status">Loading dashboard…</div>
@@ -97,18 +104,15 @@ function isTram(route) {
   return /^\d{1,2}$/.test(String(route || ''));
 }
 
-function vehicleLabel(d) {
-  return `${isTram(d.route) ? '🚋' : '🚌'} ${d.route || '?'}`;
+// Marker layout, everything anchored on the vehicle position (route text
+// centred at 0):  [ ↑ route ]
+// The arrow sits inside the box's left backgroundPadding; its offset tracks
+// half the route text width (~8 px per glyph at size 14 bold).
+function routeTextWidth(d) {
+  return String(d.route || '?').length * 8;
 }
-
-// The heading arrow sits inside the route box, left of the label. Its pixel
-// offset from the box centre depends on the label's rendered width, estimated
-// at ~13 px per emoji and ~7 px per other glyph (size 12, bold). Must stay
-// within the box's left backgroundPadding.
 function arrowOffset(d) {
-  let w = 0;
-  for (const ch of vehicleLabel(d)) w += ch.codePointAt(0) > 0xFFFF ? 13 : 7;
-  return [-(w / 2 + 9), 0];
+  return [-(routeTextWidth(d) / 2 + 13), 0];
 }
 
 let map = null;
@@ -135,60 +139,106 @@ async function initMap() {
   map.on('moveend', () => globalThis._log.push(
     { t: Date.now(), ev: 'moveend', zoom: map.getZoom() }));
 
-  const panel = document.getElementById('panel');
+  const statusEl = document.getElementById('panel-status');
+  const routeSelect = document.getElementById('route-filter');
+
+  let lastRows = [];
+  let lastUpdated = 0;
+  let routeKey = ''; // signature of the routes currently in the dropdown
+
+  // Rebuild the dropdown only when the set of routes actually changes, so an
+  // open dropdown isn't yanked shut by the 30 s refresh. The user's selection
+  // survives the rebuild.
+  function rebuildRouteOptions(rows) {
+    const routes = [...new Set(rows.map(d => String(d.route || '?')))]
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const key = routes.join('|');
+    if (key === routeKey) return;
+    routeKey = key;
+    const selected = routeSelect.value;
+    routeSelect.innerHTML = '';
+    routeSelect.append(new Option('All vehicles', ''));
+    for (const [label, group] of [
+      ['Trams', routes.filter(isTram)],
+      ['Buses', routes.filter(r => !isTram(r))],
+    ]) {
+      if (!group.length) continue;
+      const g = document.createElement('optgroup');
+      g.label = label;
+      for (const r of group) g.append(new Option(r, r));
+      routeSelect.append(g);
+    }
+    routeSelect.value = routes.includes(selected) ? selected : '';
+    routeSelect.disabled = false;
+  }
+
+  function render() {
+    const route = routeSelect.value;
+    const rows = route
+      ? lastRows.filter(d => String(d.route || '?') === route)
+      : lastRows;
+    // Markers jump to the newly scraped position on each refresh — no
+    // interpolated movement between API polls.
+    // Only the vehicle layers are replaced; deck.gl diffs them on the GPU
+    // and the base map keeps its tiles, camera and WebGL context.
+    overlay.setProps({
+      layers: [
+        // Route-number box — the text background is the box itself, with
+        // extra left padding reserving room for the heading arrow.
+        new deck.TextLayer({
+          id: 'vehicles',
+          data: rows,
+          characterSet: 'auto',
+          getText: d => String(d.route || '?'),
+          getPosition: d => [d.lon, d.lat],
+          getSize: 14,
+          getColor: [255, 255, 255],
+          fontFamily: 'system-ui, sans-serif',
+          fontWeight: 700,
+          background: true,
+          getBackgroundColor: d => colorForRoute(d.route),
+          backgroundPadding: [24, 4, 7, 4],
+          getBorderColor: [255, 255, 255, 200],
+          getBorderWidth: 1,
+          pickable: true,
+        }),
+        // Heading arrow in the left slot of the box, pointing where the
+        // vehicle is going. Stationary vehicles get no arrow — their
+        // heading is meaningless.
+        new deck.TextLayer({
+          id: 'vehicle-arrows',
+          data: rows.filter(d => d.speed > 0),
+          characterSet: ['↑'],
+          getText: () => '↑',
+          getPosition: d => [d.lon, d.lat],
+          getPixelOffset: arrowOffset,
+          // deck.gl angles are counter-clockwise; compass bearings clockwise
+          getAngle: d => -(d.direction || 0),
+          getColor: [255, 255, 255],
+          getSize: 18,
+          fontFamily: 'system-ui, sans-serif',
+          fontWeight: 700,
+        }),
+      ],
+    });
+    statusEl.textContent =
+      (route ? `${rows.length} of ${lastRows.length}` : `${rows.length}`)
+      + ` vehicles · updated ${time24(lastUpdated)}`;
+  }
+
+  routeSelect.onchange = render;
 
   async function refresh() {
     try {
       const resp = await fetch('/api/positions');
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const rows = await resp.json();
-      // Markers jump to the newly scraped position on each refresh — no
-      // interpolated movement between API polls.
-      // Only the vehicle layers are replaced; deck.gl diffs them on the GPU
-      // and the base map keeps its tiles, camera and WebGL context.
-      overlay.setProps({
-        layers: [
-          // Route-number box — the text background is the box itself, with
-          // extra left padding reserving room for the heading arrow.
-          new deck.TextLayer({
-            id: 'vehicles',
-            data: rows,
-            characterSet: 'auto', // route digits plus the 🚋/🚌 emoji
-            getText: vehicleLabel,
-            getPosition: d => [d.lon, d.lat],
-            getSize: 12,
-            getColor: [255, 255, 255],
-            fontFamily: 'system-ui, sans-serif',
-            fontWeight: 700,
-            background: true,
-            getBackgroundColor: d => colorForRoute(d.route),
-            backgroundPadding: [16, 2, 4, 2],
-            getBorderColor: [255, 255, 255, 200],
-            getBorderWidth: 1,
-            pickable: true,
-          }),
-          // Heading arrow inside the box, left of the route number, pointing
-          // where the vehicle is going. Drawn after the box so it sits on top.
-          // Stationary vehicles get no arrow — their heading is meaningless.
-          new deck.TextLayer({
-            id: 'vehicle-arrows',
-            data: rows.filter(d => d.speed > 0),
-            characterSet: ['▲'],
-            getText: () => '▲',
-            getPosition: d => [d.lon, d.lat],
-            getPixelOffset: arrowOffset,
-            // deck.gl angles are counter-clockwise; compass bearings clockwise
-            getAngle: d => -(d.direction || 0),
-            getColor: [255, 255, 255],
-            getSize: 10,
-          }),
-        ],
-      });
-      panel.textContent =
-        `${rows.length} vehicles · updated ${time24(Date.now())}`;
-      globalThis._log.push({ t: Date.now(), ev: 'refresh', n: rows.length, zoom: map.getZoom() });
+      lastRows = await resp.json();
+      lastUpdated = Date.now();
+      rebuildRouteOptions(lastRows);
+      render();
+      globalThis._log.push({ t: Date.now(), ev: 'refresh', n: lastRows.length, zoom: map.getZoom() });
     } catch (err) {
-      panel.textContent = `Refresh failed: ${err.message}`;
+      statusEl.textContent = `Refresh failed: ${err.message}`;
       globalThis._log.push({ t: Date.now(), ev: 'refresh-error', msg: err.message });
     }
   }
@@ -212,7 +262,12 @@ async function initDashboard() {
       mountPoint: document.getElementById('dash-view'),
       fetchGuestToken: async () =>
         (await (await fetch('/api/guest-token')).json()).token,
-      dashboardUiConfig: { hideTitle: true, hideTab: true, filters: { expanded: false } },
+      dashboardUiConfig: {
+        hideTitle: true,
+        hideTab: true,
+        hideChartControls: true, // no three-dot menu (edit chart, download, …)
+        filters: { expanded: false },
+      },
     });
     status.remove();
   } catch (err) {

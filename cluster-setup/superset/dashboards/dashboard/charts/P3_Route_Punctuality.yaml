@@ -1,4 +1,4 @@
-slice_name: P2 · Route punctuality (last day)
+slice_name: P3 · Route punctuality (last 24 h)
 description: 'Which routes were punctual? One stacked bar per route: on time / late
   / early sum to 100 %. Source: gdansk_public_transport_queries.sql (P2).'
 certified_by: null

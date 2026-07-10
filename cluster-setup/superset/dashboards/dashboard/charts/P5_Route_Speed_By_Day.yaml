@@ -1,4 +1,4 @@
-slice_name: P4 · Route speed by day
+slice_name: P5 · Route speed by day
 description: 'How fast is each route day by day? Commercial speed (stops included),
   one line per route; depot returns excluded. Source: gdansk_public_transport_queries.sql
   (P4).'

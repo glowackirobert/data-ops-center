@@ -7,13 +7,27 @@ certification_details: ''
 published: true
 uuid: 2dfac769-638e-42d9-8143-6f7cb1e91626
 position:
+  CHART-totalRowsKpi00000000:
+    children: []
+    id: CHART-totalRowsKpi00000000
+    meta:
+      chartId: 7
+      height: 50
+      sliceName: P1 · Total rows
+      uuid: 2b3e54e1-db7a-4d4e-bfd1-4c8196b6d875
+      width: 4
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-totalRows0000000000
+    type: CHART
   CHART-p1OnTimeKpi0000000000:
     children: []
     id: CHART-p1OnTimeKpi0000000000
     meta:
       chartId: 2
       height: 50
-      sliceName: P1 · On-time % (last day)
+      sliceName: P2 · On-time % (last 24 h)
       uuid: 44ec6e99-4846-4969-b04c-e17bec6e5757
       width: 4
     parents:
@@ -27,7 +41,7 @@ position:
     meta:
       chartId: 3
       height: 50
-      sliceName: P2 · Route punctuality (last day)
+      sliceName: P3 · Route punctuality (last 24 h)
       uuid: b8fc0fd9-d628-4373-9c79-1977a2375b98
       width: 8
     parents:
@@ -41,7 +55,7 @@ position:
     meta:
       chartId: 4
       height: 50
-      sliceName: P3 · Daily on-time trend
+      sliceName: P4 · Daily on-time trend
       uuid: 444fdf4e-a7d0-452c-a1f8-9d2c2df865c7
       width: 6
     parents:
@@ -55,7 +69,7 @@ position:
     meta:
       chartId: 5
       height: 50
-      sliceName: P4 · Route speed by day
+      sliceName: P5 · Route speed by day
       uuid: 911cfcbe-945d-435f-9ea2-13894faedd7a
       width: 6
     parents:
@@ -69,7 +83,7 @@ position:
     meta:
       chartId: 6
       height: 50
-      sliceName: P5 · Route 9 hourly profile (last day)
+      sliceName: P6 · Route 9 hourly profile (last 24 h)
       uuid: 5f45ddd1-e684-42e0-a4c3-1a299061e097
       width: 12
     parents:
@@ -80,6 +94,7 @@ position:
   DASHBOARD_VERSION_KEY: v2
   GRID_ID:
     children:
+    - ROW-totalRows0000000000
     - ROW-p1p2Punctuality00000
     - ROW-p3p4Trends0000000000
     - ROW-p5HourlyProfile00000
@@ -97,6 +112,16 @@ position:
     - GRID_ID
     id: ROOT_ID
     type: ROOT
+  ROW-totalRows0000000000:
+    children:
+    - CHART-totalRowsKpi00000000
+    id: ROW-totalRows0000000000
+    meta:
+      background: BACKGROUND_TRANSPARENT
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    type: ROW
   ROW-p1p2Punctuality00000:
     children:
     - CHART-p1OnTimeKpi0000000000
@@ -138,6 +163,7 @@ metadata:
       excluded: []
     chartsInScope:
     - 2
+    - 7
     - 3
     - 4
     - 5
@@ -148,7 +174,9 @@ metadata:
   color_scheme_domain: []
   expanded_slices: {}
   label_colors:
+    pct_on_time: '#5ac189'
     pct_late: '#e04355'
+    pct_early: '#9d2933'
   shared_label_colors: []
   timed_refresh_immune_slices: []
   cross_filters_enabled: true
