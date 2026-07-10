@@ -4,33 +4,28 @@
     {
       "name": "eventId",
       "dataType": "STRING",
-      "singleValueField": true,
       "defaultNullValue": ""
     },
     {
       "name": "symbol",
       "dataType": "STRING",
-      "singleValueField": true,
       "defaultNullValue": ""
     },
     {
       "name": "side",
       "dataType": "STRING",
-      "singleValueField": true,
       "defaultNullValue": ""
     },
     {
       "name": "tradeType",
       "dataType": "STRING",
-      "singleValueField": true,
       "defaultNullValue": ""
     }
   ],
   "metricFieldSpecs": [
     {
       "name": "quantity",
-      "dataType": "INT",
-      "defaultNullValue": 0
+      "dataType": "INT"
     }
   ],
   "dateTimeFieldSpecs": [
