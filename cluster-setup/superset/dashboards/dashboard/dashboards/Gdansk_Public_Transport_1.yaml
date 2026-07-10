@@ -7,24 +7,82 @@ certification_details: ''
 published: true
 uuid: 2dfac769-638e-42d9-8143-6f7cb1e91626
 position:
-  CHART-AG9eN2Ftnb4fiksYluGgm:
+  CHART-p1OnTimeKpi0000000000:
     children: []
-    id: CHART-AG9eN2Ftnb4fiksYluGgm
+    id: CHART-p1OnTimeKpi0000000000
     meta:
-      chartId: 1
-      height: 95
-      sliceName: Gdansk Vehicle Positions
-      uuid: e8687dd9-8d18-42f2-928d-042d24f9ebc8
+      chartId: 2
+      height: 50
+      sliceName: P1 · On-time % (last day)
+      uuid: 44ec6e99-4846-4969-b04c-e17bec6e5757
+      width: 4
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-p1p2Punctuality00000
+    type: CHART
+  CHART-p2RoutePunctuality000:
+    children: []
+    id: CHART-p2RoutePunctuality000
+    meta:
+      chartId: 3
+      height: 50
+      sliceName: P2 · Route punctuality (last day)
+      uuid: b8fc0fd9-d628-4373-9c79-1977a2375b98
+      width: 8
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-p1p2Punctuality00000
+    type: CHART
+  CHART-p3DailyTrend000000000:
+    children: []
+    id: CHART-p3DailyTrend000000000
+    meta:
+      chartId: 4
+      height: 50
+      sliceName: P3 · Daily on-time trend
+      uuid: 444fdf4e-a7d0-452c-a1f8-9d2c2df865c7
+      width: 6
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-p3p4Trends0000000000
+    type: CHART
+  CHART-p4RouteSpeed000000000:
+    children: []
+    id: CHART-p4RouteSpeed000000000
+    meta:
+      chartId: 5
+      height: 50
+      sliceName: P4 · Route speed by day
+      uuid: 911cfcbe-945d-435f-9ea2-13894faedd7a
+      width: 6
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-p3p4Trends0000000000
+    type: CHART
+  CHART-p5HourlyProfile000000:
+    children: []
+    id: CHART-p5HourlyProfile000000
+    meta:
+      chartId: 6
+      height: 50
+      sliceName: P5 · Route 9 hourly profile (last day)
+      uuid: 5f45ddd1-e684-42e0-a4c3-1a299061e097
       width: 12
     parents:
     - ROOT_ID
     - GRID_ID
-    - ROW-6w8Telobr2d7uVIF4fhyt
+    - ROW-p5HourlyProfile00000
     type: CHART
   DASHBOARD_VERSION_KEY: v2
   GRID_ID:
     children:
-    - ROW-6w8Telobr2d7uVIF4fhyt
+    - ROW-p1p2Punctuality00000
+    - ROW-p3p4Trends0000000000
+    - ROW-p5HourlyProfile00000
     id: GRID_ID
     parents:
     - ROOT_ID
@@ -39,10 +97,32 @@ position:
     - GRID_ID
     id: ROOT_ID
     type: ROOT
-  ROW-6w8Telobr2d7uVIF4fhyt:
+  ROW-p1p2Punctuality00000:
     children:
-    - CHART-AG9eN2Ftnb4fiksYluGgm
-    id: ROW-6w8Telobr2d7uVIF4fhyt
+    - CHART-p1OnTimeKpi0000000000
+    - CHART-p2RoutePunctuality000
+    id: ROW-p1p2Punctuality00000
+    meta:
+      background: BACKGROUND_TRANSPARENT
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    type: ROW
+  ROW-p3p4Trends0000000000:
+    children:
+    - CHART-p3DailyTrend000000000
+    - CHART-p4RouteSpeed000000000
+    id: ROW-p3p4Trends0000000000
+    meta:
+      background: BACKGROUND_TRANSPARENT
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    type: ROW
+  ROW-p5HourlyProfile00000:
+    children:
+    - CHART-p5HourlyProfile000000
+    id: ROW-p5HourlyProfile00000
     meta:
       background: BACKGROUND_TRANSPARENT
     parents:
@@ -57,7 +137,11 @@ metadata:
       - ROOT_ID
       excluded: []
     chartsInScope:
-    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
   map_label_colors: {}
   color_scheme: ''
   refresh_frequency: 10

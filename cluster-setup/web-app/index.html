@@ -91,46 +91,27 @@ function tooltip({ object: d }) {
   };
 }
 
-// Compass bearing (degrees, 0 = north, clockwise) → screen-space pixel offset
-// that places the heading arrow just outside the route square, on the side
-// the vehicle is moving towards. Screen y grows downwards, hence -cos.
-const ARROW_RADIUS_PX = 16;
-function arrowOffset(direction) {
-  const rad = (direction || 0) * Math.PI / 180;
-  return [ARROW_RADIUS_PX * Math.sin(rad), -ARROW_RADIUS_PX * Math.cos(rad)];
+// Gdansk tram routes are 1-2 digits; 3-digit and N-prefixed routes are buses
+// (same heuristic as the dashboard queries).
+function isTram(route) {
+  return /^\d{1,2}$/.test(String(route || ''));
+}
+
+function vehicleLabel(d) {
+  return `${isTram(d.route) ? '🚋' : '🚌'} ${d.route || '?'}`;
+}
+
+// The heading arrow sits inside the route box, left of the label. Its pixel
+// offset from the box centre depends on the label's rendered width, estimated
+// at ~13 px per emoji and ~7 px per other glyph (size 12, bold). Must stay
+// within the box's left backgroundPadding.
+function arrowOffset(d) {
+  let w = 0;
+  for (const ch of vehicleLabel(d)) w += ch.codePointAt(0) > 0xFFFF ? 13 : 7;
+  return [-(w / 2 + 9), 0];
 }
 
 let map = null;
-
-// deck.gl position transitions interpolate by array index, so every vehicle
-// must keep the same index across refreshes — Pinot's GROUP BY result order is
-// arbitrary, and feeding it straight in makes markers fly between unrelated
-// vehicles. Vehicles are therefore merged into stable slots by vehicleId.
-const slotByVehicle = new Map();
-let vehicles = [];
-
-// Returns true when slots were compacted (indices shifted) — the caller must
-// skip the transition for that one frame.
-function mergePositions(rows) {
-  const seen = new Set(rows.map(r => r.vehicleId));
-  const compacted = vehicles.some(v => !seen.has(v.vehicleId));
-  if (compacted) {
-    // Drop vehicles that left the query window and rebuild the slot index.
-    vehicles = vehicles.filter(v => seen.has(v.vehicleId));
-    slotByVehicle.clear();
-    vehicles.forEach((v, i) => slotByVehicle.set(v.vehicleId, i));
-  }
-  for (const row of rows) {
-    const i = slotByVehicle.get(row.vehicleId);
-    if (i === undefined) {
-      slotByVehicle.set(row.vehicleId, vehicles.length);
-      vehicles.push(row);
-    } else {
-      vehicles[i] = row;
-    }
-  }
-  return compacted;
-}
 
 async function initMap() {
   const cfg = await (await fetch('/api/config')).json();
@@ -161,37 +142,19 @@ async function initMap() {
       const resp = await fetch('/api/positions');
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const rows = await resp.json();
-      const compacted = mergePositions(rows);
-      // Glide (linearly) for nearly the whole interval so markers move at
-      // roughly the vehicle's real pace instead of a 1 s hop. Skipped on the
-      // rare compaction frame, where slot indices have shifted.
-      const transitions = compacted
-        ? undefined
-        : { getPosition: { duration: REFRESH_MS - 3000, easing: t => t } };
+      // Markers jump to the newly scraped position on each refresh — no
+      // interpolated movement between API polls.
       // Only the vehicle layers are replaced; deck.gl diffs them on the GPU
       // and the base map keeps its tiles, camera and WebGL context.
       overlay.setProps({
         layers: [
-          // Heading arrow just outside the square, pointing where the
-          // vehicle is going.
-          new deck.TextLayer({
-            id: 'vehicle-arrows',
-            data: [...vehicles], // fresh array so deck.gl notices the update
-            characterSet: ['▲'],
-            getText: () => '▲',
-            getPosition: d => [d.lon, d.lat],
-            getPixelOffset: d => arrowOffset(d.direction),
-            // deck.gl angles are counter-clockwise; compass bearings clockwise
-            getAngle: d => -(d.direction || 0),
-            getColor: d => colorForRoute(d.route),
-            getSize: 11,
-            transitions,
-          }),
-          // Route-number square — the text background is the square itself.
+          // Route-number box — the text background is the box itself, with
+          // extra left padding reserving room for the heading arrow.
           new deck.TextLayer({
             id: 'vehicles',
-            data: [...vehicles],
-            getText: d => String(d.route || '?'),
+            data: rows,
+            characterSet: 'auto', // route digits plus the 🚋/🚌 emoji
+            getText: vehicleLabel,
             getPosition: d => [d.lon, d.lat],
             getSize: 12,
             getColor: [255, 255, 255],
@@ -199,17 +162,31 @@ async function initMap() {
             fontWeight: 700,
             background: true,
             getBackgroundColor: d => colorForRoute(d.route),
-            backgroundPadding: [4, 2],
+            backgroundPadding: [16, 2, 4, 2],
             getBorderColor: [255, 255, 255, 200],
             getBorderWidth: 1,
             pickable: true,
-            transitions,
+          }),
+          // Heading arrow inside the box, left of the route number, pointing
+          // where the vehicle is going. Drawn after the box so it sits on top.
+          // Stationary vehicles get no arrow — their heading is meaningless.
+          new deck.TextLayer({
+            id: 'vehicle-arrows',
+            data: rows.filter(d => d.speed > 0),
+            characterSet: ['▲'],
+            getText: () => '▲',
+            getPosition: d => [d.lon, d.lat],
+            getPixelOffset: arrowOffset,
+            // deck.gl angles are counter-clockwise; compass bearings clockwise
+            getAngle: d => -(d.direction || 0),
+            getColor: [255, 255, 255],
+            getSize: 10,
           }),
         ],
       });
       panel.textContent =
-        `${vehicles.length} vehicles · updated ${time24(Date.now())}`;
-      globalThis._log.push({ t: Date.now(), ev: 'refresh', n: vehicles.length, zoom: map.getZoom() });
+        `${rows.length} vehicles · updated ${time24(Date.now())}`;
+      globalThis._log.push({ t: Date.now(), ev: 'refresh', n: rows.length, zoom: map.getZoom() });
     } catch (err) {
       panel.textContent = `Refresh failed: ${err.message}`;
       globalThis._log.push({ t: Date.now(), ev: 'refresh-error', msg: err.message });
