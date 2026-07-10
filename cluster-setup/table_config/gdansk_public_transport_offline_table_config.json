@@ -5,7 +5,6 @@
     "timeColumnName": "generatedTransformed",
     "timeType": "MILLISECONDS",
     "replication": "1",
-    "segmentPushType": "APPEND",
     "retentionTimeUnit": "DAYS",
     "retentionTimeValue": "365"
   },
@@ -18,7 +17,7 @@
     "enableDefaultStarTree": false,
     "enableDynamicStarTreeCreation": false,
     "aggregateMetrics": false,
-    "nullHandlingEnabled": false,
+    "nullHandlingEnabled": true,
     "columnMajorSegmentBuilderEnabled": true,
     "optimizeDictionary": false,
     "optimizeDictionaryForMetrics": false,
@@ -41,17 +40,6 @@
     "batchIngestionConfig": {
       "segmentIngestionType": "APPEND",
       "segmentIngestionFrequency": "DAILY"
-    }
-  },
-  "task": {
-    "taskTypeConfigsMap": {
-      "MergeRollupTask": {
-        "schedule": "0 0 * * * ?",
-        "bucketTimePeriod": "1d",
-        "bufferTimePeriod": "4h",
-        "mergeType": "CONCAT",
-        "maxNumRecordsPerSegment": "5000000"
-      }
     }
   },
   "metadata": {

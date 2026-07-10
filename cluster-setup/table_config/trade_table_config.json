@@ -25,10 +25,8 @@
 			"stream.kafka.broker.list": "kafka:9092",
 			"realtime.segment.flush.threshold.rows": "500000",
 			"realtime.segment.flush.threshold.time": "1h",
-			"realtime.segment.flush.threshold.segment.size": "0",
 			"stream.kafka.consumer.prop.auto.offset.reset": "smallest",
 			"stream.kafka.consumer.prop.request.timeout.ms": "30000",
-			"stream.kafka.consumer.prop.fetch.metadata.timeout.ms": "30000",
 			"stream.kafka.decoder.prop.schema.registry.rest.url": "http://schema-registry:8081",
 			"stream.kafka.decoder.prop.schema.registry.schema.name": "trade-value",
 			"stream.kafka.decoder.prop.specific.avro.reader": "true"
