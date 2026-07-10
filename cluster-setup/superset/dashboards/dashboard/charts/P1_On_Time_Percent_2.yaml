@@ -1,0 +1,41 @@
+slice_name: P1 · On-time % (last day)
+description: 'What % of vehicles were on time? On time = delay between -60 and +60 s
+  — early is not on time. Source: gdansk_public_transport_queries.sql (P1).'
+certified_by: null
+certification_details: null
+viz_type: big_number_total
+params:
+  datasource: 1__table
+  viz_type: big_number_total
+  metric:
+    expressionType: SQL
+    sqlExpression: ROUNDDECIMAL(SUM(CASE WHEN delay BETWEEN -60 AND 60 THEN 1 ELSE
+      0 END) * 100.0 / COUNT(*), 1)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: pct_on_time
+  adhoc_filters:
+  - clause: WHERE
+    comparator: 'DATEADD(DATETIME("now"), -24, hour) : now'
+    expressionType: SIMPLE
+    operator: TEMPORAL_RANGE
+    subject: generatedTransformed
+  - clause: WHERE
+    expressionType: SQL
+    sqlExpression: NOT (speed = 0 AND delay > 1200)
+    comparator: null
+    operator: null
+    subject: null
+  header_font_size: 0.4
+  subheader_font_size: 0.15
+  subheader: GPS snapshots within ±60 s of schedule
+  y_axis_format: SMART_NUMBER
+  time_format: smart_date
+  extra_form_data: {}
+  dashboards: []
+query_context: ''
+cache_timeout: 0
+uuid: 44ec6e99-4846-4969-b04c-e17bec6e5757
+version: 1.0.0
+dataset_uuid: 0fd033bf-2b72-4a3d-9cc5-740588b70c37

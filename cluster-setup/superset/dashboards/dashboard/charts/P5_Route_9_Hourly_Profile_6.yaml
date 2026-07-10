@@ -1,0 +1,61 @@
+slice_name: P5 · Route 9 hourly profile (last day)
+description: 'How does route 9 behave through the day? Hour-by-hour speed and delay
+  on the same x-axis — rush hours drag speed down and delay up. Source: gdansk_public_transport_queries.sql
+  (P5).'
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_line
+params:
+  datasource: 1__table
+  viz_type: echarts_timeseries_line
+  x_axis:
+    expressionType: SQL
+    sqlExpression: TODATETIME(generatedTransformed, 'HH:00', 'Europe/Warsaw')
+    label: hour_of_day
+  x_axis_sort: hour_of_day
+  x_axis_sort_asc: true
+  time_grain_sqla: null
+  metrics:
+  - expressionType: SQL
+    sqlExpression: ROUNDDECIMAL(AVG(speed), 1)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: avg_speed_kmh
+  - expressionType: SQL
+    sqlExpression: ROUNDDECIMAL(AVG(delay), 0)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: avg_delay_sec
+  groupby: []
+  adhoc_filters:
+  - clause: WHERE
+    comparator: 'DATEADD(DATETIME("now"), -24, hour) : now'
+    expressionType: SIMPLE
+    operator: TEMPORAL_RANGE
+    subject: generatedTransformed
+  - clause: WHERE
+    expressionType: SIMPLE
+    operator: ==
+    subject: routeShortName
+    comparator: '9'
+  - clause: WHERE
+    expressionType: SQL
+    sqlExpression: NOT (speed = 0 AND delay > 1200)
+    comparator: null
+    operator: null
+    subject: null
+  row_limit: 100
+  rich_tooltip: true
+  show_legend: true
+  markerEnabled: true
+  y_axis_format: SMART_NUMBER
+  x_axis_title: Hour (local)
+  extra_form_data: {}
+  dashboards: []
+query_context: ''
+cache_timeout: 0
+uuid: 5f45ddd1-e684-42e0-a4c3-1a299061e097
+version: 1.0.0
+dataset_uuid: 0fd033bf-2b72-4a3d-9cc5-740588b70c37

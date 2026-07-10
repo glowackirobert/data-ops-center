@@ -1,0 +1,22 @@
+slice_name: Total Rows
+description: 'Total number of rows currently in the gdansk_public_transport table.'
+certified_by: null
+certification_details: null
+viz_type: big_number_total
+params:
+  datasource: 1__table
+  viz_type: big_number_total
+  metric: count
+  adhoc_filters: []
+  header_font_size: 0.4
+  subheader_font_size: 0.15
+  subheader: rows in gdansk_public_transport
+  y_axis_format: SMART_NUMBER
+  time_format: smart_date
+  extra_form_data: {}
+  dashboards: []
+query_context: ''
+cache_timeout: 0
+uuid: e8687dd9-8d18-42f2-928d-042d24f9ebc8
+version: 1.0.0
+dataset_uuid: 0fd033bf-2b72-4a3d-9cc5-740588b70c37

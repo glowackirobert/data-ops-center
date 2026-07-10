@@ -1,0 +1,44 @@
+slice_name: P4 · Route speed by day
+description: 'How fast is each route day by day? Commercial speed (stops included),
+  one line per route; depot returns excluded. Source: gdansk_public_transport_queries.sql
+  (P4).'
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_line
+params:
+  datasource: 1__table
+  viz_type: echarts_timeseries_line
+  x_axis:
+    expressionType: SQL
+    sqlExpression: TODATETIME(generatedTransformed, 'yyyy-MM-dd', 'Europe/Warsaw')
+    label: day
+  time_grain_sqla: null
+  metrics:
+  - expressionType: SQL
+    sqlExpression: ROUNDDECIMAL(AVG(speed), 1)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: avg_speed_kmh
+  groupby:
+  - routeShortName
+  adhoc_filters:
+  - clause: WHERE
+    expressionType: SQL
+    sqlExpression: LOWER(headsign) NOT LIKE '%zajezdnia%'
+    comparator: null
+    operator: null
+    subject: null
+  row_limit: 2000
+  rich_tooltip: true
+  show_legend: true
+  y_axis_format: SMART_NUMBER
+  x_axis_title: Day
+  y_axis_title: avg speed (km/h)
+  extra_form_data: {}
+  dashboards: []
+query_context: ''
+cache_timeout: 0
+uuid: 911cfcbe-945d-435f-9ea2-13894faedd7a
+version: 1.0.0
+dataset_uuid: 0fd033bf-2b72-4a3d-9cc5-740588b70c37

@@ -1,0 +1,46 @@
+slice_name: P3 · Daily on-time trend
+description: 'Is punctuality getting better or worse? Daily on-time % over the whole
+  history, in Gdansk local time. Source: gdansk_public_transport_queries.sql (P3).'
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_line
+params:
+  datasource: 1__table
+  viz_type: echarts_timeseries_line
+  x_axis:
+    expressionType: SQL
+    sqlExpression: TODATETIME(generatedTransformed, 'yyyy-MM-dd', 'Europe/Warsaw')
+    label: day
+  x_axis_sort: day
+  x_axis_sort_asc: true
+  time_grain_sqla: null
+  metrics:
+  - expressionType: SQL
+    sqlExpression: ROUNDDECIMAL(SUM(CASE WHEN delay BETWEEN -60 AND 60 THEN 1 ELSE
+      0 END) * 100.0 / COUNT(*), 1)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: pct_on_time
+  groupby: []
+  adhoc_filters:
+  - clause: WHERE
+    expressionType: SQL
+    sqlExpression: NOT (speed = 0 AND delay > 1200)
+    comparator: null
+    operator: null
+    subject: null
+  row_limit: 1000
+  rich_tooltip: true
+  show_legend: false
+  markerEnabled: true
+  y_axis_format: SMART_NUMBER
+  x_axis_title: Day
+  y_axis_title: '% on time'
+  extra_form_data: {}
+  dashboards: []
+query_context: ''
+cache_timeout: 0
+uuid: 444fdf4e-a7d0-452c-a1f8-9d2c2df865c7
+version: 1.0.0
+dataset_uuid: 0fd033bf-2b72-4a3d-9cc5-740588b70c37

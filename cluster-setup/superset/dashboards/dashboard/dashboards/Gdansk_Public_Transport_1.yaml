@@ -147,7 +147,8 @@ metadata:
   refresh_frequency: 10
   color_scheme_domain: []
   expanded_slices: {}
-  label_colors: {}
+  label_colors:
+    pct_late: '#e04355'
   shared_label_colors: []
   timed_refresh_immune_slices: []
   cross_filters_enabled: true
