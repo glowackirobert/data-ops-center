@@ -4,5 +4,8 @@
 ARG SUPERSET_VERSION
 FROM apache/superset:${SUPERSET_VERSION}
 USER root
-RUN pip install pinotdb
+# Superset 5+ runs from a uv-managed venv at /app/.venv (which ships without
+# pip); a bare `pip install` lands in the system Python where the SQLAlchemy
+# pinot dialect is never found.
+RUN uv pip install --python /app/.venv/bin/python pinotdb
 USER superset
