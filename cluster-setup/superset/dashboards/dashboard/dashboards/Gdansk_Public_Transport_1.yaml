@@ -176,7 +176,7 @@ metadata:
   label_colors:
     pct_on_time: '#5ac189'
     pct_late: '#e04355'
-    pct_early: '#9d2933'
+    pct_early: '#d63cbe'
   shared_label_colors: []
   timed_refresh_immune_slices: []
   cross_filters_enabled: true
