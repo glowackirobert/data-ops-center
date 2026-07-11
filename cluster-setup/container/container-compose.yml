@@ -212,6 +212,7 @@ services:
     environment:
       GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
       PROMETHEUS_URL: ${PROMETHEUS_URL}
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
     secrets:
       - grafana_admin_password
     volumes:
