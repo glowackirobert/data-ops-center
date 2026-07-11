@@ -88,19 +88,16 @@ Services that use custom-built images must be built before first run in dev mode
 source cluster-setup/env/versions.env
 
 # Apache Pinot — adds table configs, JMX exporter and ingestion scripts
-docker build --build-arg APACHE_PINOT_VERSION=$APACHE_PINOT_VERSION \
-  -t apache-pinot:$APACHE_PINOT_VERSION -f cluster-setup/container/Dockerfile.apache-pinot .
+docker build --build-arg APACHE_PINOT_VERSION=$APACHE_PINOT_VERSION -t apache-pinot:$APACHE_PINOT_VERSION -f cluster-setup/container/Dockerfile.apache-pinot .
 
 # Apache Superset — adds pinotdb driver on top of the official image
-docker build --build-arg SUPERSET_VERSION=$SUPERSET_VERSION \
-  -t superset:$SUPERSET_VERSION -f cluster-setup/container/Dockerfile.superset .
+docker build --build-arg SUPERSET_VERSION=$SUPERSET_VERSION -t superset:$SUPERSET_VERSION -f cluster-setup/container/Dockerfile.superset .
 
 # Kafka producer app — Maven multi-stage build of the Java Avro producer (version from pom.xml)
 docker build -t kafka-producer-app:1.0.0 -f kafka-producer-app/Dockerfile.kafka-producer-app .
 
 # Web app — stdlib-only Python server serving the vehicle map UI
-docker build --build-arg PYTHON_VERSION=$PYTHON_VERSION \
-  -t web-app:$WEB_APP_VERSION -f cluster-setup/container/Dockerfile.web-app .
+docker build --build-arg PYTHON_VERSION=$PYTHON_VERSION -t web-app:$WEB_APP_VERSION -f cluster-setup/container/Dockerfile.web-app .
 ```
 
 For prod - images are pulled from Docker Hub `robertglowacki83/` — 
@@ -176,8 +173,6 @@ INGESTION_DATE=2026-06-29 docker compose \
   run --no-deps pinot-ingestion-runner
 ```
 
-To change the default date, edit `INGESTION_DATE` in `cluster-setup/env/env.prod`.
-
 It is safe to re-run — segments are named by date and overwritten, not duplicated.
 
 ## Superset Dashboards
@@ -190,6 +185,16 @@ To add or update a dashboard:
 1. Export from the Superset UI (Settings → Export).
 2. Unzip the export and place the directory under `cluster-setup/superset/dashboards/`.
 3. Commit the YAML directory. Do **not** commit the zip (it is gitignored).
+
+### Re-importing after editing the dashboard YAML
+
+The dashboards directory is volume-mounted into `superset-init`, so YAML changes need no image rebuild — just re-run the one-shot init container (swap `env.dev` → `env.prod` for prod):
+
+```bash
+docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml --profile init up superset-init
+```
+
+`superset-init.sh` skips the import when the dashboard UUID already exists in Superset, so on an already-initialized deployment first delete the dashboard in the Superset UI (Dashboards → trash icon). The container output should show `Importing dashboard.zip ... Imported successfully`; `Skipping — dashboards already exist` means the old copy is still in place.
 
 ## Web App (port 3001)
 

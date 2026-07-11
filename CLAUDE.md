@@ -65,7 +65,7 @@ Three tables are managed by `cluster-setup/table_config/add-tables.sh`, run auto
 - **`gdansk_public_transport` (REALTIME)** — consumes from the Kafka `gdansk-public-transport` topic; JSON-decoded; 7-day retention; schema in `gdansk_public_transport_table_schema.json`
 - **`gdansk_public_transport` (OFFLINE)** — batch-ingested from S3; schema in `gdansk_public_transport_table_schema.json`
 
-The OFFLINE table config contains a minion task schedule, so the controller rejects it until a Pinot minion has registered — `pinot-command-runner` therefore depends on `pinot-minion` being healthy in the compose file.
+No minion task schedules are currently configured.
 
 ### S3 Batch Ingestion
 
