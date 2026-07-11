@@ -925,7 +925,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "max by (job)(jvm_memory_bytes_used)",
+          "expr": "max by (job)(jvm_memory_used_bytes{area=\"heap\", job=~\"pinot-.*\"})",
           "interval": "",
           "legendFormat": "{{job}}",
           "refId": "A"
@@ -935,7 +935,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Pinot Instance JVM Used",
+      "title": "Pinot Instance JVM Heap Used",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -2222,7 +2222,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum by (job) (pinot_server_memory_directBufferUsage_Value)",
+          "expr": "sum by (job) (pinot_server_directBufferUsage_Value)",
           "interval": "",
           "legendFormat": "{{job}}",
           "refId": "A"
@@ -2249,6 +2249,102 @@
       "yaxes": [
         {
           "format": "bytes",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "links": []
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 103
+      },
+      "hiddenSeries": false,
+      "id": 37,
+      "legend": {
+        "alignAsTable": true,
+        "avg": true,
+        "current": true,
+        "hideEmpty": false,
+        "max": true,
+        "min": true,
+        "rightSide": false,
+        "show": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "connected",
+      "percentage": false,
+      "pluginVersion": "11.4.8",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "max by (job)(jvm_memory_pool_used_bytes{pool=\"G1 Old Gen\", job=~\"pinot-.*\"})",
+          "interval": "",
+          "legendFormat": "{{job}}",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Pinot Instance Old Gen Used",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "decbytes",
           "label": null,
           "logBase": 1,
           "max": null,
