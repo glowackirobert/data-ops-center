@@ -27,7 +27,7 @@ position:
     meta:
       chartId: 2
       height: 50
-      sliceName: P2 · On-time % (last 24 h)
+      sliceName: P2 · On-time %
       uuid: 44ec6e99-4846-4969-b04c-e17bec6e5757
       width: 4
     parents:
@@ -41,7 +41,7 @@ position:
     meta:
       chartId: 3
       height: 50
-      sliceName: P3 · Route punctuality (last 24 h)
+      sliceName: P3 · Route punctuality
       uuid: b8fc0fd9-d628-4373-9c79-1977a2375b98
       width: 8
     parents:
@@ -155,6 +155,36 @@ position:
     - GRID_ID
     type: ROW
 metadata:
+  native_filter_configuration:
+  - id: NATIVE_FILTER-reportDateRange00
+    name: Report date range
+    filterType: filter_time
+    targets: []
+    cascadeParentIds: []
+    defaultDataMask:
+      extraFormData:
+        time_range: Last day
+      filterState:
+        value: Last day
+    controlValues:
+      enableEmptyFilter: false
+    scope:
+      rootPath:
+      - ROOT_ID
+      excluded:
+      - 7
+      - 4
+      - 5
+      - 6
+    # chartsInScope uses this file's position chartIds (P2=2, P3=3), but the
+    # Superset importer only remaps scope.excluded — after (re-)importing, fix
+    # chartsInScope to the live P2/P3 chart ids via PUT /api/v1/dashboard/{id}.
+    chartsInScope:
+    - 2
+    - 3
+    tabsInScope: []
+    type: NATIVE_FILTER
+    description: Date window for the punctuality report (applies to P2 and P3 only)
   chart_configuration: {}
   global_chart_configuration:
     scope:

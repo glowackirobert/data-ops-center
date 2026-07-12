@@ -1,4 +1,4 @@
-slice_name: P2 · On-time % (last 24 h)
+slice_name: P2 · On-time %
 description: 'What % of vehicles were on time? On time = delay between -60 and +60 s
   — early is not on time. Source: gdansk_public_transport_queries.sql (P1).'
 certified_by: null

@@ -79,6 +79,17 @@ the CI workflow. To bump a version, edit only that file.
 The one exception is `kafka-producer-app`, whose version is owned by Maven in
 `kafka-producer-app/pom.xml`.
 
+To see which images have newer stable releases on Docker Hub, run (no
+dependencies beyond Python 3):
+
+```bash
+python cluster-setup/check_image_tags.py
+```
+
+It reads the current versions from `versions.env` and from the base-image
+`FROM` lines in `kafka-producer-app/Dockerfile.kafka-producer-app`, and prints
+the newest stable tags next to each.
+
 ## Custom Images
 
 Services that use custom-built images must be built before first run in dev mode:
