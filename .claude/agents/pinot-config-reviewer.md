@@ -26,6 +26,16 @@ Unless pointed at specific files, review everything in scope.
 **Schema files** (`*_table_schema.json`)
 - Valid JSON; `schemaName` matches the `tableName` in the corresponding table config(s).
 - Field specs use valid Pinot data types; time-like columns live in `dateTimeFieldSpecs` with a `format`/`granularity` that matches how they are produced (e.g. `1:MILLISECONDS:EPOCH` for `FromDateTime(...)` outputs).
+- **Schema-compatibility on update**: `add-tables.sh` upserts schemas via `PUT /schemas/{name}`,
+  and Pinot only accepts **adding new columns** on update — it rejects everything else with
+  HTTP 400 ("Backward incompatible schema … Only allow adding new columns"). When an edit to
+  an existing schema file removes or renames a column, changes any field's `dataType`, moves a
+  field between spec sections dimension(/metric/dateTime), or changes a `dateTimeFieldSpec`
+  format/granularity, flag it as **Broken**: the next init/registration run will fail and the
+  deployed schema stays on the old version, silently diverging from git. The fix is either to
+  express the change additively (new column + ingestion transform) or to explicitly call out
+  that the table must be deleted and re-ingested (drop of all segments) — never assume the PUT
+  will apply it.
 
 **Table configs** (`*_table_config.json`)
 - `segmentsConfig.timeColumnName` exists in the schema's `dateTimeFieldSpecs` and `timeType` matches the schema format.
@@ -41,7 +51,8 @@ Unless pointed at specific files, review everything in scope.
 - S3 `region` matches `eu-north-1`.
 
 **add-tables.sh**
-- Every schema and table config JSON in the directory is actually registered by the script (a new file that nobody wired in is a common miss), schemas before tables, correct endpoints (`/schemas`, `/tables`).
+- Every schema and table config JSON in the directory is actually registered by the script (a new file that nobody wired in is a common miss), schemas before tables.
+- The script is an **upsert**: POST when the schema/table is missing, PUT (`/schemas/{name}?reload=true`, `/tables/{name}` with the type-suffixed name) when it exists. It must never DELETE — delete-and-recreate drops all ingested segments; flag any reintroduction of DELETE calls as **Broken**.
 
 **Component .conf files** (`cluster-setup/pinot/`)
 - `pinot.service.role` matches the directory (controller/broker/server/minion).

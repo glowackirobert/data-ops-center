@@ -157,16 +157,24 @@ docker exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/kafka/bin/kafka-conso
 ## Pinot Tables
 
 Schemas and table configs live in `cluster-setup/table_config/` and are registered
-automatically by the `pinot-command-runner` init container (`add-tables.sh`).
-To re-register them against a running controller directly:
+automatically by the `pinot-command-runner` init container (`add-tables.sh`). The script
+is idempotent: it POSTs missing schemas/tables and PUTs existing ones (schemas with
+`?reload=true`), so re-running init never drops ingested segments. To apply config/schema
+edits to a running controller directly, run the same script from the host:
 
 ```bash
-curl -X POST -H "Content-Type: application/json" -d @cluster-setup/table_config/gdansk_public_transport_table_schema.json http://localhost:9000/schemas
-curl -X POST -H "Content-Type: application/json" -d @cluster-setup/table_config/gdansk_public_transport_offline_table_config.json http://localhost:9000/tables
-curl -X POST -H "Content-Type: application/json" -d @cluster-setup/table_config/gdansk_public_transport_realtime_table_config.json http://localhost:9000/tables
-curl -X POST -H "Content-Type: application/json" -d @cluster-setup/table_config/trade_table_schema.json http://localhost:9000/schemas
-curl -X POST -H "Content-Type: application/json" -d @cluster-setup/table_config/trade_table_config.json http://localhost:9000/tables
+PINOT_CONTROLLER_URL=http://localhost:9000 TABLE_CONFIG_DIR=cluster-setup/table_config bash cluster-setup/table_config/add-tables.sh
 ```
+
+> **Note — backward-incompatible schema changes are rejected.** On update, the only schema
+> edit Pinot accepts is **adding new columns**. Anything else — removing or renaming a
+> column, changing a type, changing a time field — makes `PUT /schemas/{name}` fail with
+> HTTP 400 (`"Backward incompatible schema ... Only allow adding new columns"`); the script
+> retries and exits non-zero, leaving the old schema in place. That failure is deliberate:
+> existing segments were built against the old schema. To force such a change, delete the
+> table and schema (`DELETE /tables/{name}`, `DELETE /schemas/{name}`) and re-run the
+> script — accepting that all ingested data is dropped and must be re-ingested
+> (S3 batch + Kafka replay).
 
 ## S3 Batch Ingestion
 
