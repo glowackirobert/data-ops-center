@@ -6,7 +6,7 @@
     "segmentUriPushJobRunnerClassName": "org.apache.pinot.plugin.ingestion.batch.standalone.SegmentUriPushJobRunner"
   },
   "jobType": "SegmentCreationAndTarPush",
-  "inputDirURI": "s3://gdansk-public-transport/daily",
+  "inputDirURI": "s3://gdansk-public-transport/daily/2026/",
   "searchRecursively": true,
   "includeFileNamePattern": "glob:**/${DATE}.json.gz",
   "outputDirURI": "/tmp/pinot/segments/${DATE}",

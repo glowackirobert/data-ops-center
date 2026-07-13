@@ -184,7 +184,7 @@ Pass the date via `INGESTION_DATE` (format `YYYY-MM-DD`). The compose command su
 
 ```bash
 # Run against an already-running cluster (skip init dependencies)
-INGESTION_DATE=2026-06-29 docker compose \
+INGESTION_DATE=2026-02-01 docker compose \
   --env-file cluster-setup/env/versions.env \
   --env-file cluster-setup/env/env.prod \
   -f cluster-setup/container/container-compose.yml \
@@ -193,6 +193,24 @@ INGESTION_DATE=2026-06-29 docker compose \
 ```
 
 It is safe to re-run — segments are named by date and overwritten, not duplicated.
+
+To backfill a whole year, `cluster-setup/ingest-all-daily.sh` lists the
+compacted files under `daily/<YEAR>/` and runs the command above once per
+date found (requires the AWS CLI and a running cluster):
+
+```bash
+# list what's available, ingest nothing
+bash cluster-setup/ingest-all-daily.sh --year 2026 --dry-run
+
+# ingest every available day of 2026 (--env dev|prod selects the env file, default prod)
+bash cluster-setup/ingest-all-daily.sh --year 2026
+
+# behind a TLS-intercepting proxy
+AWS_EXTRA_ARGS=--no-verify-ssl bash cluster-setup/ingest-all-daily.sh --year 2026
+```
+
+Failed dates don't abort the loop; they are reported at the end and the
+script exits non-zero.
 
 ## Superset Dashboards
 
@@ -225,6 +243,11 @@ The `web-app` service serves a single-page UI with two tabs:
   so the base map never re-renders and pan/zoom is preserved. This is the
   reason the map lives here rather than in a Superset chart — Superset remounts
   the whole map on every dashboard refresh.
+  A route dropdown filters the markers to one line. While a line is selected
+  the camera follows it: it fits all of the line's vehicles on selection and
+  re-fits after every refresh (manual pan/zoom is overridden). Selecting
+  "All vehicles" flies back to the initial center/zoom and the camera is
+  hands-off again.
 - **Analytics** — the "Gdansk Public Transport" Superset dashboard embedded via
   the Superset Embedded SDK (no Superset chrome, no login prompt).
 
