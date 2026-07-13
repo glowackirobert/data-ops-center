@@ -1,6 +1,6 @@
 # AWS Lambda (Gdansk Public Transport)
 
-The Lambda fetches GPS positions from the Gdansk public transport API and stores JSON-lines files in the S3 bucket `gdansk-public-transport` under `raw/YYYY/MM/DD/HH-MM.txt`.
+The Lambda fetches GPS positions from the Gdansk public transport API and stores JSON-lines files in the S3 bucket `gdansk-public-transport` under `raw/YYYY/MM/DD/YYYY-MM-DD-HH-MM.txt`.
 
 Handler entry point: `gdansk_public_transport_aws.lambda_handler`.
 

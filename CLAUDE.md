@@ -69,7 +69,7 @@ No minion task schedules are currently configured.
 
 ### S3 Batch Ingestion
 
-The `pinot-ingestion-runner` init container launches a batch ingestion job for the single day selected by the `INGESTION_DATE` env var (substituted into the `${DATE}` placeholder in the job spec). S3 paths, segment naming, and manual run commands are in `cluster-setup/README-docker.md`.
+The `pinot-ingestion-runner` init container launches a batch ingestion job for the single day selected by the `INGESTION_DATE` env var (substituted into the `${DATE}` placeholder in the job spec). `cluster-setup/ingest-all-daily.sh` backfills a whole year by listing `daily/<YEAR>/` in S3 and running the job once per available date. S3 paths, segment naming, and manual run commands are in `cluster-setup/README-docker.md`.
 
 ## Superset
 
@@ -81,7 +81,7 @@ The `pinot-ingestion-runner` init container launches a batch ingestion job for t
 
 Serves two tabs:
 
-- **Live Map** — Mapbox GL base map created once; every 30 s only the deck.gl dot layer refreshes from Pinot, so pan/zoom is preserved. This is the reason the map lives here and not in a Superset chart.
+- **Live Map** — Mapbox GL base map created once; every 30 s only the deck.gl dot layer refreshes from Pinot, so pan/zoom is preserved. This is the reason the map lives here and not in a Superset chart. Exception: while a route is selected in the dropdown, the camera fits that line's vehicles on selection and re-fits on every refresh; picking "All vehicles" flies back to the initial center/zoom.
 - **Analytics** — the Superset dashboard embedded via the Superset Embedded SDK.
 
 Backend endpoints: `/api/positions` (proxies the Pinot broker query, avoids CORS), `/api/config` (hands the Mapbox token to the browser), `/api/guest-token` (logs into Superset with the admin secrets and mints a guest token for the embedded dashboard).
@@ -100,5 +100,5 @@ The `k8s/` directory uses Kustomize with base + overlays (dev/prod); deployment 
 
 ## AWS Lambda & S3 Data (Gdansk Public Transport)
 
-- The Lambda (`cluster-setup/py/gdansk_public_transport_aws.py`, handler `lambda_handler`) fetches GPS positions from the Gdansk public transport API and stores JSON-lines files in S3 bucket `gdansk-public-transport` under `raw/YYYY/MM/DD/HH-MM.txt`. Deployment is automated by `.github/workflows/lambda-function.yaml`; manual packaging steps are in `cluster-setup/README-lambda.md`.
+- The Lambda (`cluster-setup/py/gdansk_public_transport_aws.py`, handler `lambda_handler`) fetches GPS positions from the Gdansk public transport API and stores JSON-lines files in S3 bucket `gdansk-public-transport` under `raw/YYYY/MM/DD/YYYY-MM-DD-HH-MM.txt`. Deployment is automated by `.github/workflows/lambda-function.yaml`; manual packaging steps are in `cluster-setup/README-lambda.md`.
 - The `gdansk_public_transport_s3_compaction.py` script merges each day's raw S3 files into a single `daily/YYYY/YYYY-MM-DD.json.gz` object; it runs nightly via `.github/workflows/compact-s3-daily.yml` (manual dispatch with a date range for backfills).
