@@ -258,6 +258,14 @@ The backend (stdlib Python, no dependencies) exposes:
 | `/api/positions`   | Proxies the positions query to the Pinot broker (avoids CORS)                                 |
 | `/api/config`      | Hands the Mapbox token (from the `superset_mapbox_api_key` secret) to the browser             |
 | `/api/guest-token` | Logs into Superset with the admin secrets and mints a guest token for the embedded dashboard  |
+| `/api/stops`       | All stop poles (id, name, code, lat/lon) from the ZTM GTFS feed                               |
+| `/api/departures`  | `?stopId=` — scheduled departures in the next 60 min (or the next 3 if none), adjusted by live delays from the GPS feed: a delayed vehicle stays listed until its estimated time passes |
+
+The GTFS feed (`gtfsgoogle.zip`, ~20 MB) is downloaded on startup and every 6 h
+by a background thread; only today's and tomorrow's service days are kept in
+memory. Stops appear on the map from zoom 13; clicking one opens the
+departures box. Until the first download finishes (seconds to ~a minute) the
+two GTFS endpoints answer 503 and the UI retries quietly.
 
 Embedding requires on the Superset side (all set up automatically):
 `EMBEDDED_SUPERSET` feature flag, the `EmbeddedGuest` role (Gamma permissions +

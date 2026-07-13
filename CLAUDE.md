@@ -84,7 +84,7 @@ Serves two tabs:
 - **Live Map** — Mapbox GL base map created once; every 30 s only the deck.gl dot layer refreshes from Pinot, so pan/zoom is preserved. This is the reason the map lives here and not in a Superset chart. Exception: while a route is selected in the dropdown, the camera fits that line's vehicles on selection and re-fits on every refresh; picking "All vehicles" flies back to the initial center/zoom.
 - **Analytics** — the Superset dashboard embedded via the Superset Embedded SDK.
 
-Backend endpoints: `/api/positions` (proxies the Pinot broker query, avoids CORS), `/api/config` (hands the Mapbox token to the browser), `/api/guest-token` (logs into Superset with the admin secrets and mints a guest token for the embedded dashboard).
+Backend endpoints: `/api/positions` (proxies the Pinot broker query, avoids CORS), `/api/config` (hands the Mapbox token to the browser), `/api/guest-token` (logs into Superset with the admin secrets and mints a guest token for the embedded dashboard), `/api/stops` and `/api/departures?stopId=` (stop poles and scheduled departures from the ZTM GTFS feed, downloaded by a background thread on startup and every 6 h; 503 until first load).
 
 Embedding requires the `EMBEDDED_SUPERSET` feature flag, the `EmbeddedGuest` role, and CSP `frame-ancestors` allowing the web-app origin — all set up automatically.
 

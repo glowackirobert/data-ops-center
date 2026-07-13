@@ -41,6 +41,31 @@
     display: flex; align-items: center; gap: 10px;
   }
   #route-filter { font: inherit; max-width: 140px; }
+  #stop-box {
+    position: absolute; z-index: 15; max-width: 280px; max-height: 320px;
+    overflow-y: auto; background: rgba(255, 255, 255, 0.97);
+    border-radius: 6px; padding: 10px 12px; font-size: 13px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  }
+  #stop-box h3 {
+    margin: 0 18px 6px 0; font-size: 13px; font-weight: 600;
+  }
+  #stop-box .close {
+    position: absolute; top: 6px; right: 8px; border: 0; background: none;
+    font-size: 14px; cursor: pointer; color: #6b7280; padding: 0;
+  }
+  #stop-box .mode { color: #6b7280; margin-bottom: 6px; }
+  #stop-box table { border-collapse: collapse; width: 100%; }
+  #stop-box td { padding: 2px 6px 2px 0; white-space: nowrap; }
+  #stop-box td.headsign { white-space: normal; }
+  #stop-box .route-badge {
+    display: inline-block; min-width: 22px; text-align: center;
+    background: #374151; color: #fff; border-radius: 4px;
+    padding: 0 4px; font-weight: 600;
+  }
+  #stop-box .delay { font-weight: 600; }
+  #stop-box .delay.late { color: #b91c1c; }
+  #stop-box .delay.early { color: #047857; }
   #dash-view iframe { width: 100%; height: 100%; border: 0; }
   #dash-status { padding: 24px; color: #374151; }
   #dash-status.error { color: #b91c1c; }
@@ -62,6 +87,7 @@
     </select>
     <span id="panel-status">Loading…</span>
   </div>
+  <div id="stop-box" class="hidden"></div>
 </div>
 <div id="dash-view" class="view hidden">
   <div id="dash-status">Loading dashboard…</div>
@@ -87,8 +113,25 @@ function time24(ms) {
   return new Date(ms).toLocaleTimeString([], { hourCycle: 'h23' });
 }
 
+function timeHM(ms) {
+  return new Date(ms).toLocaleTimeString(
+    [], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"]/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
 function tooltip({ object: d }) {
   if (!d) return null;
+  if (d.stopId) {
+    return {
+      html: `<b>${esc(d.name)}</b><br>
+             Lines: ${esc(d.routes.join(', ') || '—')}<br>
+             Click for departures`,
+    };
+  }
   return {
     html: `<b>Route:</b> ${d.route}<br>
            <b>Headsign:</b> ${d.headsign || '—'}<br>
@@ -131,21 +174,94 @@ async function initMap() {
   });
   map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-  const overlay = new deck.MapboxOverlay({ layers: [], getTooltip: tooltip });
+  const overlay = new deck.MapboxOverlay({
+    layers: [],
+    getTooltip: tooltip,
+    onClick: info => {
+      if (info.layer?.id === 'stops' && info.object) showStopBox(info);
+      else hideStopBox();
+    },
+  });
   map.addControl(overlay);
 
   // Debug hooks for automated testing
   globalThis._map = map;
+  globalThis._overlay = overlay;
   globalThis._log = [];
   map.on('moveend', () => globalThis._log.push(
     { t: Date.now(), ev: 'moveend', zoom: map.getZoom() }));
 
   const statusEl = document.getElementById('panel-status');
   const routeSelect = document.getElementById('route-filter');
+  const stopBox = document.getElementById('stop-box');
 
   let lastRows = [];
   let lastUpdated = 0;
   let routeKey = ''; // signature of the routes currently in the dropdown
+  let stopsData = [];
+
+  // Stops are static for the day; fetched once. The server answers 503 for
+  // the first seconds after start while it parses the GTFS feed — retry.
+  async function loadStops() {
+    try {
+      const resp = await fetch('/api/stops');
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      stopsData = await resp.json();
+      render();
+    } catch {
+      setTimeout(loadStops, 10000);
+    }
+  }
+
+  async function showStopBox(info) {
+    const { stopId, name } = info.object;
+    stopBox.classList.remove('hidden');
+    stopBox.innerHTML = `<h3>${esc(name)}</h3>Loading…`;
+    // anchor near the click, clamped into the map view
+    const view = document.getElementById('map-view');
+    stopBox.style.left = Math.min(info.x + 12, view.clientWidth - 300) + 'px';
+    stopBox.style.top = Math.min(info.y + 12, view.clientHeight - 200) + 'px';
+    try {
+      const resp = await fetch(`/api/departures?stopId=${encodeURIComponent(stopId)}`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const dep = await resp.json();
+      const today = new Date().toDateString();
+      const rows = dep.departures.map(d => {
+        const t = new Date(d.time);
+        const day = t.toDateString() === today ? ''
+          : t.toLocaleDateString([], { weekday: 'short' }) + ' ';
+        // countdown runs on the live estimate when a vehicle reports a delay
+        const eta = d.estimated ?? d.time;
+        const mins = Math.max(0, Math.round((eta - Date.now()) / 60000));
+        const delay = !d.delayMin ? ''
+          : d.delayMin > 0
+            ? ` <span class="delay late">+${d.delayMin}</span>`
+            : ` <span class="delay early">${d.delayMin}</span>`;
+        return `<tr><td>${day}${timeHM(d.time)}${delay}</td>
+                    <td><span class="route-badge">${esc(d.route)}</span></td>
+                    <td class="headsign">${esc(d.headsign)}</td>
+                    <td>${mins} min</td></tr>`;
+      }).join('');
+      let label = 'No scheduled departures';
+      if (dep.mode === 'hour') {
+        label = 'Next 60 minutes';
+      } else if (dep.departures.length) {
+        label = 'No departures within an hour — next scheduled';
+      }
+      stopBox.innerHTML = `
+        <button class="close" aria-label="Close">✕</button>
+        <h3>${esc(name)}</h3>
+        <div class="mode">${label}</div>
+        <table>${rows}</table>`;
+      stopBox.querySelector('.close').onclick = hideStopBox;
+    } catch (err) {
+      stopBox.innerHTML = `<h3>${esc(name)}</h3>Failed to load departures: ${esc(err.message)}`;
+    }
+  }
+
+  function hideStopBox() {
+    stopBox.classList.add('hidden');
+  }
 
   // Rebuild the dropdown only when the set of routes actually changes, so an
   // open dropdown isn't yanked shut by the 30 s refresh. The user's selection
@@ -184,6 +300,26 @@ async function initMap() {
     // and the base map keeps its tiles, camera and WebGL context.
     overlay.setProps({
       layers: [
+        // Stop poles — static, rendered under the vehicles so vehicles win
+        // picking conflicts; hidden when zoomed out to avoid clutter.
+        // With a line selected, only that line's stops show — at any zoom,
+        // since fitting a long line can land below the threshold.
+        new deck.ScatterplotLayer({
+          id: 'stops',
+          data: route
+            ? stopsData.filter(s => s.routes.includes(route))
+            : stopsData,
+          visible: route ? true : map.getZoom() >= 13,
+          getPosition: d => [d.lon, d.lat],
+          getRadius: 14,
+          radiusMinPixels: 3,
+          radiusMaxPixels: 8,
+          getFillColor: [37, 99, 235, 150],
+          stroked: true,
+          getLineColor: [255, 255, 255, 220],
+          lineWidthMinPixels: 1,
+          pickable: true,
+        }),
         // Route-number box — the text background is the box itself, with
         // extra left padding reserving room for the heading arrow.
         new deck.TextLayer({
@@ -265,8 +401,11 @@ async function initMap() {
     }
   }
 
+  map.on('zoomend', render); // toggles stop-layer visibility at the threshold
+
   await refresh();
   setInterval(refresh, REFRESH_MS);
+  loadStops();
 }
 
 let dashboardEmbedded = false;

@@ -6,14 +6,21 @@ browser never talks to Pinot directly (avoids CORS). Stdlib only.
     python web-app/server.py
     # then open http://localhost:3001
 """
+import csv
+import datetime
 import http.cookiejar
+import io
 import json
 import os
+import ssl
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
+import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 SECRETS_DIR = os.environ.get(
@@ -57,6 +64,168 @@ LIMIT 2000
 
 _embedded_uuid = None
 _embedded_lock = threading.Lock()
+
+# --- GTFS (stops + scheduled departures) -----------------------------------
+# The ZTM GTFS feed covers the next ~14 days and is regenerated daily. We keep
+# only today's and tomorrow's service days in memory: enough for a "next 60
+# minutes / next 3 departures" popup, and small (~300k stop_times rows).
+GTFS_URL = os.environ.get(
+    'GTFS_URL',
+    'https://ckan.multimediagdansk.pl/dataset/c24aa637-3619-4dc2-a171-a23eec8f2172'
+    '/resource/30e783e4-2bec-4a7d-bb22-ee3e3b26ca96/download/gtfsgoogle.zip')
+GTFS_REFRESH_S = int(os.environ.get('GTFS_REFRESH_S', str(6 * 3600)))
+# GTFS times are local Gdansk wall clock. Windows host Pythons ship no IANA
+# database — fall back to the system zone there (dev only; the Debian-based
+# container image always has tzdata).
+try:
+    GTFS_TZ = ZoneInfo('Europe/Warsaw')
+except ZoneInfoNotFoundError:
+    GTFS_TZ = datetime.datetime.now().astimezone().tzinfo
+    print(f'GTFS: Europe/Warsaw tzdata unavailable, using system zone {GTFS_TZ}')
+
+_gtfs_lock = threading.Lock()
+_gtfs = {'stops': [], 'departures': {}, 'loaded_at': None}
+
+
+def _gtfs_rows(zf, name):
+    return csv.DictReader(io.TextIOWrapper(zf.open(name), encoding='utf-8-sig'))
+
+
+def _download_gtfs():
+    req = urllib.request.Request(GTFS_URL)
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            return resp.read()
+    except urllib.error.URLError as e:
+        if not isinstance(getattr(e, 'reason', None), ssl.SSLCertVerificationError):
+            raise
+        # TLS-intercepting proxies (dev machines) break verification; the
+        # feed is public data, so degrade rather than lose the feature.
+        print('GTFS: certificate verification failed, retrying unverified')
+        ctx = ssl.create_default_context()  # NOSONAR — deliberate fallback documented above
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        ctx.check_hostname = False  # NOSONAR — deliberate fallback documented above
+        ctx.verify_mode = ssl.CERT_NONE  # NOSONAR — deliberate fallback documented above
+        with urllib.request.urlopen(req, timeout=120, context=ctx) as resp:
+            return resp.read()
+
+
+def load_gtfs():
+    """Parse the GTFS zip into stops + per-stop sorted departure lists."""
+    zf = zipfile.ZipFile(io.BytesIO(_download_gtfs()))
+
+    today = datetime.datetime.now(GTFS_TZ).date()
+    days = {today.strftime('%Y%m%d'): today,
+            (today + datetime.timedelta(days=1)).strftime('%Y%m%d'):
+                today + datetime.timedelta(days=1)}
+
+    service_date = {}  # service_id -> date object (today/tomorrow only)
+    for r in _gtfs_rows(zf, 'calendar_dates.txt'):
+        if r['exception_type'] == '1' and r['date'] in days:
+            service_date[r['service_id']] = days[r['date']]
+
+    route_name = {r['route_id']: r['route_short_name']
+                  for r in _gtfs_rows(zf, 'routes.txt')}
+
+    trips = {}  # trip_id -> (service date, route short name, headsign)
+    for r in _gtfs_rows(zf, 'trips.txt'):
+        d = service_date.get(r['service_id'])
+        if d:
+            trips[r['trip_id']] = (d, route_name.get(r['route_id'], '?'),
+                                   r['trip_headsign'])
+
+    # GTFS times are "noon minus 12 h"-relative and may exceed 24:00 for
+    # after-midnight courses; anchoring at noon keeps DST days correct.
+    noon = {d: datetime.datetime.combine(d, datetime.time(12), GTFS_TZ)
+            for d in days.values()}
+    departures = {}
+    stop_routes = {}  # stop_id -> set of route short names serving it
+    for r in _gtfs_rows(zf, 'stop_times.txt'):
+        trip = trips.get(r['trip_id'])
+        if not trip:
+            continue
+        d, route, headsign = trip
+        stop_routes.setdefault(r['stop_id'], set()).add(route)
+        if r['pickup_type'] == '1':  # 1 = no passenger pickup
+            continue
+        h, m, s = map(int, r['departure_time'].split(':'))
+        dep = noon[d] + datetime.timedelta(seconds=(h - 12) * 3600 + m * 60 + s)
+        # GTFS trip_id = <route+start datetime>_<course no>_<task>; the course
+        # number is what the GPS feed publishes as tripId — the join key for
+        # attaching live delays to scheduled departures.
+        parts = r['trip_id'].split('_')
+        trip_no = parts[1] if len(parts) == 3 else None
+        departures.setdefault(r['stop_id'], []).append(
+            (int(dep.timestamp() * 1000), route, headsign, trip_no))
+    for lst in departures.values():
+        lst.sort()
+
+    stops = [{'stopId': r['stop_id'], 'name': r['stop_name'],
+              'code': r['stop_code'],
+              'lat': float(r['stop_lat']), 'lon': float(r['stop_lon']),
+              'routes': sorted(stop_routes.get(r['stop_id'], ()))}
+             for r in _gtfs_rows(zf, 'stops.txt')]
+
+    with _gtfs_lock:
+        _gtfs['stops'] = stops
+        _gtfs['departures'] = departures
+        _gtfs['loaded_at'] = time.time()
+    print(f'GTFS: loaded {len(stops)} stops, '
+          f'{sum(map(len, departures.values()))} departures '
+          f'for {sorted(days)}')
+
+
+def gtfs_refresher():
+    while True:
+        try:
+            load_gtfs()
+            time.sleep(GTFS_REFRESH_S)
+        except Exception as e:  # keep last good data, retry sooner
+            print(f'GTFS: refresh failed: {e}')
+            time.sleep(300)
+
+
+# --- Live delays ------------------------------------------------------------
+# Current delay per (route, course number) from the GPS feed, used to shift
+# scheduled departures: a delayed vehicle stays listed until its *estimated*
+# time passes. Cached briefly so stop clicks don't hammer the broker.
+DELAYS_SQL = """
+SELECT routeShortName, tripId,
+       LASTWITHTIME(delay, generatedTransformed, 'INT') AS delay
+FROM gdansk_public_transport_REALTIME
+WHERE generatedTransformed > ago('PT10M')
+GROUP BY routeShortName, tripId
+LIMIT 2000
+"""
+DELAYS_TTL_S = 20
+
+_delays_lock = threading.Lock()
+_delays = {'at': 0.0, 'data': {}}
+
+
+def live_delays():
+    """(route short name, course no as str) -> current delay in seconds."""
+    with _delays_lock:
+        if time.time() - _delays['at'] < DELAYS_TTL_S:
+            return _delays['data']
+    try:
+        req = urllib.request.Request(
+            PINOT_BROKER_URL + '/query/sql',
+            data=json.dumps({'sql': DELAYS_SQL}).encode('utf-8'),
+            headers={'Content-Type': APPLICATION_JSON},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = json.load(resp)
+        data = {(str(route), str(trip)): delay
+                for route, trip, delay in result['resultTable']['rows']}
+    except Exception as e:  # degrade to schedule-only rather than fail
+        print(f'delays: fetch failed: {e}')
+        with _delays_lock:
+            return _delays['data']
+    with _delays_lock:
+        _delays['at'] = time.time()
+        _delays['data'] = data
+        return data
 
 
 def _read_secret(name):
@@ -137,8 +306,12 @@ class Handler(BaseHTTPRequestHandler):
             '/api/config': self._serve_config,
             '/api/guest-token': self._serve_guest_token,
             '/api/positions': self._serve_positions,
+            '/api/stops': self._serve_stops,
+            '/api/departures': self._serve_departures,
         }
-        route = routes.get(self.path)
+        parsed = urllib.parse.urlparse(self.path)
+        self.query = urllib.parse.parse_qs(parsed.query)
+        route = routes.get(parsed.path)
         try:
             if route:
                 route()
@@ -182,10 +355,54 @@ class Handler(BaseHTTPRequestHandler):
         rows = [dict(zip(cols, r)) for r in result['resultTable']['rows']]
         self._send_json(200, rows)
 
+    def _serve_stops(self):
+        with _gtfs_lock:
+            stops, loaded = _gtfs['stops'], _gtfs['loaded_at']
+        if loaded is None:
+            self._send_json(503, {'error': 'GTFS not loaded yet, retry shortly'})
+            return
+        self._send_json(200, stops)
+
+    def _serve_departures(self):
+        stop_id = self.query.get('stopId', [''])[0]
+        if not stop_id:
+            self._send_json(400, {'error': 'stopId query parameter required'})
+            return
+        with _gtfs_lock:
+            deps, loaded = _gtfs['departures'].get(stop_id), _gtfs['loaded_at']
+        if loaded is None:
+            self._send_json(503, {'error': 'GTFS not loaded yet, retry shortly'})
+            return
+        now = int(time.time() * 1000)
+        delays = live_delays()
+        upcoming = []
+        for t, route, headsign, trip_no in (deps or []):
+            # Only trips around "now" can match a live vehicle — tomorrow's
+            # course reuses the same number and must stay schedule-only.
+            delay_s = (delays.get((route, trip_no))
+                       if trip_no and abs(t - now) < 3 * 3_600_000 else None)
+            est = t + (delay_s or 0) * 1000
+            if est < now:  # departed (per estimate, when live; else schedule)
+                continue
+            upcoming.append({
+                'time': t, 'estimated': est, 'route': route,
+                'headsign': headsign,
+                'delayMin': None if delay_s is None else round(delay_s / 60),
+            })
+        upcoming.sort(key=lambda d: d['estimated'])  # delays can reorder
+        within_hour = [d for d in upcoming if d['estimated'] <= now + 3_600_000]
+        mode = 'hour' if within_hour else 'next'
+        self._send_json(200, {
+            'stopId': stop_id,
+            'mode': mode,  # 'hour' = next 60 min; 'next' = next 3 fallback
+            'departures': within_hour[:30] if within_hour else upcoming[:3],
+        })
+
     def log_message(self, fmt, *args):
         pass  # silence per-request noise
 
 
 if __name__ == '__main__':
+    threading.Thread(target=gtfs_refresher, daemon=True).start()
     print(f'Serving on http://localhost:{PORT} (Pinot broker: {PINOT_BROKER_URL})')
     ThreadingHTTPServer(('0.0.0.0', PORT), Handler).serve_forever()
