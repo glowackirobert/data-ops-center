@@ -6,7 +6,7 @@
     "timeType": "MILLISECONDS",
     "replicasPerPartition": "1",
     "retentionTimeUnit": "DAYS",
-    "retentionTimeValue": "7"
+    "retentionTimeValue": "1"
   },
   "tenants": {
     "broker": "DefaultTenant",
