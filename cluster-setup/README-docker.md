@@ -83,7 +83,7 @@ To see which images have newer stable releases on Docker Hub, run (no
 dependencies beyond Python 3):
 
 ```bash
-python cluster-setup/check_image_tags.py
+python cluster-setup/scripts/check_image_tags.py
 ```
 
 It reads the current versions from `versions.env` and from the base-image
@@ -194,19 +194,19 @@ INGESTION_DATE=2026-02-01 docker compose \
 
 It is safe to re-run — segments are named by date and overwritten, not duplicated.
 
-To backfill a whole year, `cluster-setup/ingest-all-daily.sh` lists the
+To backfill a whole year, `cluster-setup/scripts/ingest-all-daily.sh` lists the
 compacted files under `daily/<YEAR>/` and runs the command above once per
 date found (requires the AWS CLI and a running cluster):
 
 ```bash
 # list what's available, ingest nothing
-bash cluster-setup/ingest-all-daily.sh --year 2026 --dry-run
+bash cluster-setup/scripts/ingest-all-daily.sh --year 2026 --dry-run
 
 # ingest every available day of 2026 (--env dev|prod selects the env file, default prod)
-bash cluster-setup/ingest-all-daily.sh --year 2026
+bash cluster-setup/scripts/ingest-all-daily.sh --year 2026
 
 # behind a TLS-intercepting proxy
-AWS_EXTRA_ARGS=--no-verify-ssl bash cluster-setup/ingest-all-daily.sh --year 2026
+AWS_EXTRA_ARGS=--no-verify-ssl bash cluster-setup/scripts/ingest-all-daily.sh --year 2026
 ```
 
 Failed dates don't abort the loop; they are reported at the end and the
@@ -248,6 +248,11 @@ The `web-app` service serves a single-page UI with two tabs:
   re-fits after every refresh (manual pan/zoom is overridden). Selecting
   "All vehicles" flies back to the initial center/zoom and the camera is
   hands-off again.
+  Clicking a vehicle draws the trajectory of the trip it is serving, split at
+  the vehicle: covered part grey, part ahead light blue. The split advances
+  with each refresh; clicking the same vehicle again, another vehicle, or
+  empty map clears/replaces the path (a vehicle between trips has no shape —
+  the status line says so).
 - **Analytics** — the "Gdansk Public Transport" Superset dashboard embedded via
   the Superset Embedded SDK (no Superset chrome, no login prompt).
 
@@ -260,6 +265,7 @@ The backend (stdlib Python, no dependencies) exposes:
 | `/api/guest-token` | Logs into Superset with the admin secrets and mints a guest token for the embedded dashboard  |
 | `/api/stops`       | All stop poles (id, name, code, lat/lon) from the ZTM GTFS feed                               |
 | `/api/departures`  | `?stopId=` — scheduled departures in the next 60 min (or the next 3 if none), adjusted by live delays from the GPS feed: a delayed vehicle stays listed until its estimated time passes |
+| `/api/route-shape` | `?routeId=&tripId=` — today's trip trajectory (GeoJSON LineString coordinates) proxied from the ZTM shapes API, cached in memory per day; 404 if the trip has no shape today |
 
 The GTFS feed (`gtfsgoogle.zip`, ~20 MB) is downloaded on startup and every 6 h
 by a background thread; only today's and tomorrow's service days are kept in

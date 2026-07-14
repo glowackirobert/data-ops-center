@@ -69,7 +69,7 @@ No minion task schedules are currently configured.
 
 ### S3 Batch Ingestion
 
-The `pinot-ingestion-runner` init container launches a batch ingestion job for the single day selected by the `INGESTION_DATE` env var (substituted into the `${DATE}` placeholder in the job spec). `cluster-setup/ingest-all-daily.sh` backfills a whole year by listing `daily/<YEAR>/` in S3 and running the job once per available date. S3 paths, segment naming, and manual run commands are in `cluster-setup/README-docker.md`.
+The `pinot-ingestion-runner` init container launches a batch ingestion job for the single day selected by the `INGESTION_DATE` env var (substituted into the `${DATE}` placeholder in the job spec). `cluster-setup/scripts/ingest-all-daily.sh` backfills a whole year by listing `daily/<YEAR>/` in S3 and running the job once per available date. S3 paths, segment naming, and manual run commands are in `cluster-setup/README-docker.md`.
 
 ## Superset
 
@@ -81,10 +81,10 @@ The `pinot-ingestion-runner` init container launches a batch ingestion job for t
 
 Serves two tabs:
 
-- **Live Map** — Mapbox GL base map created once; every 30 s only the deck.gl dot layer refreshes from Pinot, so pan/zoom is preserved. This is the reason the map lives here and not in a Superset chart. Exception: while a route is selected in the dropdown, the camera fits that line's vehicles on selection and re-fits on every refresh; picking "All vehicles" flies back to the initial center/zoom.
+- **Live Map** — Mapbox GL base map created once; every 30 s only the deck.gl dot layer refreshes from Pinot, so pan/zoom is preserved. This is the reason the map lives here and not in a Superset chart. Exception: while a route is selected in the dropdown, the camera fits that line's vehicles on selection and re-fits on every refresh; picking "All vehicles" flies back to the initial center/zoom. Clicking a vehicle draws its current trip's trajectory split at the vehicle (covered grey, ahead light blue), recomputed each refresh.
 - **Analytics** — the Superset dashboard embedded via the Superset Embedded SDK.
 
-Backend endpoints: `/api/positions` (proxies the Pinot broker query, avoids CORS), `/api/config` (hands the Mapbox token to the browser), `/api/guest-token` (logs into Superset with the admin secrets and mints a guest token for the embedded dashboard), `/api/stops` and `/api/departures?stopId=` (stop poles and scheduled departures from the ZTM GTFS feed, downloaded by a background thread on startup and every 6 h; 503 until first load).
+Backend endpoints: `/api/positions` (proxies the Pinot broker query, avoids CORS), `/api/config` (hands the Mapbox token to the browser), `/api/guest-token` (logs into Superset with the admin secrets and mints a guest token for the embedded dashboard), `/api/stops` and `/api/departures?stopId=` (stop poles and scheduled departures from the ZTM GTFS feed, downloaded by a background thread on startup and every 6 h; 503 until first load), `/api/route-shape?routeId=&tripId=` (today's trip trajectory from the ZTM shapes API, cached per day).
 
 Embedding requires the `EMBEDDED_SUPERSET` feature flag, the `EmbeddedGuest` role, and CSP `frame-ancestors` allowing the web-app origin — all set up automatically.
 

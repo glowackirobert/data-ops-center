@@ -5,7 +5,7 @@ tags so outdated images are easy to spot. Current versions are read from
 cluster-setup/env/versions.env (the single source of truth) and, for the build
 images not listed there, from kafka-producer-app/Dockerfile.kafka-producer-app.
 
-Usage: python cluster-setup/check_image_tags.py
+Usage: python cluster-setup/scripts/check_image_tags.py
 """
 import json
 import re
@@ -13,7 +13,7 @@ import ssl
 import urllib.request
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parents[2]
 VERSIONS_ENV = REPO_ROOT / "cluster-setup" / "env" / "versions.env"
 PRODUCER_DOCKERFILE = REPO_ROOT / "kafka-producer-app" / "Dockerfile.kafka-producer-app"
 

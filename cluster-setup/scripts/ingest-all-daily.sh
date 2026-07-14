@@ -11,7 +11,7 @@
 # host; credentials are read from cluster-setup/container/secrets/.
 #
 # Usage:
-#   bash cluster-setup/ingest-all-daily.sh [--year YYYY] [--env dev|prod] [--dry-run]
+#   bash cluster-setup/scripts/ingest-all-daily.sh [--year YYYY] [--env dev|prod] [--dry-run]
 #
 #   --year     year prefix to list under daily/ (default: current year)
 #   --env      which env file to use, env.dev or env.prod (default: prod)
@@ -24,7 +24,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 BUCKET=gdansk-public-transport
 YEAR="$(date +%Y)"
@@ -40,7 +40,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-CREDS="$SCRIPT_DIR/container/secrets/aws_credentials"
+CREDS="$REPO_ROOT/cluster-setup/container/secrets/aws_credentials"
 if [[ ! -f "$CREDS" ]]; then
   echo "Missing $CREDS — populate the secrets directory first (see README-docker.md)" >&2
   exit 1
