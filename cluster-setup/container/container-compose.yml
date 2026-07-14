@@ -146,6 +146,9 @@ services:
       - "${BIND}:18098:18098" # metrics
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_SERVER_HEAP:--Xms512M -Xmx3G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-server.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18098:/opt/pinot/etc/jmx_prometheus_javaagent/configs/server.yml"
+      AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
+    secrets:
+      - aws_credentials
     volumes:
       - ../volumes/pinot/server:/opt/pinot/pinotServerData
     depends_on:
@@ -170,10 +173,10 @@ services:
       - "${BIND}:7500:7500"
       - "${BIND}:17500:17500"
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_MINION_HEAP:--Xms256M -Xmx1G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-minion.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=17500:/opt/pinot/etc/jmx_prometheus_javaagent/configs/minion.yml"
-    #      AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
-    #    secrets:
-    #      - aws_credentials
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_MINION_HEAP:--Xms256M -Xmx2G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-minion.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=17500:/opt/pinot/etc/jmx_prometheus_javaagent/configs/minion.yml"
+      AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
+    secrets:
+      - aws_credentials
     depends_on:
       pinot-server:
         condition: service_healthy
@@ -287,17 +290,22 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        sed "s|\$${DATE}|$$INGESTION_DATE|g" /opt/pinot/scripts/gdansk_public_transport_ingestion_job_spec.json > /tmp/ingestion_spec.json &&
+        DATE_GLOB="$${INGESTION_DATE:-*}" &&
+        echo "Ingesting daily files matching: $$DATE_GLOB" &&
+        sed "s|\$${DATE}|$$DATE_GLOB|g" /opt/pinot/scripts/gdansk_public_transport_ingestion_job_spec.json > /tmp/ingestion_spec.json &&
         /opt/pinot/bin/pinot-admin.sh LaunchDataIngestionJob -jobSpecFile /tmp/ingestion_spec.json
     restart: "no"
     environment:
-      JAVA_OPTS: "-Dpinot.admin.system.exit=true ${PINOT_INGESTION_RUNNER_HEAP:--Xmx1G}"
+      JAVA_OPTS: "-Dpinot.admin.system.exit=true ${PINOT_INGESTION_RUNNER_HEAP:--Xmx2G}"
       AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
-      INGESTION_DATE: ${INGESTION_DATE}
+      INGESTION_DATE: ${INGESTION_DATE:-}
     secrets:
       - aws_credentials
     volumes:
       - ../volumes/pinot/ingestion-logs:/opt/pinot/logs
+      # segment staging on the host disk, not the container layer — a full
+      # backfill generates a year of segments before pushing them
+      - ../volumes/pinot/ingestion-staging:/tmp/pinot
     depends_on:
       pinot-command-runner:
         condition: service_completed_successfully
@@ -385,6 +393,7 @@ services:
       - "${BIND}:3001:3001"
     environment:
       PINOT_BROKER_URL: http://pinot-broker:8099
+      PINOT_CONTROLLER_URL: http://pinot-controller:9000
       SUPERSET_INTERNAL_URL: http://superset:8088
       SUPERSET_DOMAIN: ${SUPERSET_DOMAIN:-http://localhost:8088}
     secrets:

@@ -42,6 +42,18 @@
       "segmentIngestionFrequency": "DAILY"
     }
   },
+  "task": {
+    "taskTypeConfigsMap": {
+      "MergeRollupTask": {
+        "1week.mergeType": "concat",
+        "1week.bucketTimePeriod": "7d",
+        "1week.bufferTimePeriod": "3d",
+        "1week.maxNumRecordsPerSegment": "5000000",
+        "1week.maxNumRecordsPerTask": "20000000",
+        "schedule": "0 0 * * * ?"
+      }
+    }
+  },
   "metadata": {
     "customConfigs": {}
   },
