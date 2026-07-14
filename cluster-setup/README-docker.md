@@ -178,39 +178,67 @@ PINOT_CONTROLLER_URL=http://localhost:9000 TABLE_CONFIG_DIR=cluster-setup/table_
 
 ## S3 Batch Ingestion
 
-The `gdansk_public_transport_ingestion_job_spec.json` spec reads the compacted daily file `s3://gdansk-public-transport/daily/YYYY/YYYY-MM-DD.json.gz` and pushes one segment per day, named `gdansk_public_transport_YYYY-MM-DD`, to the offline Pinot table.
+The `gdansk_public_transport_ingestion_job_spec.json` spec reads the compacted daily files `s3://gdansk-public-transport/daily/YYYY/YYYY-MM-DD.json.gz` and pushes one segment per day, named `gdansk_public_transport_YYYY-MM-DD`, to the offline Pinot table.
 
-Pass the date via `INGESTION_DATE` (format `YYYY-MM-DD`). The compose command substitutes it into the spec before running. The daily file is produced by the nightly S3 compaction workflow, so only completed (already-compacted) days can be ingested.
+`INGESTION_DATE` is a **filename glob**: unset or empty means backfill *every*
+daily file in the bucket; narrow it to a day (`2026-02-01`), a month
+(`2026-06-*`), or a year (`2025-*`). Both `env.dev` and `env.prod` ship it
+empty, so a plain `--profile init up` performs a **full backfill** as part of
+init. The daily files are produced by the nightly S3 compaction workflow, so
+only completed (already-compacted) days exist. Ingestion is idempotent —
+segments are named by date and overwritten, not duplicated — so the retry for
+a partially failed backfill is simply re-running it (optionally narrowed to
+the failed range).
+
+> **Caveat — days already merged by MergeRollup are no longer idempotent.**
+> Once the MergeRollup task (below) has folded a day's segment into a
+> `merged_1week_*` segment, re-ingesting that day pushes the same rows
+> *alongside* the merged segment — double-counting. To re-ingest an
+> already-merged window, first delete the overlapping `merged_1week_*`
+> segments via the controller API, then re-run the job for that range.
 
 ```bash
-# Run against an already-running cluster (skip init dependencies)
-INGESTION_DATE=2026-02-01 docker compose \
+# Full backfill of everything in s3://gdansk-public-transport/daily/
+# (against an already-running cluster; skip init dependencies)
+docker compose \
   --env-file cluster-setup/env/versions.env \
   --env-file cluster-setup/env/env.prod \
   -f cluster-setup/container/container-compose.yml \
   --profile init \
   run --no-deps pinot-ingestion-runner
+
+# Single day
+INGESTION_DATE=2026-02-01 docker compose ... run --no-deps pinot-ingestion-runner
+
+# One month
+INGESTION_DATE=2026-06-* docker compose ... run --no-deps pinot-ingestion-runner
 ```
 
-It is safe to re-run — segments are named by date and overwritten, not duplicated.
+Segments are staged under `cluster-setup/volumes/pinot/ingestion-staging/` on
+the host (a full backfill generates the whole history before pushing) and the
+staging dir is cleaned at the start of each run. Heap for the runner is
+`PINOT_INGESTION_RUNNER_HEAP` (default `-Xmx2G`).
 
-To backfill a whole year, `cluster-setup/scripts/ingest-all-daily.sh` lists the
-compacted files under `daily/<YEAR>/` and runs the command above once per
-date found (requires the AWS CLI and a running cluster):
+### S3 deep store
 
-```bash
-# list what's available, ingest nothing
-bash cluster-setup/scripts/ingest-all-daily.sh --year 2026 --dry-run
+Pushed and completed segments are stored in
+`s3://gdansk-public-transport/pinot/deep-store` (`controller.data.dir`), not on
+the controller's local disk — servers and the minion fetch them from S3
+directly (`pinot.*.segment.fetcher.protocols=file,http,s3`). The controller,
+server, minion and ingestion-runner containers therefore all need the
+`aws_credentials` secret (already wired in the compose file). Segments pushed
+*before* deep store was enabled keep their local-disk download URIs; re-running
+the backfill re-pushes them into S3.
 
-# ingest every available day of 2026 (--env dev|prod selects the env file, default prod)
-bash cluster-setup/scripts/ingest-all-daily.sh --year 2026
+### Segment merge (MergeRollup)
 
-# behind a TLS-intercepting proxy
-AWS_EXTRA_ARGS=--no-verify-ssl bash cluster-setup/scripts/ingest-all-daily.sh --year 2026
-```
-
-Failed dates don't abort the loop; they are reported at the end and the
-script exits non-zero.
+A `MergeRollupTask` on the OFFLINE table (see
+`gdansk_public_transport_offline_table_config.json`) concatenates the small
+per-day segments into weekly buckets capped at 5M rows per segment. The
+controller schedules it hourly (`schedule` cron in the task config,
+`controller.task.scheduler.enabled=true`); the `pinot-minion` container
+executes it. Progress is visible in the controller UI under *Minion Task
+Manager*, or via `GET /tasks/MergeRollupTask/tasks`.
 
 ## Superset Dashboards
 
@@ -266,6 +294,7 @@ The backend (stdlib Python, no dependencies) exposes:
 | `/api/stops`       | All stop poles (id, name, code, lat/lon) from the ZTM GTFS feed                               |
 | `/api/departures`  | `?stopId=` — scheduled departures in the next 60 min (or the next 3 if none), adjusted by live delays from the GPS feed: a delayed vehicle stays listed until its estimated time passes |
 | `/api/route-shape` | `?routeId=&tripId=` — today's trip trajectory (GeoJSON LineString coordinates) proxied from the ZTM shapes API, cached in memory per day; 404 if the trip has no shape today |
+| `/api/stats`       | Total docs (broker `COUNT(*)` over the hybrid table), segment count and reported size (controller API) — feeds the header scale strip; cached 60 s |
 
 The GTFS feed (`gtfsgoogle.zip`, ~20 MB) is downloaded on startup and every 6 h
 by a background thread; only today's and tomorrow's service days are kept in

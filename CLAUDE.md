@@ -62,14 +62,14 @@ Build with `mvn package` (`-DskipTests` to skip tests), from repo root or `kafka
 Three tables are managed by `cluster-setup/table_config/add-tables.sh`, run automatically by the `pinot-command-runner` init container (manual re-registration curls are in `cluster-setup/README-docker.md`):
 
 - **`trade` (REALTIME)** — consumes from the Kafka `trade` topic; schema in `trade_table_schema.json`
-- **`gdansk_public_transport` (REALTIME)** — consumes from the Kafka `gdansk-public-transport` topic; JSON-decoded; 7-day retention; schema in `gdansk_public_transport_table_schema.json`
+- **`gdansk_public_transport` (REALTIME)** — consumes from the Kafka `gdansk-public-transport` topic; JSON-decoded; 1-day retention; schema in `gdansk_public_transport_table_schema.json`
 - **`gdansk_public_transport` (OFFLINE)** — batch-ingested from S3; schema in `gdansk_public_transport_table_schema.json`
 
-No minion task schedules are currently configured.
+Segments live in the **S3 deep store** (`controller.data.dir=s3://gdansk-public-transport/pinot/deep-store`); the controller, server and minion all have the S3 filesystem + `s3` segment fetcher configured and receive the `aws_credentials` secret. A **MergeRollupTask** on the OFFLINE table (hourly controller schedule, executed by `pinot-minion`) concatenates per-day segments into weekly buckets of ≤5M rows.
 
 ### S3 Batch Ingestion
 
-The `pinot-ingestion-runner` init container launches a batch ingestion job for the single day selected by the `INGESTION_DATE` env var (substituted into the `${DATE}` placeholder in the job spec). `cluster-setup/scripts/ingest-all-daily.sh` backfills a whole year by listing `daily/<YEAR>/` in S3 and running the job once per available date. S3 paths, segment naming, and manual run commands are in `cluster-setup/README-docker.md`.
+The `pinot-ingestion-runner` init container launches a batch ingestion job over the compacted daily files. `INGESTION_DATE` is an optional filename glob substituted into the `${DATE}` placeholder in the job spec: unset = full backfill of everything under `daily/`, or narrow to a day/month/year (`2026-02-01`, `2026-06-*`, `2025-*`). Segment names are derived from the input file name, so re-runs overwrite rather than duplicate. S3 paths, staging volume, and manual run commands are in `cluster-setup/README-docker.md`.
 
 ## Superset
 
@@ -84,7 +84,7 @@ Serves two tabs:
 - **Live Map** — Mapbox GL base map created once; every 30 s only the deck.gl dot layer refreshes from Pinot, so pan/zoom is preserved. This is the reason the map lives here and not in a Superset chart. Exception: while a route is selected in the dropdown, the camera fits that line's vehicles on selection and re-fits on every refresh; picking "All vehicles" flies back to the initial center/zoom. Clicking a vehicle draws its current trip's trajectory split at the vehicle (covered grey, ahead light blue), recomputed each refresh.
 - **Analytics** — the Superset dashboard embedded via the Superset Embedded SDK.
 
-Backend endpoints: `/api/positions` (proxies the Pinot broker query, avoids CORS), `/api/config` (hands the Mapbox token to the browser), `/api/guest-token` (logs into Superset with the admin secrets and mints a guest token for the embedded dashboard), `/api/stops` and `/api/departures?stopId=` (stop poles and scheduled departures from the ZTM GTFS feed, downloaded by a background thread on startup and every 6 h; 503 until first load), `/api/route-shape?routeId=&tripId=` (today's trip trajectory from the ZTM shapes API, cached per day).
+Backend endpoints: `/api/positions` (proxies the Pinot broker query, avoids CORS), `/api/config` (hands the Mapbox token to the browser), `/api/guest-token` (logs into Superset with the admin secrets and mints a guest token for the embedded dashboard), `/api/stops` and `/api/departures?stopId=` (stop poles and scheduled departures from the ZTM GTFS feed, downloaded by a background thread on startup and every 6 h; 503 until first load), `/api/route-shape?routeId=&tripId=` (today's trip trajectory from the ZTM shapes API, cached per day), `/api/stats` (total docs / segments / size for the header scale strip, from the broker + controller APIs, cached 60 s).
 
 Embedding requires the `EMBEDDED_SUPERSET` feature flag, the `EmbeddedGuest` role, and CSP `frame-ancestors` allowing the web-app origin — all set up automatically.
 
