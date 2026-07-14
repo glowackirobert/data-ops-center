@@ -30,6 +30,7 @@ SECRETS_DIR = os.environ.get(
 )
 PORT = int(os.environ.get('PORT', '3001'))
 PINOT_BROKER_URL = os.environ.get('PINOT_BROKER_URL', 'http://localhost:8099')
+PINOT_CONTROLLER_URL = os.environ.get('PINOT_CONTROLLER_URL', 'http://localhost:9000')
 MAPBOX_KEY_FILE = os.environ.get(
     'MAPBOX_KEY_FILE', os.path.join(SECRETS_DIR, 'superset_mapbox_api_key'))
 # Internal URL for server-to-server Superset API calls vs. the browser-visible
@@ -44,12 +45,14 @@ APPLICATION_JSON = 'application/json'
 # visible while LASTWITHTIME dedupes to the freshest row.
 # _REALTIME suffix: skips the OFFLINE side of the hybrid table — its many
 # batch-ingested segments add broker planning overhead, and a 10-minute window
-# is always within realtime retention (7 days).
+# is always within realtime retention (1 day).
 POSITIONS_SQL = """
 SELECT vehicleId,
        LASTWITHTIME(lat, generatedTransformed, 'DOUBLE')             AS lat,
        LASTWITHTIME(lon, generatedTransformed, 'DOUBLE')             AS lon,
        LASTWITHTIME(routeShortName, generatedTransformed, 'STRING')  AS route,
+       LASTWITHTIME(routeId, generatedTransformed, 'INT')            AS routeId,
+       LASTWITHTIME(tripId, generatedTransformed, 'INT')             AS tripId,
        LASTWITHTIME(headsign, generatedTransformed, 'STRING')        AS headsign,
        LASTWITHTIME(delay, generatedTransformed, 'INT')              AS delay,
        LASTWITHTIME(speed, generatedTransformed, 'FLOAT')            AS speed,
@@ -91,28 +94,28 @@ def _gtfs_rows(zf, name):
     return csv.DictReader(io.TextIOWrapper(zf.open(name), encoding='utf-8-sig'))
 
 
-def _download_gtfs():
-    req = urllib.request.Request(GTFS_URL)
+def _http_get(url, timeout):
+    req = urllib.request.Request(url)
     try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.read()
     except urllib.error.URLError as e:
         if not isinstance(getattr(e, 'reason', None), ssl.SSLCertVerificationError):
             raise
         # TLS-intercepting proxies (dev machines) break verification; the
-        # feed is public data, so degrade rather than lose the feature.
-        print('GTFS: certificate verification failed, retrying unverified')
+        # data is public, so degrade rather than lose the feature.
+        print(f'HTTP: certificate verification failed for {url}, retrying unverified')
         ctx = ssl.create_default_context()  # NOSONAR — deliberate fallback documented above
         ctx.minimum_version = ssl.TLSVersion.TLSv1_2
         ctx.check_hostname = False  # NOSONAR — deliberate fallback documented above
         ctx.verify_mode = ssl.CERT_NONE  # NOSONAR — deliberate fallback documented above
-        with urllib.request.urlopen(req, timeout=120, context=ctx) as resp:
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
             return resp.read()
 
 
 def load_gtfs():
     """Parse the GTFS zip into stops + per-stop sorted departure lists."""
-    zf = zipfile.ZipFile(io.BytesIO(_download_gtfs()))
+    zf = zipfile.ZipFile(io.BytesIO(_http_get(GTFS_URL, timeout=120)))
 
     today = datetime.datetime.now(GTFS_TZ).date()
     days = {today.strftime('%Y%m%d'): today,
@@ -185,6 +188,43 @@ def gtfs_refresher():
             time.sleep(300)
 
 
+# --- Route shapes -----------------------------------------------------------
+# One GeoJSON LineString per (date, routeId, tripId). Coordinates are plain
+# lon/lat degrees (verified 2026-07-13; the docs' EPSG:3857 claim is wrong).
+# Shapes are static within a day and a few KB each, so responses are cached in
+# memory — including upstream 404s (cached as None): a trip absent from
+# today's plan won't appear later.
+SHAPES_URL = os.environ.get('SHAPES_URL',
+                            'https://ckan2.multimediagdansk.pl/shapes')
+
+_shapes_lock = threading.Lock()
+_shapes = {'date': None, 'data': {}}  # (routeId, tripId) -> path | None
+
+
+def route_shape(route_id, trip_id):
+    """Path [[lon, lat], …] of today's trip, or None if upstream has none."""
+    date = datetime.datetime.now(GTFS_TZ).strftime('%Y-%m-%d')
+    key = (route_id, trip_id)
+    with _shapes_lock:
+        if _shapes['date'] != date:  # shapes are per-day; drop yesterday's
+            _shapes['date'] = date
+            _shapes['data'] = {}
+        elif key in _shapes['data']:
+            return _shapes['data'][key]
+    url = SHAPES_URL + '?' + urllib.parse.urlencode(
+        {'date': date, 'routeId': route_id, 'tripId': trip_id})
+    try:
+        path = json.loads(_http_get(url, timeout=15))['coordinates']
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            raise
+        path = None  # vehicle between trips / trip not in today's plan
+    with _shapes_lock:
+        if _shapes['date'] == date:
+            _shapes['data'][key] = path
+    return path
+
+
 # --- Live delays ------------------------------------------------------------
 # Current delay per (route, course number) from the GPS feed, used to shift
 # scheduled departures: a delayed vehicle stays listed until its *estimated*
@@ -226,6 +266,45 @@ def live_delays():
         _delays['at'] = time.time()
         _delays['data'] = data
         return data
+
+
+# --- Table stats --------------------------------------------------------------
+# Headline numbers for the header strip: total GPS points (broker COUNT(*)
+# over the hybrid table, realtime + offline), segment count and reported size
+# (controller APIs). Cached — every visitor loads them and they move slowly.
+STATS_SQL = 'SELECT COUNT(*) FROM gdansk_public_transport'
+STATS_TTL_S = 60
+
+_stats_lock = threading.Lock()
+_stats = {'at': 0.0, 'data': None}
+
+
+def table_stats():
+    with _stats_lock:
+        if _stats['data'] is not None and time.time() - _stats['at'] < STATS_TTL_S:
+            return _stats['data']
+    req = urllib.request.Request(
+        PINOT_BROKER_URL + '/query/sql',
+        data=json.dumps({'sql': STATS_SQL}).encode('utf-8'),
+        headers={'Content-Type': APPLICATION_JSON},
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        docs = json.load(resp)['resultTable']['rows'][0][0]
+    with urllib.request.urlopen(
+            PINOT_CONTROLLER_URL + '/tables/gdansk_public_transport/size?detailed=false',
+            timeout=15) as resp:
+        size_bytes = json.load(resp)['reportedSizeInBytes']
+    with urllib.request.urlopen(
+            PINOT_CONTROLLER_URL + '/segments/gdansk_public_transport',
+            timeout=15) as resp:
+        # [{"OFFLINE": [names…]}, {"REALTIME": [names…]}]
+        segments = sum(len(names) for entry in json.load(resp)
+                       for names in entry.values())
+    data = {'totalDocs': docs, 'segments': segments, 'sizeBytes': size_bytes}
+    with _stats_lock:
+        _stats['at'] = time.time()
+        _stats['data'] = data
+    return data
 
 
 def _read_secret(name):
@@ -308,6 +387,8 @@ class Handler(BaseHTTPRequestHandler):
             '/api/positions': self._serve_positions,
             '/api/stops': self._serve_stops,
             '/api/departures': self._serve_departures,
+            '/api/route-shape': self._serve_route_shape,
+            '/api/stats': self._serve_stats,
         }
         parsed = urllib.parse.urlparse(self.path)
         self.query = urllib.parse.parse_qs(parsed.query)
@@ -354,6 +435,22 @@ class Handler(BaseHTTPRequestHandler):
         cols = result['resultTable']['dataSchema']['columnNames']
         rows = [dict(zip(cols, r)) for r in result['resultTable']['rows']]
         self._send_json(200, rows)
+
+    def _serve_stats(self):
+        self._send_json(200, table_stats())
+
+    def _serve_route_shape(self):
+        route_id = self.query.get('routeId', [''])[0]
+        trip_id = self.query.get('tripId', [''])[0]
+        if not route_id or not trip_id:
+            self._send_json(
+                400, {'error': 'routeId and tripId query parameters required'})
+            return
+        path = route_shape(route_id, trip_id)
+        if path is None:
+            self._send_json(404, {'error': 'no shape for this trip today'})
+            return
+        self._send_json(200, {'path': path})
 
     def _serve_stops(self):
         with _gtfs_lock:
