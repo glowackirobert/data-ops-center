@@ -232,21 +232,9 @@ services:
     image: apache/kafka:${KAFKA_VERSION}
     container_name: kafka-topic-init
     restart: "no"
-    entrypoint: [ "/bin/bash", "-c" ]
-    command:
-      - |
-        env -u KAFKA_OPTS /opt/kafka/bin/kafka-topics.sh \
-          --bootstrap-server kafka:9092 \
-          --create --if-not-exists \
-          --topic trade \
-          --partitions 1 \
-          --replication-factor 1 &&
-        env -u KAFKA_OPTS /opt/kafka/bin/kafka-topics.sh \
-          --bootstrap-server kafka:9092 \
-          --create --if-not-exists \
-          --topic gdansk-public-transport \
-          --partitions 1 \
-          --replication-factor 1
+    entrypoint: [ "/bin/bash", "/scripts/create-topics.sh" ]
+    volumes:
+      - ../kafka/:/scripts/
     depends_on:
       kafka:
         condition: service_healthy
