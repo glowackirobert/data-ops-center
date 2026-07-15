@@ -91,6 +91,34 @@ position:
     - GRID_ID
     - ROW-p5HourlyProfile00000
     type: CHART
+  CHART-p7NetworkRushHour000:
+    children: []
+    id: CHART-p7NetworkRushHour000
+    meta:
+      chartId: 8
+      height: 50
+      sliceName: P7 · Network rush hour (last 24 h)
+      uuid: 80e8c990-7e29-4e12-abb6-0e61cef5dfa0
+      width: 6
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-p7p8RushDelayed0000
+    type: CHART
+  CHART-p8DelayedVehicles000:
+    children: []
+    id: CHART-p8DelayedVehicles000
+    meta:
+      chartId: 9
+      height: 50
+      sliceName: P8 · Most delayed vehicles (last 7 days)
+      uuid: 584e9d97-7588-4e01-aa8f-1c633c49d113
+      width: 6
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-p7p8RushDelayed0000
+    type: CHART
   DASHBOARD_VERSION_KEY: v2
   GRID_ID:
     children:
@@ -98,6 +126,7 @@ position:
     - ROW-p1p2Punctuality00000
     - ROW-p3p4Trends0000000000
     - ROW-p5HourlyProfile00000
+    - ROW-p7p8RushDelayed0000
     id: GRID_ID
     parents:
     - ROOT_ID
@@ -154,6 +183,17 @@ position:
     - ROOT_ID
     - GRID_ID
     type: ROW
+  ROW-p7p8RushDelayed0000:
+    children:
+    - CHART-p7NetworkRushHour000
+    - CHART-p8DelayedVehicles000
+    id: ROW-p7p8RushDelayed0000
+    meta:
+      background: BACKGROUND_TRANSPARENT
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    type: ROW
 metadata:
   native_filter_configuration:
   - id: NATIVE_FILTER-reportDateRange00
@@ -176,6 +216,8 @@ metadata:
       - 4
       - 5
       - 6
+      - 8
+      - 9
     # chartsInScope uses this file's position chartIds (P2=2, P3=3), but the
     # Superset importer only remaps scope.excluded — after (re-)importing, fix
     # chartsInScope to the live P2/P3 chart ids via PUT /api/v1/dashboard/{id}.
@@ -198,6 +240,8 @@ metadata:
     - 4
     - 5
     - 6
+    - 8
+    - 9
   map_label_colors: {}
   color_scheme: ''
   refresh_frequency: 10

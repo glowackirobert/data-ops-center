@@ -1,0 +1,81 @@
+slice_name: P8 · Most delayed vehicles (last 7 days)
+description: 'Chronic offenders: vehicles that run late most consistently, by
+  route and fleet number. Average and worst delay in minutes over the last week;
+  parked-at-depot snapshots and depot return trips are excluded, and vehicles
+  with fewer than 30 observations are ignored to keep the ranking meaningful.'
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  datasource: 1__table
+  viz_type: table
+  query_mode: aggregate
+  groupby:
+  - routeShortName
+  - vehicleCode
+  metrics:
+  - expressionType: SQL
+    sqlExpression: ROUNDDECIMAL(AVG(delay) / 60.0, 1)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: avg_delay_min
+  - expressionType: SQL
+    sqlExpression: ROUNDDECIMAL(MAX(delay) / 60.0, 0)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: max_delay_min
+  - expressionType: SQL
+    sqlExpression: COUNT(*)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: observations
+  all_columns: []
+  percent_metrics: []
+  adhoc_filters:
+  - clause: WHERE
+    comparator: 'DATEADD(DATETIME("now"), -7, day) : now'
+    expressionType: SIMPLE
+    operator: TEMPORAL_RANGE
+    subject: generatedTransformed
+  - clause: WHERE
+    expressionType: SQL
+    sqlExpression: NOT (speed = 0 AND delay > 1200)
+    comparator: null
+    operator: null
+    subject: null
+  - clause: WHERE
+    expressionType: SQL
+    sqlExpression: LOWER(headsign) NOT LIKE '%zajezdnia%'
+    comparator: null
+    operator: null
+    subject: null
+  - clause: HAVING
+    expressionType: SQL
+    sqlExpression: AVG(delay) > 120 AND COUNT(*) >= 30
+    comparator: null
+    operator: null
+    subject: null
+  timeseries_limit_metric:
+    expressionType: SQL
+    sqlExpression: AVG(delay)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: sort_avg_delay
+  order_desc: true
+  row_limit: 20
+  server_pagination: false
+  table_timestamp_format: smart_date
+  show_cell_bars: true
+  color_pn: false
+  allow_render_html: true
+  extra_form_data: {}
+  dashboards: []
+query_context: ''
+cache_timeout: 0
+uuid: 584e9d97-7588-4e01-aa8f-1c633c49d113
+version: 1.0.0
+dataset_uuid: 0fd033bf-2b72-4a3d-9cc5-740588b70c37
