@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gdansk Public Transport</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<script src="https://unpkg.com/mapbox-gl@3.25.0/dist/mapbox-gl.js"
+        integrity="sha384-8BzM5kw/yLQ/0xcikcw1iUchzAgzTDpKxvDZ/UBmlheYzR4QhmFFYNgSFWHAEZls"
+        crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://unpkg.com/mapbox-gl@3.25.0/dist/mapbox-gl.css"
+      integrity="sha384-fML+8Zffp1mTkSYjqh4tm+BMWAuAz/AW8KbK6bv5/PptIdD2sVCGkmEbFpc6Cq6F"
+      crossorigin="anonymous">
+<script src="https://unpkg.com/deck.gl@9.3.6/dist.min.js"
+        integrity="sha384-UX+cI12FBGambH8nU4vd3AUqzXpQ/NHM4mLI4wbBRYT9AtLRJjKgzYQQeGShiAdR"
+        crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@superset-ui/embedded-sdk@0.1.3/bundle/index.js"
+        integrity="sha384-Owp1PydXFMoJUkKVVTEx/sJuBgNmoAibv3LOg60P6zCv+t+X6jISsuvrElGHTsRe"
+        crossorigin="anonymous"></script>
+<link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+<header>
+  <h1>Gdansk Public Transport</h1>
+  <nav>
+    <button id="tab-map" class="active">Live Map</button>
+    <button id="tab-dash">Analytics</button>
+  </nav>
+</header>
+<div id="map-view" class="view">
+  <div id="map" style="position:absolute; inset:0;"></div>
+  <div id="panel">
+    <select id="route-filter" aria-label="Filter by route" disabled>
+      <option value="">All vehicles</option>
+    </select>
+    <label id="heatmap-label" title="GPS ping density over the last 24 h — where vehicles spend their time">
+      <input type="checkbox" id="heatmap-toggle"> Heatmap
+    </label>
+    <span id="panel-status">Loading…</span>
+  </div>
+  <div id="stop-box" class="hidden"></div>
+</div>
+<div id="dash-view" class="view hidden">
+  <div id="dash-stats"></div>
+  <div id="dash-mount">
+    <div id="dash-status">Loading dashboard…</div>
+  </div>
+</div>
+<script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

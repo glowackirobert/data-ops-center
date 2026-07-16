@@ -51,8 +51,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._serve_static(parsed.path)
             else:
                 self._send(404, 'not found', 'text/plain')
-        except Exception as e:  # keep the dev server alive on any request error
-            send_error_response(self, parsed.path, e)
+        except Exception:  # keep the dev server alive on any request error
+            send_error_response(self, parsed.path)
 
     def _serve_index(self):
         with open(os.path.join(STATIC_DIR, 'index.html'), 'rb') as f:
