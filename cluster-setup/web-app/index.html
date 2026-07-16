@@ -49,6 +49,7 @@
     display: flex; align-items: center; gap: 10px;
   }
   #route-filter { font: inherit; max-width: 140px; }
+  #heatmap-label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
   #stop-box {
     position: absolute; z-index: 15; max-width: 280px; max-height: 320px;
     overflow-y: auto; background: rgba(255, 255, 255, 0.97);
@@ -93,6 +94,9 @@
     <select id="route-filter" aria-label="Filter by route" disabled>
       <option value="">All vehicles</option>
     </select>
+    <label id="heatmap-label" title="GPS ping density over the last 24 h — where vehicles spend their time">
+      <input type="checkbox" id="heatmap-toggle"> Heatmap
+    </label>
     <span id="panel-status">Loading…</span>
   </div>
   <div id="stop-box" class="hidden"></div>
@@ -137,9 +141,15 @@ function esc(s) {
 function tooltip({ object: d }) {
   if (!d) return null;
   if (d.stopId) {
+    if (!d.routes.length) {
+      return {
+        html: `<b>${esc(d.name)}</b><br>
+               Stop not in use — no scheduled departures`,
+      };
+    }
     return {
       html: `<b>${esc(d.name)}</b><br>
-             Lines: ${esc(d.routes.join(', ') || '—')}<br>
+             Lines: ${esc(d.routes.join(', '))}<br>
              Click for departures`,
     };
   }
@@ -218,11 +228,50 @@ async function initMap() {
   const statusEl = document.getElementById('panel-status');
   const routeSelect = document.getElementById('route-filter');
   const stopBox = document.getElementById('stop-box');
+  const heatmapToggle = document.getElementById('heatmap-toggle');
 
   let lastRows = [];
   let lastUpdated = 0;
   let routeKey = ''; // signature of the routes currently in the dropdown
   let stopsData = [];
+
+  // 24 h ping-density heatmap (server-cached Pinot aggregate). Fetched on
+  // first toggle-on; re-fetched only when older than the server's cache TTL.
+  const HEATMAP_TTL_MS = 300000;
+  let heatmapData = [];
+  let heatmapAt = 0;
+
+  async function loadHeatmap() {
+    if (Date.now() - heatmapAt < HEATMAP_TTL_MS) return;
+    try {
+      const resp = await fetch('/api/heatmap');
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      heatmapData = await resp.json();
+      heatmapAt = Date.now();
+    } catch (err) {
+      statusEl.textContent = `Heatmap failed: ${err.message}`;
+    }
+  }
+
+  function heatmapLayers() {
+    if (!heatmapToggle.checked || !heatmapData.length) return [];
+    return [new deck.HeatmapLayer({
+      id: 'heatmap',
+      data: heatmapData,
+      getPosition: d => [d.lonCell, d.latCell],
+      getWeight: d => d.pings,
+      radiusPixels: 40,
+      opacity: 0.55,
+    })];
+  }
+
+  heatmapToggle.onchange = async () => {
+    if (heatmapToggle.checked) {
+      await loadHeatmap();
+      clearTripPath(); // heatmap and live vehicles are separate modes
+    }
+    render();
+  };
 
   // Clicking a vehicle draws the trajectory of the trip it is serving, split
   // at the vehicle: covered part grey, part ahead light blue. Clicking the
@@ -319,7 +368,27 @@ async function initMap() {
     const a = path[s.i];
     const b = path[s.i + 1];
     return { i: s.i, progress: s.i + s.t,
+             meters: Math.sqrt(bestD2) * 111320, // true nearest, pre-filters
              point: [a[0] + s.t * (b[0] - a[0]), a[1] + s.t * (b[1] - a[1])] };
+  }
+
+  // Vehicles further than this from the trip shape are treated as off-route —
+  // typically standing at a depot beside the terminus.
+  const OFF_ROUTE_M = 150;
+
+  function nearestRouteStop(v) {
+    const route = String(v.route || '?');
+    const kx = Math.cos(v.lat * Math.PI / 180);
+    let best = null;
+    let bestD = Infinity;
+    for (const s of stopsData) {
+      if (!s.routes.includes(route)) continue;
+      const dx = (s.lon - v.lon) * kx;
+      const dy = s.lat - v.lat;
+      const d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; best = s; }
+    }
+    return best;
   }
 
   // The split is recomputed from the fresh position on every render, so each
@@ -330,9 +399,21 @@ async function initMap() {
     if (!selectedTrip?.path || selectedTrip.path.length < 2) return [];
     const v = rows.find(d => d.vehicleId === selectedTrip.vehicleId);
     if (!v) return [];
-    const { i, progress, point } =
-      projectOnPath(selectedTrip.path, v, selectedTrip.progress);
-    selectedTrip.progress = progress;
+    let proj = projectOnPath(selectedTrip.path, v, selectedTrip.progress);
+    const onRoute = proj.meters <= OFF_ROUTE_M;
+    if (onRoute) {
+      selectedTrip.progress = proj.progress;
+    } else {
+      // Off-route (e.g. standing at a depot): nothing is covered yet — anchor
+      // the line at this route's stop nearest to the vehicle, where the trip
+      // will actually start, instead of at a raw nearest shape point.
+      selectedTrip.progress = null;
+      const stop = nearestRouteStop(v);
+      if (stop) {
+        proj = projectOnPath(
+          selectedTrip.path, { lon: stop.lon, lat: stop.lat, speed: 0 }, null);
+      }
+    }
     const style = {
       getPath: p => p,
       getWidth: 5,
@@ -341,20 +422,51 @@ async function initMap() {
       capRounded: true,
       jointRounded: true,
     };
-    return [
-      new deck.PathLayer({
+    const layers = [];
+    if (onRoute) {
+      layers.push(new deck.PathLayer({
         id: 'trip-covered',
-        data: [[...selectedTrip.path.slice(0, i + 1), point]],
+        data: [[...selectedTrip.path.slice(0, proj.i + 1), proj.point]],
         getColor: [128, 128, 128, 180],
         ...style,
-      }),
-      new deck.PathLayer({
-        id: 'trip-ahead',
-        data: [[point, ...selectedTrip.path.slice(i + 1)]],
-        getColor: [110, 180, 255, 220],
-        ...style,
-      }),
-    ];
+      }));
+    }
+    layers.push(new deck.PathLayer({
+      id: 'trip-ahead',
+      data: [[proj.point, ...selectedTrip.path.slice(proj.i + 1)]],
+      getColor: [110, 180, 255, 220],
+      ...style,
+    }));
+    return layers;
+  }
+
+  // A pulsing ring under the selected vehicle's badge, so it stays
+  // identifiable a few minutes after picking it out of a cluster of nearby
+  // vehicles. Pixel-sized (not geo-sized) so it reads the same at any zoom.
+  // Driven by a dedicated fast interval (haloAnimationTimer below), separate
+  // from the 30 s data refresh, so the pulse is smooth without touching the
+  // "only the dot layer redraws on refresh" perf design above.
+  const HALO_PERIOD_MS = 2200;
+  function selectedVehicleHaloLayer(rows) {
+    if (!selectedTrip) return [];
+    const v = rows.find(d => d.vehicleId === selectedTrip.vehicleId);
+    if (!v) return [];
+    // 0..1..0 triangle wave: radius and opacity swell and shrink together.
+    const phase = (Date.now() % HALO_PERIOD_MS) / HALO_PERIOD_MS;
+    const wave = phase < 0.5 ? phase * 2 : 2 - phase * 2;
+    return [new deck.ScatterplotLayer({
+      id: 'selected-vehicle-halo',
+      data: [v],
+      getPosition: d => [d.lon, d.lat],
+      getRadius: 16 + wave * 10,
+      radiusUnits: 'pixels',
+      stroked: true,
+      filled: false,
+      getLineColor: [230, 0, 230, 140 + wave * 115],
+      lineWidthMinPixels: 4,
+      pickable: false,
+      updateTriggers: { getRadius: phase, getLineColor: phase },
+    })];
   }
 
   // Stops are static for the day; fetched once. The server answers 503 for
@@ -399,7 +511,9 @@ async function initMap() {
                     <td class="headsign">${esc(d.headsign)}</td>
                     <td>${mins} min</td></tr>`;
       }).join('');
-      let label = 'No scheduled departures';
+      let label = info.object.routes.length
+        ? 'No scheduled departures'
+        : 'Stop not in use — no scheduled departures';
       if (dep.mode === 'hour') {
         label = 'Next 60 minutes';
       } else if (dep.departures.length) {
@@ -451,15 +565,22 @@ async function initMap() {
     const rows = route
       ? lastRows.filter(d => String(d.route || '?') === route)
       : lastRows;
+    // Heatmap (24 h aggregate) and live vehicles are alternate modes, not a
+    // combined view — showing both at once buried the badges under the busiest
+    // hot spots, which are usually the same clusters. Stops stay visible either
+    // way since they're schedule context, not part of either mode.
+    const heatOn = heatmapToggle.checked;
     // Markers jump to the newly scraped position on each refresh — no
     // interpolated movement between API polls.
     // Only the vehicle layers are replaced; deck.gl diffs them on the GPU
     // and the base map keeps its tiles, camera and WebGL context.
     overlay.setProps({
       layers: [
-        // Selected trip's trajectory — drawn first so stops and vehicles
-        // stay on top (path layers are not pickable).
-        ...tripPathLayers(rows),
+        // Density heatmap — lowest layer, everything else reads on top of it.
+        ...heatmapLayers(),
+        // Selected trip's trajectory — drawn under stops and vehicles
+        // (path layers are not pickable).
+        ...(heatOn ? [] : tripPathLayers(rows)),
         // Stop poles — static, rendered under the vehicles so vehicles win
         // picking conflicts; hidden when zoomed out to avoid clutter.
         // With a line selected, only that line's stops show — at any zoom,
@@ -474,17 +595,22 @@ async function initMap() {
           getRadius: 14,
           radiusMinPixels: 3,
           radiusMaxPixels: 8,
-          getFillColor: [37, 99, 235, 150],
+          // grey = not in use: no vehicle departs from this pole today
+          getFillColor: d => d.routes.length
+            ? [37, 99, 235, 150] : [156, 163, 175, 160],
           stroked: true,
           getLineColor: [255, 255, 255, 220],
           lineWidthMinPixels: 1,
           pickable: true,
         }),
+        // Ring around the tracked vehicle — under its badge so the badge and
+        // arrow stay on top and pickable.
+        ...(heatOn ? [] : selectedVehicleHaloLayer(rows)),
         // Route-number box — the text background is the box itself, with
         // extra left padding reserving room for the heading arrow.
         new deck.TextLayer({
           id: 'vehicles',
-          data: rows,
+          data: heatOn ? [] : rows,
           characterSet: 'auto',
           getText: d => String(d.route || '?'),
           getPosition: d => [d.lon, d.lat],
@@ -500,11 +626,13 @@ async function initMap() {
           pickable: true,
         }),
         // Heading arrow in the left slot of the box, pointing where the
-        // vehicle is going. Stationary vehicles get no arrow — their
-        // heading is meaningless.
+        // vehicle is going. Hidden only for vehicles standing at a terminus
+        // of their own course — the schedule-derived atTerminus flag from
+        // /api/positions (within 300 m of the trip's first/last stop). An
+        // ordinary speed-0 stop at lights or a stop keeps the last heading.
         new deck.TextLayer({
           id: 'vehicle-arrows',
-          data: rows.filter(d => d.speed > 0),
+          data: heatOn ? [] : rows.filter(d => d.speed > 0 || !d.atTerminus),
           characterSet: ['↑'],
           getText: () => '↑',
           getPosition: d => [d.lon, d.lat],
@@ -579,6 +707,11 @@ async function initMap() {
   }
 
   map.on('zoomend', render); // toggles stop-layer visibility at the threshold
+
+  // Redraws just fast enough for the halo pulse to read as smooth motion;
+  // a no-op (skipped) whenever nothing is selected, so it costs nothing the
+  // rest of the time.
+  setInterval(() => { if (selectedTrip) render(); }, 100);
 
   await refresh();
   setInterval(refresh, REFRESH_MS);

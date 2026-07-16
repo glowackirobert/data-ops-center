@@ -11,6 +11,7 @@ import datetime
 import http.cookiejar
 import io
 import json
+import math
 import os
 import ssl
 import threading
@@ -87,7 +88,27 @@ except ZoneInfoNotFoundError:
     print(f'GTFS: Europe/Warsaw tzdata unavailable, using system zone {GTFS_TZ}')
 
 _gtfs_lock = threading.Lock()
-_gtfs = {'stops': [], 'departures': {}, 'loaded_at': None}
+_gtfs = {'stops': [], 'departures': {}, 'trip_ends': {}, 'trip_last_stop': {},
+         'loaded_at': None}
+
+# A vehicle standing within this range of its course's scheduled first or last
+# stop is "at the terminus" (loops and adjacent depot yards are large).
+TERMINUS_RADIUS_M = 300
+
+
+def at_terminus(row, trip_ends):
+    """True when the vehicle is within TERMINUS_RADIUS_M of a terminus of the
+    course it is serving (the schedule-derived first/last stop of the trip)."""
+    pts = trip_ends.get((str(row.get('route')), str(row.get('tripId'))))
+    if not pts:
+        return False
+    kx = math.cos(math.radians(row['lat']))
+    for slat, slon in pts:
+        dx = (slon - row['lon']) * kx
+        dy = slat - row['lat']
+        if math.sqrt(dx * dx + dy * dy) * 111320 <= TERMINUS_RADIUS_M:
+            return True
+    return False
 
 
 def _gtfs_rows(zf, name):
@@ -130,11 +151,12 @@ def load_gtfs():
     route_name = {r['route_id']: r['route_short_name']
                   for r in _gtfs_rows(zf, 'routes.txt')}
 
-    trips = {}  # trip_id -> (service date, route short name, headsign)
+    trips = {}  # trip_id -> (service date, route id, route short name, headsign)
     for r in _gtfs_rows(zf, 'trips.txt'):
         d = service_date.get(r['service_id'])
         if d:
-            trips[r['trip_id']] = (d, route_name.get(r['route_id'], '?'),
+            trips[r['trip_id']] = (d, r['route_id'],
+                                   route_name.get(r['route_id'], '?'),
                                    r['trip_headsign'])
 
     # GTFS times are "noon minus 12 h"-relative and may exceed 24:00 for
@@ -143,12 +165,24 @@ def load_gtfs():
             for d in days.values()}
     departures = {}
     stop_routes = {}  # stop_id -> set of route short names serving it
+    trip_span = {}  # trip_id -> [min seq, its stop, max seq, its stop]
     for r in _gtfs_rows(zf, 'stop_times.txt'):
         trip = trips.get(r['trip_id'])
         if not trip:
             continue
-        d, route, headsign = trip
+        d, _route_id, route, headsign = trip
         stop_routes.setdefault(r['stop_id'], set()).add(route)
+        # first/last stop of the trip — tracked before the pickup_type skip,
+        # since a trip's final stop is usually dropoff-only
+        seq = int(r['stop_sequence'])
+        span = trip_span.get(r['trip_id'])
+        if span is None:
+            trip_span[r['trip_id']] = [seq, r['stop_id'], seq, r['stop_id']]
+        else:
+            if seq < span[0]:
+                span[0], span[1] = seq, r['stop_id']
+            if seq > span[2]:
+                span[2], span[3] = seq, r['stop_id']
         if r['pickup_type'] == '1':  # 1 = no passenger pickup
             continue
         h, m, s = map(int, r['departure_time'].split(':'))
@@ -169,12 +203,38 @@ def load_gtfs():
               'routes': sorted(stop_routes.get(r['stop_id'], ()))}
              for r in _gtfs_rows(zf, 'stops.txt')]
 
+    # (route short name, course no) -> {(lat, lon), …} of that course's
+    # scheduled first/last stop — the termini where the vehicle rests between
+    # runs. Powers the atTerminus flag on /api/positions.
+    #
+    # (GTFS route id, course no) -> (lat, lon) of the course's scheduled last
+    # stop only, keyed the way /api/route-shape receives its query params —
+    # used to trim the shapes API's polyline, which commonly overshoots the
+    # last passenger stop (loop-back curves, depot access roads).
+    stop_coord = {s['stopId']: (s['lat'], s['lon']) for s in stops}
+    trip_ends = {}
+    trip_last_stop = {}
+    for trip_id, (_, first, _, last) in trip_span.items():
+        parts = trip_id.split('_')
+        if len(parts) != 3:  # no course number to join on
+            continue
+        _d, route_id, route_short, _headsign = trips[trip_id]
+        pts = trip_ends.setdefault((route_short, parts[1]), set())
+        for sid in (first, last):
+            if sid in stop_coord:
+                pts.add(stop_coord[sid])
+        if last in stop_coord:
+            trip_last_stop[(route_id, parts[1])] = stop_coord[last]
+
     with _gtfs_lock:
         _gtfs['stops'] = stops
         _gtfs['departures'] = departures
+        _gtfs['trip_ends'] = trip_ends
+        _gtfs['trip_last_stop'] = trip_last_stop
         _gtfs['loaded_at'] = time.time()
     print(f'GTFS: loaded {len(stops)} stops, '
-          f'{sum(map(len, departures.values()))} departures '
+          f'{sum(map(len, departures.values()))} departures, '
+          f'termini for {len(trip_ends)} courses '
           f'for {sorted(days)}')
 
 
@@ -225,6 +285,39 @@ def route_shape(route_id, trip_id):
     return path
 
 
+def truncate_path_at(path, target):
+    """Cut [[lon, lat], …] at the point on it nearest `target` (lat, lon).
+
+    Mirrors the client's segment-projection math (equirectangular, fine at
+    city scale). Candidates within ~30 m of the best distance are considered
+    tied; among those the one furthest along the path wins, since this is
+    used to trim a shape down to its scheduled *last* stop, not to track a
+    moving vehicle along it.
+    """
+    tlat, tlon = target
+    kx = math.cos(math.radians(tlat))
+    ambiguity2 = (30 / 111320) ** 2
+    best_i, best_t, best_point, best_d2 = None, None, None, float('inf')
+    candidates = []
+    for i in range(len(path) - 1):
+        ax, ay = path[i]
+        bx, by = path[i + 1]
+        dx, dy = (bx - ax) * kx, by - ay
+        len2 = dx * dx + dy * dy
+        ex, ey = (tlon - ax) * kx, tlat - ay
+        t = min(1, max(0, (ex * dx + ey * dy) / len2)) if len2 else 0
+        px, py = ex - t * dx, ey - t * dy
+        d2 = px * px + py * py
+        point = [ax + t * (bx - ax), ay + t * (by - ay)]
+        candidates.append((i, t, point, d2))
+        if d2 < best_d2:
+            best_d2 = d2
+    for i, t, point, d2 in candidates:
+        if d2 <= best_d2 + ambiguity2 and (best_i is None or i + t > best_i + best_t):
+            best_i, best_t, best_point = i, t, point
+    return path[:best_i + 1] + [best_point]
+
+
 # --- Live delays ------------------------------------------------------------
 # Current delay per (route, course number) from the GPS feed, used to shift
 # scheduled departures: a delayed vehicle stays listed until its *estimated*
@@ -266,6 +359,51 @@ def live_delays():
         _delays['at'] = time.time()
         _delays['data'] = data
         return data
+
+
+# --- Density heatmap ----------------------------------------------------------
+# GPS ping density on a ~100 m grid over the last 24 h, for the map's heatmap
+# layer ("where do buses spend their time"). Derived from the density-grid
+# query formerly in gdansk_public_transport_queries.sql, at 3 decimals instead
+# of 2 so the hotspots read at street level. Bounding box = Gdansk metro area,
+# same as the original query. Cached: the picture moves slowly and every
+# toggle-on would otherwise hit the broker.
+HEATMAP_SQL = """
+SELECT ROUNDDECIMAL(lat, 3)        AS latCell,
+       ROUNDDECIMAL(lon, 3)        AS lonCell,
+       COUNT(*)                    AS pings,
+       ROUNDDECIMAL(AVG(speed), 1) AS avgSpeed
+FROM gdansk_public_transport_REALTIME
+WHERE generatedTransformed > ago('P1D')
+  AND lat BETWEEN 54.27 AND 54.50
+  AND lon BETWEEN 18.45 AND 18.80
+GROUP BY latCell, lonCell
+ORDER BY pings DESC
+LIMIT 20000
+"""
+HEATMAP_TTL_S = 300
+
+_heatmap_lock = threading.Lock()
+_heatmap = {'at': 0.0, 'data': None}
+
+
+def heatmap_cells():
+    with _heatmap_lock:
+        if _heatmap['data'] is not None and time.time() - _heatmap['at'] < HEATMAP_TTL_S:
+            return _heatmap['data']
+    req = urllib.request.Request(
+        PINOT_BROKER_URL + '/query/sql',
+        data=json.dumps({'sql': HEATMAP_SQL}).encode('utf-8'),
+        headers={'Content-Type': APPLICATION_JSON},
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        result = json.load(resp)
+    cols = result['resultTable']['dataSchema']['columnNames']
+    data = [dict(zip(cols, r)) for r in result['resultTable']['rows']]
+    with _heatmap_lock:
+        _heatmap['at'] = time.time()
+        _heatmap['data'] = data
+    return data
 
 
 # --- Table stats --------------------------------------------------------------
@@ -389,6 +527,7 @@ class Handler(BaseHTTPRequestHandler):
             '/api/departures': self._serve_departures,
             '/api/route-shape': self._serve_route_shape,
             '/api/stats': self._serve_stats,
+            '/api/heatmap': self._serve_heatmap,
         }
         parsed = urllib.parse.urlparse(self.path)
         self.query = urllib.parse.parse_qs(parsed.query)
@@ -434,10 +573,17 @@ class Handler(BaseHTTPRequestHandler):
             return
         cols = result['resultTable']['dataSchema']['columnNames']
         rows = [dict(zip(cols, r)) for r in result['resultTable']['rows']]
+        with _gtfs_lock:
+            trip_ends = _gtfs['trip_ends']
+        for row in rows:
+            row['atTerminus'] = at_terminus(row, trip_ends)
         self._send_json(200, rows)
 
     def _serve_stats(self):
         self._send_json(200, table_stats())
+
+    def _serve_heatmap(self):
+        self._send_json(200, heatmap_cells())
 
     def _serve_route_shape(self):
         route_id = self.query.get('routeId', [''])[0]
@@ -450,6 +596,10 @@ class Handler(BaseHTTPRequestHandler):
         if path is None:
             self._send_json(404, {'error': 'no shape for this trip today'})
             return
+        with _gtfs_lock:
+            last_stop = _gtfs['trip_last_stop'].get((route_id, trip_id))
+        if last_stop and len(path) >= 2:
+            path = truncate_path_at(path, last_stop)
         self._send_json(200, {'path': path})
 
     def _serve_stops(self):

@@ -82,8 +82,12 @@ with app.app_context():
             for u in dashboard_uuids
         ) if dashboard_uuids else False
 
-        if already_imported:
-            print(f'Skipping {zip_path} — dashboards already exist: {dashboard_uuids}')
+        # The skip keeps routine init re-runs from clobbering runtime state.
+        # After changing the dashboard/chart YAMLs, force a re-import with
+        # SUPERSET_IMPORT_OVERWRITE=1 (see README-docker.md).
+        if already_imported and os.environ.get('SUPERSET_IMPORT_OVERWRITE') != '1':
+            print(f'Skipping {zip_path} — dashboards already exist: {dashboard_uuids}'
+                  ' (set SUPERSET_IMPORT_OVERWRITE=1 to re-import)')
             os.remove(full_path)
             continue
 
