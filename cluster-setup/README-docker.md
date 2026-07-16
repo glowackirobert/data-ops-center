@@ -217,7 +217,10 @@ INGESTION_DATE=2026-06-* docker compose ... run --no-deps pinot-ingestion-runner
 Segments are staged under `cluster-setup/volumes/pinot/ingestion-staging/` on
 the host (a full backfill generates the whole history before pushing) and the
 staging dir is cleaned at the start of each run. Heap for the runner is
-`PINOT_INGESTION_RUNNER_HEAP` (default `-Xmx2G`).
+`PINOT_INGESTION_RUNNER_HEAP` (default `-Xmx2G`). `INGESTION_JOB_PARALLELISM`
+(default `2`) sets both the segment-creation and push thread counts in the
+job spec — raise it together with the heap, since each parallel
+segment-build thread shares the same `-Xmx`.
 
 ### S3 deep store
 
