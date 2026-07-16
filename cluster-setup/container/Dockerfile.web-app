@@ -4,6 +4,8 @@
 ARG PYTHON_VERSION
 FROM python:${PYTHON_VERSION}
 WORKDIR /app
-COPY cluster-setup/web-app/server.py cluster-setup/web-app/index.html ./
+COPY cluster-setup/web-app/server.py ./
+COPY cluster-setup/web-app/app/ ./app/
+COPY cluster-setup/web-app/static/ ./static/
 EXPOSE 3001
 CMD ["python", "server.py"]

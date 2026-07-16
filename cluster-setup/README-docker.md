@@ -298,6 +298,7 @@ The backend (stdlib Python, no dependencies) exposes:
 | `/api/departures`  | `?stopId=` — scheduled departures in the next 60 min (or the next 3 if none), adjusted by live delays from the GPS feed: a delayed vehicle stays listed until its estimated time passes |
 | `/api/route-shape` | `?routeId=&tripId=` — today's trip trajectory (GeoJSON LineString coordinates) proxied from the ZTM shapes API, cached in memory per day; 404 if the trip has no shape today |
 | `/api/stats`       | Total docs (broker `COUNT(*)` over the hybrid table), segment count and reported size (controller API) — feeds the header scale strip; cached 60 s |
+| `/api/heatmap`     | 24 h GPS ping density on a ~100 m grid, for the map's heatmap toggle; cached 5 min |
 
 The GTFS feed (`gtfsgoogle.zip`, ~20 MB) is downloaded on startup and every 6 h
 by a background thread; only today's and tomorrow's service days are kept in
@@ -323,6 +324,22 @@ names like `superset:8088` never work there):
 On EC2 (or any remote host) set both to the instance's public DNS/IP — see the
 comments in `cluster-setup/env/env.prod`. If you reach the host through SSH
 tunnels for ports 8088 and 3001, the localhost defaults are already correct.
+
+### Running tests
+
+Backend (`app/*` domain modules, no Pinot/Superset network access required —
+everything is mocked):
+
+```bash
+python -m unittest discover -s cluster-setup/web-app/tests
+```
+
+Frontend geometry helpers (`static/js/geo.js`, Node's built-in test runner,
+no dependencies):
+
+```bash
+node --test cluster-setup/web-app/tests/test_geo.js
+```
 
 ### Port binding
 
