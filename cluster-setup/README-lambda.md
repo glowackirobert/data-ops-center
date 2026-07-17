@@ -14,5 +14,14 @@ pip install 'requests~=2.32' -t .  # boto3 is provided by the Lambda runtime
 cp ../cluster-setup/py/gdansk_public_transport_aws.py .
 # Windows PowerShell:
 Compress-Archive -Path * -DestinationPath function.zip
-# Upload function.zip to AWS Lambda
+
+# Apply it to the existing function (same call the CI workflow makes):
+aws lambda update-function-code \
+  --function-name GdanskPublicTransportHandler \
+  --zip-file fileb://function.zip \
+  --region eu-north-1
 ```
+
+This assumes the `GdanskPublicTransportHandler` function, its execution role (S3 write
+access to `gdansk-public-transport`), and its EventBridge trigger schedule already exist —
+provisioning those from scratch isn't automated by this repo.
