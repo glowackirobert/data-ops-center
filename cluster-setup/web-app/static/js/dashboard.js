@@ -1,4 +1,4 @@
-import { fmtBytes } from './utils.js';
+import { fmtBytes, latencyMs, latencyBadgeHtml } from './utils.js';
 
 let dashboardEmbedded = false;
 
@@ -37,11 +37,13 @@ export async function initDashboard() {
 // reads as "points on the map", which it is not.
 export async function refreshStats() {
   try {
-    const s = await (await fetch('/api/stats')).json();
+    const resp = await fetch('/api/stats');
+    const s = await resp.json();
     if (s.error) throw new Error(s.error);
     document.getElementById('dash-stats').innerHTML =
       `Apache Pinot storage (hybrid realtime + offline table): ` +
       `<b>${s.segments.toLocaleString()}</b> segments · ` +
-      `<b>${fmtBytes(s.sizeBytes)}</b>`;
+      `<b>${fmtBytes(s.sizeBytes)}</b>` +
+      latencyBadgeHtml(latencyMs(resp));
   } catch { /* strip stays as-is; next tick retries */ }
 }

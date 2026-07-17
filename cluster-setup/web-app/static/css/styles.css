@@ -55,6 +55,27 @@ nav button.active { background: #374151; color: #fff; }
 #stop-box .delay { font-weight: 600; }
 #stop-box .delay.late { color: #b91c1c; }
 #stop-box .delay.early { color: #047857; }
+.latency-badge {
+  display: inline-block; background: #e0e7ff; color: #3730a3;
+  border-radius: 4px; padding: 0 6px; font-weight: 600; font-size: 12px;
+}
+#route-histogram {
+  position: absolute; z-index: 10; left: 10px; bottom: 10px; width: 320px;
+  background: rgba(255, 255, 255, 0.95); border-radius: 6px;
+  padding: 8px 12px 6px; font-size: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+#route-histogram h4 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+#route-histogram .bars {
+  display: flex; align-items: flex-end; gap: 2px; height: 60px;
+}
+#route-histogram .bar {
+  flex: 1; background: #2563eb; border-radius: 2px 2px 0 0; min-height: 1px;
+}
+#route-histogram .hours {
+  display: flex; gap: 2px; font-size: 9px; color: #6b7280; margin-top: 3px;
+}
+#route-histogram .hours span { flex: 1; text-align: center; }
 #dash-mount iframe { width: 100%; height: 100%; border: 0; }
 #dash-status { padding: 24px; color: #374151; }
 #dash-status.error { color: #b91c1c; }

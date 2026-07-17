@@ -1,4 +1,4 @@
-import { colorForRoute, time24, timeHM, esc, isTram } from './utils.js';
+import { colorForRoute, time24, timeHM, esc, isTram, latencyMs, latencyBadgeHtml } from './utils.js';
 import { OFF_ROUTE_M, projectOnPath, nearestRouteStop } from './geo.js';
 
 const REFRESH_MS = 30000;
@@ -16,6 +16,8 @@ const state = {
   selectedTrip: null, // when set, has fields vehicleId, routeId, tripId, path, progress
   lastRows: [],
   lastUpdated: 0,
+  positionsMs: null, // Pinot's timeUsedMs for the last /api/positions fetch
+  heatmapMs: null,   // same, for the last /api/heatmap fetch
   routeKey: '', // signature of the routes currently in the dropdown
   stopsData: [],
   heatmapData: [],
@@ -113,6 +115,7 @@ export async function initMap() {
   const routeSelect = document.getElementById('route-filter');
   const stopBox = document.getElementById('stop-box');
   const heatmapToggle = document.getElementById('heatmap-toggle');
+  const histogramEl = document.getElementById('route-histogram');
 
   // 24 h ping-density heatmap (server-cached Pinot aggregate). Fetched on
   // first toggle-on; re-fetched only when older than the server's cache TTL.
@@ -122,6 +125,7 @@ export async function initMap() {
       const resp = await fetch('/api/heatmap');
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       state.heatmapData = await resp.json();
+      state.heatmapMs = latencyMs(resp);
       state.heatmapAt = Date.now();
     } catch (err) {
       statusEl.textContent = `Heatmap failed: ${err.message}`;
@@ -147,6 +151,57 @@ export async function initMap() {
     }
     render();
   };
+
+  // Interactive drill-down: selecting a route queries its whole-history,
+  // per-hour average delay in one shot (see app/pinot.py route_hourly_delay —
+  // deliberately uncached, so the badge shows Pinot's real query time, not a
+  // cache hit) and renders it as a small bar chart. Not fetched on every 30 s
+  // refresh: the underlying data barely moves within a session, only the
+  // selection does.
+  async function loadRouteHistogram(route) {
+    if (!route) {
+      histogramEl.classList.add('hidden');
+      histogramEl.innerHTML = '';
+      return;
+    }
+    try {
+      const resp = await fetch(`/api/route-delay-histogram?route=${encodeURIComponent(route)}`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const rows = await resp.json();
+      renderRouteHistogram(route, rows, latencyMs(resp));
+    } catch (err) {
+      histogramEl.classList.remove('hidden');
+      histogramEl.innerHTML = `<h4>Route ${esc(route)} — delay by hour</h4>`
+        + `Failed to load: ${esc(err.message)}`;
+    }
+  }
+
+  function renderRouteHistogram(route, rows, ms) {
+    const byHour = new Map(rows.map(r => [r.hour, r]));
+    // Always draw all 24 slots so a route with sparse-hour coverage (e.g. a
+    // night line) still reads as a full day, not a squeezed partial chart.
+    const hours = Array.from({ length: 24 }, (_, h) => {
+      const key = `${String(h).padStart(2, '0')}:00`;
+      return byHour.get(key) || null;
+    });
+    const values = hours.map(r => r ? r.avgDelaySec : null).filter(v => v != null);
+    const min = values.length ? Math.min(0, ...values) : 0;
+    const max = values.length ? Math.max(0, ...values) : 1;
+    const range = (max - min) || 1;
+    const bars = hours.map((r, h) => {
+      if (!r) return `<div class="bar" style="height:0" title="${h}:00 — no data"></div>`;
+      const pct = Math.round(((r.avgDelaySec - min) / range) * 100);
+      return `<div class="bar" style="height:${Math.max(pct, 2)}%" ` +
+             `title="${h}:00 — avg ${r.avgDelaySec}s over ${r.snapshots} snapshots"></div>`;
+    }).join('');
+    const ticks = [0, 6, 12, 18].map(h => `<span>${h}:00</span>`).join('');
+    histogramEl.classList.remove('hidden');
+    histogramEl.innerHTML =
+      `<h4>Route ${esc(route)} — avg delay by hour (whole history)` +
+      `${latencyBadgeHtml(ms)}</h4>` +
+      `<div class="bars">${bars}</div>` +
+      `<div class="hours">${ticks}</div>`;
+  }
 
   // Clicking a vehicle draws the trajectory of the trip it is serving, split
   // at the vehicle: covered part grey, part ahead light blue. Clicking the
@@ -322,7 +377,7 @@ export async function initMap() {
       stopBox.innerHTML = `
         <button class="close" aria-label="Close">✕</button>
         <h3>${esc(name)}</h3>
-        <div class="mode">${label}</div>
+        <div class="mode">${label}${latencyBadgeHtml(latencyMs(resp))}</div>
         <table>${rows}</table>`;
       stopBox.querySelector('.close').onclick = hideStopBox;
     } catch (err) {
@@ -446,9 +501,10 @@ export async function initMap() {
         }),
       ],
     });
-    statusEl.textContent =
-      (route ? `${rows.length} of ${state.lastRows.length}` : `${rows.length}`)
-      + ` vehicles · updated ${time24(state.lastUpdated)}`;
+    const count = route ? `${rows.length} of ${state.lastRows.length}` : `${rows.length}`;
+    const ms = heatOn ? state.heatmapMs : state.positionsMs;
+    statusEl.innerHTML = `${count} vehicles · updated ${time24(state.lastUpdated)}`
+      + latencyBadgeHtml(ms);
   }
 
   // While a line is selected the camera follows it: fitted on selection and
@@ -476,6 +532,7 @@ export async function initMap() {
     }
     render();
     fitToSelection();
+    loadRouteHistogram(routeSelect.value);
   };
 
   async function refresh() {
@@ -483,6 +540,7 @@ export async function initMap() {
       const resp = await fetch('/api/positions');
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       state.lastRows = await resp.json();
+      state.positionsMs = latencyMs(resp);
       state.lastUpdated = Date.now();
       if (state.selectedTrip) {
         const v = state.lastRows.find(d => d.vehicleId === state.selectedTrip.vehicleId);

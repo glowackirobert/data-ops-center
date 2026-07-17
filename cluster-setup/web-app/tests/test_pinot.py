@@ -24,9 +24,10 @@ class _FakeResponse(io.BytesIO):
         self.close()
 
 
-def _pinot_result(cols, rows):
+def _pinot_result(cols, rows, time_used_ms=0):
     return json.dumps({
         'resultTable': {'dataSchema': {'columnNames': cols}, 'rows': rows},
+        'timeUsedMs': time_used_ms,
     }).encode('utf-8')
 
 
@@ -40,9 +41,10 @@ class QueryShapingTests(unittest.TestCase):
 
     def test_query_zips_columns_and_rows_into_dicts(self):
         urllib.request.urlopen = lambda req, timeout=None: _FakeResponse(
-            _pinot_result(['a', 'b'], [[1, 'x'], [2, 'y']]))
-        rows = pinot._query('SELECT a, b FROM t')
+            _pinot_result(['a', 'b'], [[1, 'x'], [2, 'y']], time_used_ms=42))
+        rows, ms = pinot._query('SELECT a, b FROM t')
         self.assertEqual(rows, [{'a': 1, 'b': 'x'}, {'a': 2, 'b': 'y'}])
+        self.assertEqual(ms, 42)
 
     def test_query_raises_on_exceptions_in_response(self):
         body = json.dumps({'exceptions': [{'errorCode': 200, 'message': 'boom'}]})
@@ -65,13 +67,13 @@ class LiveDelaysCacheTests(unittest.TestCase):
         urllib.request.urlopen = lambda req, timeout=None: _FakeResponse(
             _pinot_result(['routeShortName', 'tripId', 'delay'],
                           [['8', 12, 45]]))
-        data = pinot.live_delays()
+        data, _ = pinot.live_delays()
         self.assertEqual(data, {('8', '12'): 45})
 
     def test_live_delays_degrades_to_stale_cache_on_failure(self):
         urllib.request.urlopen = lambda req, timeout=None: _FakeResponse(
             _pinot_result(['routeShortName', 'tripId', 'delay'], [['8', 12, 45]]))
-        first = pinot.live_delays()
+        first, _ = pinot.live_delays()
         self.assertEqual(first, {('8', '12'): 45})
 
         # force a fresh fetch attempt (bypass TTL) that fails outright
@@ -79,8 +81,32 @@ class LiveDelaysCacheTests(unittest.TestCase):
         def boom(req, timeout=None):
             raise OSError('network down')
         urllib.request.urlopen = boom
-        second = pinot.live_delays()
+        second, _ = pinot.live_delays()
         self.assertEqual(second, {('8', '12'): 45})  # stale data, not a crash
+
+
+class RouteHourlyDelayTests(unittest.TestCase):
+
+    def setUp(self):
+        self._orig_urlopen = urllib.request.urlopen
+
+    def tearDown(self):
+        urllib.request.urlopen = self._orig_urlopen
+
+    def test_route_hourly_delay_returns_rows_and_time(self):
+        urllib.request.urlopen = lambda req, timeout=None: _FakeResponse(
+            _pinot_result(['hour', 'avgDelaySec', 'snapshots'],
+                          [['08:00', 42, 100]], time_used_ms=7))
+        rows, ms = pinot.route_hourly_delay('8')
+        self.assertEqual(rows, [{'hour': '08:00', 'avgDelaySec': 42, 'snapshots': 100}])
+        self.assertEqual(ms, 7)
+
+    def test_route_hourly_delay_rejects_invalid_route_without_querying(self):
+        def boom(req, timeout=None):
+            raise AssertionError('should not query Pinot for an invalid route')
+        urllib.request.urlopen = boom
+        with self.assertRaises(ValueError):
+            pinot.route_hourly_delay("8' OR '1'='1")
 
 
 if __name__ == '__main__':

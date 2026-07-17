@@ -11,18 +11,23 @@ import traceback
 from app.config import APPLICATION_JSON
 
 
-def send(handler, code, body, content_type):
+def send(handler, code, body, content_type, time_used_ms=None):
     data = body if isinstance(body, bytes) else body.encode('utf-8')
     handler.send_response(code)
     handler.send_header('Content-Type', content_type)
     handler.send_header('Content-Length', str(len(data)))
     handler.send_header('Cache-Control', 'no-store')
+    # Pinot's own broker-reported query time, exposed as a response header
+    # rather than folded into the JSON body so no existing consumer's parsing
+    # has to change to pick up a latency badge.
+    if time_used_ms is not None:
+        handler.send_header('X-Pinot-Time-Ms', str(time_used_ms))
     handler.end_headers()
     handler.wfile.write(data)
 
 
-def send_json(handler, code, payload):
-    send(handler, code, json.dumps(payload), APPLICATION_JSON)
+def send_json(handler, code, payload, time_used_ms=None):
+    send(handler, code, json.dumps(payload), APPLICATION_JSON, time_used_ms=time_used_ms)
 
 
 def send_error_response(handler, path):

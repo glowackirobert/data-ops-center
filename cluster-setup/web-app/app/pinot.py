@@ -4,6 +4,7 @@ One place for every SQL string and every raw urlopen() call against Pinot so
 route handlers never talk to the broker/controller directly.
 """
 import json
+import re
 import urllib.request
 
 from app.cache import TTLCache
@@ -71,6 +72,29 @@ LIMIT 20000
 # (controller APIs). Cached — every visitor loads them and they move slowly.
 STATS_SQL = 'SELECT COUNT(*) AS totalDocs FROM gdansk_public_transport'
 
+# Drill-down: average delay by hour of day, for one route, over the table's
+# *entire* history (no time filter) — the interactive "click a route" demo of
+# routeShortName being the sorted column (see gdansk_public_transport_*
+# table configs): a whole-history GROUP BY that would otherwise be the exact
+# shape of query that times out (see PINOT_IMPROVEMENT_PLAN.md item 1) stays
+# fast here because the equality filter prunes via the sort order.
+ROUTE_HOURLY_DELAY_SQL = """
+SELECT TODATETIME(generatedTransformed, 'HH:00', 'Europe/Warsaw') AS hour,
+       ROUNDDECIMAL(AVG(delay), 0) AS avgDelaySec,
+       COUNT(*)                    AS snapshots
+FROM gdansk_public_transport
+WHERE routeShortName = '{route}'
+  AND NOT (speed = 0 AND delay > 1200)
+GROUP BY hour
+ORDER BY hour
+"""
+# Route short names are short alphanumeric codes (trams "8", "12"; buses incl.
+# night lines "N1", "159") — never containing a quote or other SQL-meaningful
+# character. Validated before string-interpolating into ROUTE_HOURLY_DELAY_SQL
+# since the Pinot broker's plain SQL endpoint has no parameterized-query
+# option to use instead.
+_ROUTE_RE = re.compile(r'^[A-Za-z0-9]{1,10}$')
+
 _delays_cache = TTLCache(DELAYS_TTL_S)
 _heatmap_cache = TTLCache(HEATMAP_TTL_S)
 _stats_cache = TTLCache(STATS_TTL_S)
@@ -84,7 +108,11 @@ class PinotQueryError(Exception):
 
 
 def _query(sql, timeout=15):
-    """Run a SQL query against the broker; return rows as a list of dicts."""
+    """Run a SQL query against the broker; return (rows, timeUsedMs).
+
+    timeUsedMs is Pinot's own broker-reported query time — surfaced end to
+    end as a latency badge in the app, not just used internally.
+    """
     req = urllib.request.Request(
         PINOT_BROKER_URL + '/query/sql',
         data=json.dumps({'sql': sql}).encode('utf-8'),
@@ -95,42 +123,57 @@ def _query(sql, timeout=15):
     if result.get('exceptions'):
         raise PinotQueryError(result['exceptions'])
     cols = result['resultTable']['dataSchema']['columnNames']
-    return [dict(zip(cols, r)) for r in result['resultTable']['rows']]
+    rows = [dict(zip(cols, r)) for r in result['resultTable']['rows']]
+    return rows, result.get('timeUsedMs', 0)
 
 
 def get_positions():
     return _query(POSITIONS_SQL, timeout=15)
 
 
+def route_hourly_delay(route):
+    """(rows of {hour, avgDelaySec, snapshots} for one route's whole history, timeUsedMs).
+
+    Not cached: the point of this drill-down is showing how fast the query
+    itself is, not how fast our own cache is.
+    """
+    if not _ROUTE_RE.match(route):
+        raise ValueError('invalid route')
+    return _query(ROUTE_HOURLY_DELAY_SQL.format(route=route), timeout=15)
+
+
 def live_delays():
-    """(route short name, course no as str) -> current delay in seconds."""
+    """((route short name, course no as str) -> current delay in seconds, timeUsedMs)."""
     cached = _delays_cache.get()
     if cached is not None:
         return cached
     try:
-        rows = _query(DELAYS_SQL, timeout=10)
+        rows, ms = _query(DELAYS_SQL, timeout=10)
         data = {(str(r['routeShortName']), str(r['tripId'])): r['delay'] for r in rows}
     except Exception as e:  # degrade to schedule-only rather than fail
         print(f'delays: fetch failed: {e}')
-        return _delays_cache.get_stale() or {}
-    _delays_cache.set(data)
-    return data
+        return _delays_cache.get_stale() or ({}, 0)
+    result = (data, ms)
+    _delays_cache.set(result)
+    return result
 
 
 def heatmap_cells():
     cached = _heatmap_cache.get()
     if cached is not None:
         return cached
-    data = _query(HEATMAP_SQL, timeout=30)
-    _heatmap_cache.set(data)
-    return data
+    rows, ms = _query(HEATMAP_SQL, timeout=30)
+    result = (rows, ms)
+    _heatmap_cache.set(result)
+    return result
 
 
 def table_stats():
     cached = _stats_cache.get()
     if cached is not None:
         return cached
-    docs = _query(STATS_SQL, timeout=15)[0]['totalDocs']
+    rows, ms = _query(STATS_SQL, timeout=15)
+    docs = rows[0]['totalDocs']
     with urllib.request.urlopen(
             PINOT_CONTROLLER_URL + '/tables/gdansk_public_transport/size?detailed=false',
             timeout=15) as resp:
@@ -142,5 +185,6 @@ def table_stats():
         segments = sum(len(names) for entry in json.load(resp)
                        for names in entry.values())
     data = {'totalDocs': docs, 'segments': segments, 'sizeBytes': size_bytes}
-    _stats_cache.set(data)
-    return data
+    result = (data, ms)
+    _stats_cache.set(result)
+    return result

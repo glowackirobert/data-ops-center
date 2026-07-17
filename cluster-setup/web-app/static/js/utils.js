@@ -40,3 +40,15 @@ export function fmtBytes(b) {
   while (b >= 1024 && i < units.length - 1) { b /= 1024; i++; }
   return b.toFixed(i && b < 10 ? 1 : 0) + ' ' + units[i];
 }
+
+// Pinot's own broker-reported query time (see app/http.py) travels as a
+// response header rather than in the JSON body, so no existing consumer's
+// parsing has to change. Returns null when the endpoint didn't set it.
+export function latencyMs(resp) {
+  const v = resp.headers.get('X-Pinot-Time-Ms');
+  return v === null ? null : Number(v);
+}
+
+export function latencyBadgeHtml(ms) {
+  return ms == null ? '' : ` <span class="latency-badge">${ms} ms</span>`;
+}
