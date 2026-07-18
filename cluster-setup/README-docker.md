@@ -6,31 +6,31 @@ Docker Compose based setup for the Data Ops Center cluster.
 
 ### Core services (always running)
 
-| Service               | Port | Description                                                                                   |
-|-----------------------|------|-----------------------------------------------------------------------------------------------|
-| Zookeeper             | 2181 | Coordination service required by Apache Pinot.                                                |
-| Kafka                 | 9092 | Message broker in KRaft mode.                                                                 |
-| Schema Registry       | 8081 | Confluent Schema Registry for Avro schema management.                                         |
-| Pinot Controller /UI/ | 9000 | Manages cluster metadata, table configs and segment assignment.                               |
-| Pinot Broker          | 8099 | Accepts SQL queries and routes them to the appropriate servers.                               |
-| Pinot Server /API/    | 8097 | Stores and serves segments.                                                                   |
-| Pinot Server /query/  | 8098 | Stores and serves segments.                                                                   |
-| Pinot Minion          | 7500 | Background task executor for offline segment operations.                                      |
-| Prometheus            | 9090 | Scrapes JMX metrics from Kafka and all Pinot components.                                      |
-| Grafana               | 3000 | Dashboards over Prometheus metrics.                                                           |
-| Superset              | 8088 | BI and data exploration UI connected to Pinot via `pinotdb`.                                  |
-| Web app               | 3001 | Live vehicle map (flicker-free 30 s refresh) + Analytics tab embedding the Superset dashboard |
+| Service               | Port | Description                                                                                                  |
+|-----------------------|------|--------------------------------------------------------------------------------------------------------------|
+| Zookeeper             | 2181 | Coordination service required by Apache Pinot.                                                               |
+| Kafka                 | 9092 | Message broker in KRaft mode.                                                                                |
+| Schema Registry       | 8081 | Confluent Schema Registry for Avro schema management.                                                        |
+| Pinot Controller /UI/ | 9000 | Manages cluster metadata, table configs and segment assignment.                                              |
+| Pinot Broker          | 8099 | Accepts SQL queries and routes them to the appropriate servers.                                              |
+| Pinot Server /API/    | 8097 | REST admin API for health checks and segment management, called by the Controller.                           |
+| Pinot Server /query/  | 8098 | Internal netty port the Broker uses to send queries to and read results from the server.                     |
+| Pinot Minion          | 7500 | Background task executor, driven by Controller-scheduled jobs, responsible for segment lifecycle operations. |
+| Prometheus            | 9090 | Scrapes JMX metrics from Kafka and all Pinot components.                                                     |
+| Grafana               | 3000 | Dashboards over Prometheus metrics.                                                                          |
+| Superset              | 8088 | BI and data exploration UI connected to Pinot via `pinotdb`.                                                 |
+| Web app               | 3001 | Live vehicle map (flicker-free 30 s refresh) + Analytics tab embedding the Superset dashboard                |
 
 ### Init containers (run once, `--profile init`)
 
-| Container                                | Description                                                                                                                                                                                                         |
-|------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `kafka-topic-init`                       | Creates Kafka topics.                                                                                                                                                                                               |
-| `kafka-producer`                         | Publishes Avro-serialized `trade` events to Kafka.                                                                                                                                                                  |
-| `pinot-command-runner`                   | Registers schemas and tables with the Pinot Controller.                                                                                                                                                             |
-| `gdansk-public-transport-kafka-producer` | Fetches current GPS positions from the Gdansk public transport API every 10 s and publishes changed vehicle positions as JSON to the `gdansk-public-transport` topic. Keeps running (`restart: unless-stopped`).    |
-| `pinot-ingestion-runner`                 | Runs a batch ingestion job that reads from S3 and pushes segments to Pinot.                                                                                                                                         |
-| `superset-init`                          | Runs DB migrations, creates the admin user, initialises Superset roles, registers the Apache Pinot database connection, imports dashboards, creates the `EmbeddedGuest` role and registers dashboards for embedding |
+| Container                                | Description                                                                                                                                                                                                           |
+|------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `kafka-topic-init`                       | Creates Kafka topics.                                                                                                                                                                                                 |
+| `kafka-producer`                         | Publishes Avro-serialized `trade` events to Kafka.                                                                                                                                                                    |
+| `pinot-command-runner`                   | Registers schemas and tables with the Pinot Controller.                                                                                                                                                               |
+| `gdansk-public-transport-kafka-producer` | Fetches current GPS positions from the Gdansk public transport API every <br/>10 s and publishes changed vehicle positions as JSON to the `gdansk-public-transport` topic. Keeps running (`restart: unless-stopped`). |
+| `pinot-ingestion-runner`                 | Runs a batch ingestion job that reads from S3 and pushes segments to Pinot.                                                                                                                                           |
+| `superset-init`                          | Runs DB migrations, creates the admin user, initialises Superset roles, registers the Apache Pinot database connection, imports dashboards, creates the `EmbeddedGuest` role and registers dashboards for embedding   |
 
 Init containers are one-shot — they exit after completing their task. Run them once on first setup, or whenever you need to re-seed the cluster.
 
@@ -47,7 +47,7 @@ run once), and a plain `down` will not remove it — stop it with
 
 ## Requirements
 
-- Docker with Docker Compose
+- Docker with Docker Compose v2.17+.
 
 
 
@@ -118,9 +118,16 @@ Images are built and pushed automatically by `.github/workflows/docker-ci.yml` o
 
 ## Running the Cluster
 
-All commands use two env files: `versions.env` (image versions, shared) plus `env.dev`/`env.prod` to switch between dev and prod behaviour (port bindings, image sources, JVM heap sizes). Multiple `--env-file` flags require Docker Compose v2.17+.
+All commands use two env files: `versions.env` (image versions, shared) plus `env.dev`/`env.prod` 
+to switch between dev and prod behaviour (port bindings, image sources, JVM heap sizes). 
+Multiple `--env-file` flags require Docker Compose v2.17+.
 
-JVM heaps (Zookeeper, Kafka, Schema Registry, all Pinot components and runners) are set per environment via the `*_HEAP` variables in the env files — dev uses small laptop-friendly sizes, prod the full sizes. Unset variables fall back to prod-sized defaults in `container-compose.yml`. Zookeeper's is `ZOOKEEPER_HEAP_MB` (a number in MB, its image's convention); all others take JVM flags like `-Xms256M -Xmx1G`.
+JVM heaps (Zookeeper, Kafka, Schema Registry, all Pinot components and runners) 
+are set per environment via the `*_HEAP` variables in the env files — dev 
+uses small laptop-friendly sizes, prod the full sizes. 
+Unset variables fall back to prod-sized defaults in `container-compose.yml`. 
+Zookeeper's is `ZOOKEEPER_HEAP_MB` (a number in MB, its image's convention); 
+all others take JVM flags like `-Xms256M -Xmx1G`.
 
 ### Development
 
@@ -178,7 +185,9 @@ PINOT_CONTROLLER_URL=http://localhost:9000 TABLE_CONFIG_DIR=cluster-setup/table_
 
 ## S3 Batch Ingestion
 
-The `gdansk_public_transport_ingestion_job_spec.json` spec reads the compacted daily files `s3://gdansk-public-transport/daily/YYYY/YYYY-MM-DD.json.gz` and pushes one segment per day, named `gdansk_public_transport_YYYY-MM-DD`, to the offline Pinot table.
+The `gdansk_public_transport_ingestion_job_spec.json` spec reads the compacted daily files 
+`s3://gdansk-public-transport/daily/YYYY/YYYY-MM-DD.json.gz` and pushes one segment per day, 
+named `gdansk_public_transport_YYYY-MM-DD`, to the offline Pinot table.
 
 `INGESTION_DATE` is a **filename glob**: unset or empty means backfill *every*
 daily file in the bucket; narrow it to a day (`2026-02-01`), a month
@@ -208,10 +217,15 @@ docker compose \
   run --no-deps pinot-ingestion-runner
 
 # Single day
-INGESTION_DATE=2026-02-01 docker compose ... run --no-deps pinot-ingestion-runner
+INGESTION_DATE=2026-02-01
 
 # One month
-INGESTION_DATE=2026-06-* docker compose ... run --no-deps pinot-ingestion-runner
+INGESTION_DATE=2026-02-* docker compose \
+  --env-file cluster-setup/env/versions.env \
+  --env-file cluster-setup/env/env.prod \
+  -f cluster-setup/container/container-compose.yml \
+  --profile init \
+   run --no-deps pinot-ingestion-runner
 ```
 
 Segments are staged under `cluster-setup/volumes/pinot/ingestion-staging/` on

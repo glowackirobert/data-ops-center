@@ -260,16 +260,16 @@ services:
     networks:
       - pinot-network
 
-#  kafka-producer-app:
-#    profiles: ["init"]
-#    image: ${DOCKER_IMAGE_BASE_PATH}kafka-producer-app:1.0.0
-#    container_name: kafka-producer-app
-#    restart: "no"
-#    depends_on:
-#      schema-registry:
-#        condition: service_healthy
-#    networks:
-#      - pinot-network
+  kafka-producer-app:
+    profiles: ["init"]
+    image: ${DOCKER_IMAGE_BASE_PATH}kafka-producer-app:1.0.0
+    container_name: kafka-producer-app
+    restart: "no"
+    depends_on:
+      schema-registry:
+        condition: service_healthy
+    networks:
+      - pinot-network
 
   pinot-ingestion-runner:
     profiles: ["init"]
