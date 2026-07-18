@@ -1467,9 +1467,9 @@
       },
       "targets": [
         {
-          "expr": "sum by (table) (pinot_server_segmentCount_Value)",
+          "expr": "sum by (table, tableType) (pinot_server_segmentCount_Value)",
           "interval": "",
-          "legendFormat": "{{table}}",
+          "legendFormat": "{{table}} ({{tableType}})",
           "refId": "A"
         }
       ],
