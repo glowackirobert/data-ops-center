@@ -189,15 +189,26 @@ The `gdansk_public_transport_ingestion_job_spec.json` spec reads the compacted d
 `s3://gdansk-public-transport/daily/YYYY/YYYY-MM-DD.json.gz` and pushes one segment per day, 
 named `gdansk_public_transport_YYYY-MM-DD`, to the offline Pinot table.
 
-`INGESTION_DATE` is a **filename glob**: unset or empty means backfill *every*
-daily file in the bucket; narrow it to a day (`2026-02-01`), a month
-(`2026-06-*`), or a year (`2025-*`). Both `env.dev` and `env.prod` ship it
-empty, so a plain `--profile init up` performs a **full backfill** as part of
-init. The daily files are produced by the nightly S3 compaction workflow, so
-only completed (already-compacted) days exist. Ingestion is idempotent —
-segments are named by date and overwritten, not duplicated — so the retry for
-a partially failed backfill is simply re-running it (optionally narrowed to
-the failed range).
+`INGESTION_DATE` is a **filename glob** substituted into the job spec's
+`${DATE}` placeholder: an exact day (`2026-02-01`) matches exactly one file;
+unset/empty, a month (`2026-06-*`), or a year (`2025-*`) match many.
+
+> **Only the exact-single-day case works as a direct `docker compose run`.**
+> Pinot's `IngestionJobLauncher` pre-resolves the `inputFile` segment name
+> generator's output by matching `file.path.pattern` against
+> `includeFileNamePattern` *before* it lists any real S3 files — correct only
+> when that pattern matches exactly one file. A wildcard match makes every
+> file resolve to the same broken literal segment name (e.g.
+> `gdansk_public_transport_*`) and the job fails on the first segment. Both
+> `env.dev` and `env.prod` ship `INGESTION_DATE` empty, so **a plain
+> `--profile init up` currently fails to ingest anything** — the
+> `pinot-ingestion-runner` init container exits non-zero (the other init
+> containers are unaffected). For a full backfill or any multi-day range, use
+> `backfill_pinot_offline.py` below instead of a bare wildcard `INGESTION_DATE`.
+
+Ingestion is idempotent for a given day — segments are named by date and
+overwritten, not duplicated — so retrying one failed day is simply re-running
+it for that date.
 
 > **Caveat — days already merged by MergeRollup are no longer idempotent.**
 > Once the MergeRollup task (below) has folded a day's segment into a
@@ -207,34 +218,50 @@ the failed range).
 > segments via the controller API, then re-run the job for that range.
 
 ```bash
-# Full backfill of everything in s3://gdansk-public-transport/daily/
-# (against an already-running cluster; skip init dependencies)
-docker compose \
+# Single day (against an already-running cluster; skip init dependencies)
+INGESTION_DATE=2026-02-01 docker compose \
   --env-file cluster-setup/env/versions.env \
   --env-file cluster-setup/env/env.prod \
   -f cluster-setup/container/container-compose.yml \
   --profile init \
   run --no-deps pinot-ingestion-runner
-
-# Single day
-INGESTION_DATE=2026-02-01
-
-# One month
-INGESTION_DATE=2026-02-* docker compose \
-  --env-file cluster-setup/env/versions.env \
-  --env-file cluster-setup/env/env.prod \
-  -f cluster-setup/container/container-compose.yml \
-  --profile init \
-   run --no-deps pinot-ingestion-runner
 ```
 
 Segments are staged under `cluster-setup/volumes/pinot/ingestion-staging/` on
-the host (a full backfill generates the whole history before pushing) and the
-staging dir is cleaned at the start of each run. Heap for the runner is
-`PINOT_INGESTION_RUNNER_HEAP` (default `-Xmx2G`). `INGESTION_JOB_PARALLELISM`
-(default `2`) sets both the segment-creation and push thread counts in the
-job spec — raise it together with the heap, since each parallel
-segment-build thread shares the same `-Xmx`.
+the host and the staging dir is cleaned at the start of each run. Heap for the
+runner is `PINOT_INGESTION_RUNNER_HEAP` (default `-Xmx2G`).
+`INGESTION_JOB_PARALLELISM` (default `2`) sets both the segment-creation and
+push thread counts in the job spec — raise it together with the heap, since
+each parallel segment-build thread shares the same `-Xmx`.
+
+### Backfilling a range of days
+
+`cluster-setup/scripts/backfill_pinot_offline.py` loops the ingestion job one
+explicit date at a time (working around the wildcard limitation above),
+listing candidate dates from `s3://gdansk-public-transport/daily/` via the AWS
+CLI. It tracks which dates it has already ingested in a local JSON manifest
+(`cluster-setup/volumes/pinot/ingested_dates.json`) rather than by inspecting
+Pinot segment state, since MergeRollup renames/deletes day segments on its own
+schedule independent of the script — skipping already-ingested days by
+default avoids both wasted re-work and the double-counting caveat above.
+
+```bash
+# Full backfill of everything in s3://gdansk-public-transport/daily/
+python cluster-setup/scripts/backfill_pinot_offline.py --env prod
+
+# Narrow to a range
+python cluster-setup/scripts/backfill_pinot_offline.py --env prod \
+  --start-date 2026-01-01 --end-date 2026-01-31
+
+# Preview the plan without ingesting anything
+python cluster-setup/scripts/backfill_pinot_offline.py --dry-run
+```
+
+`--force` re-ingests dates already in the manifest (same double-counting risk
+as re-ingesting an already-merged day, now opt-in); `--continue-on-error`
+keeps going past a failed day instead of stopping immediately;
+`--parallelism N` overrides `INGESTION_JOB_PARALLELISM` for each day's run.
+Requires the AWS CLI and Docker Compose; run with `-h` for the full flag list.
 
 ### S3 deep store
 
@@ -256,6 +283,23 @@ controller schedules it hourly (`schedule` cron in the task config,
 `controller.task.scheduler.enabled=true`); the `pinot-minion` container
 executes it. Progress is visible in the controller UI under *Minion Task
 Manager*, or via `GET /tasks/MergeRollupTask/tasks`.
+
+### Load testing the broker
+
+`cluster-setup/scripts/load_test_broker.py` fires N concurrent copies of a
+representative analytical query (the P3 "Route punctuality" dashboard chart's
+shape) against the broker and reports both client-observed wall-clock latency
+and Pinot's own `timeUsedMs`, at p50/p95/p99/max:
+
+```bash
+python cluster-setup/scripts/load_test_broker.py --concurrency 100 --rounds 5
+```
+
+Watch Grafana's "Table Query Latency" panel
+(`pinot_broker_queryExecution_{50,75,95,99,999}thPercentile`, already
+provisioned) while it runs for the server-side view of the same thing.
+`--broker` overrides the base URL (default `http://localhost:8099`); run with
+`-h` for the full flag list.
 
 ## Superset Dashboards
 
