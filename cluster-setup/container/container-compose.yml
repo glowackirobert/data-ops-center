@@ -26,7 +26,6 @@ services:
     restart: unless-stopped
     ports:
       - "${BIND}:9092:9092"
-      - "${BIND}:19092:19092" # metrics
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: "controller,broker"
@@ -89,7 +88,6 @@ services:
     restart: unless-stopped
     ports:
       - "${BIND}:9000:9000"
-      - "${BIND}:19000:19000"
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_CONTROLLER_HEAP:--Xms256M -Xmx1G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-controller.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=19000:/opt/pinot/etc/jmx_prometheus_javaagent/configs/controller.yml"
       AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
@@ -119,7 +117,6 @@ services:
     restart: unless-stopped
     ports:
       - "${BIND}:8099:8099"
-      - "${BIND}:18099:18099"
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_BROKER_HEAP:--Xms256M -Xmx1G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-broker.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18099:/opt/pinot/etc/jmx_prometheus_javaagent/configs/broker.yml"
     depends_on:
@@ -141,9 +138,8 @@ services:
     hostname: pinot-server
     restart: unless-stopped
     ports:
-      - "${BIND}:8098:8098" # client queries (via broker only)
-      - "${BIND}:8097:8097" # admin API
-      - "${BIND}:18098:18098" # metrics
+      - "${BIND}:8098:8098"
+      - "${BIND}:8097:8097"
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_SERVER_HEAP:--Xms512M -Xmx3G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-server.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18098:/opt/pinot/etc/jmx_prometheus_javaagent/configs/server.yml"
       AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
@@ -171,7 +167,6 @@ services:
     restart: unless-stopped
     ports:
       - "${BIND}:7500:7500"
-      - "${BIND}:17500:17500"
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_MINION_HEAP:--Xms256M -Xmx2G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-minion.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=17500:/opt/pinot/etc/jmx_prometheus_javaagent/configs/minion.yml"
       AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
