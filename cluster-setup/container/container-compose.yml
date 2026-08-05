@@ -323,8 +323,6 @@ services:
     container_name: superset-init
     restart: "no"
     healthcheck:
-      # the image's inherited healthcheck probes the webserver, which this
-      # one-shot init container never starts — it would always report unhealthy
       disable: true
     environment:
       SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
