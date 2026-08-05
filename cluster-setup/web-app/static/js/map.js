@@ -1,4 +1,4 @@
-import { colorForRoute, time24, timeHM, esc, isTram, latencyMs, latencyBadgeHtml } from './utils.js';
+import { colorForRoute, time24, timeHM, esc, isTram, latencyMs, latencyBadgeHtml, elapsedClock } from './utils.js';
 import { OFF_ROUTE_M, projectOnPath, nearestRouteStop } from './geo.js';
 
 const REFRESH_MS = 30000;
@@ -18,7 +18,6 @@ const state = {
   lastUpdated: 0,
   positionsMs: null, // Pinot's timeUsedMs for the last /api/positions fetch
   heatmapMs: null,   // same, for the last /api/heatmap fetch
-  routeKey: '', // signature of the routes currently in the dropdown
   stopsData: [],
   heatmapData: [],
   heatmapAt: 0,
@@ -213,6 +212,7 @@ export async function initMap() {
     }
     state.selectedTrip = { vehicleId: d.vehicleId, routeId: d.routeId,
                            tripId: d.tripId, path: null };
+    followVehicle(d);
     await loadTripPath(d);
   }
 
@@ -389,21 +389,28 @@ export async function initMap() {
     stopBox.classList.add('hidden');
   }
 
-  // Rebuild the dropdown only when the set of routes actually changes, so an
-  // open dropdown isn't yanked shut by the 30 s refresh. The user's selection
-  // survives the rebuild.
-  function rebuildRouteOptions(rows) {
-    const routes = [...new Set(rows.map(d => String(d.route || '?')))]
+  // Route list is the full GTFS schedule, fetched once — not just whichever
+  // routes happen to have a live vehicle this refresh — so night lines and
+  // temporarily idle routes stay selectable instead of disappearing. The
+  // server 503s until the GTFS feed finishes parsing; retry.
+  async function loadRoutes() {
+    try {
+      const resp = await fetch('/api/routes');
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      buildRouteOptions(await resp.json());
+    } catch {
+      setTimeout(loadRoutes, 10000);
+    }
+  }
+
+  function buildRouteOptions(routes) {
+    const sorted = [...routes]
       .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    const key = routes.join('|');
-    if (key === state.routeKey) return;
-    state.routeKey = key;
-    const selected = routeSelect.value;
     routeSelect.innerHTML = '';
     routeSelect.append(new Option('All vehicles', ''));
     for (const [label, group] of [
-      ['Trams', routes.filter(isTram)],
-      ['Buses', routes.filter(r => !isTram(r))],
+      ['Trams', sorted.filter(isTram)],
+      ['Buses', sorted.filter(r => !isTram(r))],
     ]) {
       if (!group.length) continue;
       const g = document.createElement('optgroup');
@@ -411,8 +418,20 @@ export async function initMap() {
       for (const r of group) g.append(new Option(r, r));
       routeSelect.append(g);
     }
-    routeSelect.value = routes.includes(selected) ? selected : '';
     routeSelect.disabled = false;
+    updateRouteActivity(state.lastRows);
+  }
+
+  // Routes options are built once (above) and never rebuilt, so this only
+  // toggles a class per refresh — an open dropdown or the user's selection
+  // is never disturbed. Routes with no vehicle in the latest poll (idle
+  // right now, not gone from the schedule) render greyed out, still
+  // selectable — see .route-inactive in styles.css.
+  function updateRouteActivity(rows) {
+    const active = new Set(rows.map(d => String(d.route || '?')));
+    for (const opt of routeSelect.querySelectorAll('option[value]:not([value=""])')) {
+      opt.classList.toggle('route-inactive', !active.has(opt.value));
+    }
   }
 
   function render() {
@@ -421,9 +440,8 @@ export async function initMap() {
       ? state.lastRows.filter(d => String(d.route || '?') === route)
       : state.lastRows;
     // Heatmap (24 h aggregate) and live vehicles are alternate modes, not a
-    // combined view — showing both at once buried the badges under the busiest
-    // hot spots, which are usually the same clusters. Stops stay visible either
-    // way since they're schedule context, not part of either mode.
+    // combined view — showing both at once buried the badges (and stop poles)
+    // under the busiest hot spots, which are usually the same clusters.
     const heatOn = heatmapToggle.checked;
     // Markers jump to the newly scraped position on each refresh — no
     // interpolated movement between API polls.
@@ -437,7 +455,9 @@ export async function initMap() {
         // (path layers are not pickable).
         ...(heatOn ? [] : tripPathLayers(rows)),
         // Stop poles — static, rendered under the vehicles so vehicles win
-        // picking conflicts; hidden when zoomed out to avoid clutter.
+        // picking conflicts; hidden when zoomed out to avoid clutter, and
+        // hidden entirely in heatmap mode (same reasoning as the vehicle
+        // layers above — the poles bury the density colors they'd sit on).
         // With a line selected, only that line's stops show — at any zoom,
         // since fitting a long line can land below the threshold.
         new deck.ScatterplotLayer({
@@ -445,7 +465,7 @@ export async function initMap() {
           data: route
             ? state.stopsData.filter(s => s.routes.includes(route))
             : state.stopsData,
-          visible: route ? true : map.getZoom() >= 13,
+          visible: !heatOn && (route ? true : map.getZoom() >= 13),
           getPosition: d => [d.lon, d.lat],
           getRadius: 14,
           radiusMinPixels: 3,
@@ -503,13 +523,25 @@ export async function initMap() {
     });
     const count = route ? `${rows.length} of ${state.lastRows.length}` : `${rows.length}`;
     const ms = heatOn ? state.heatmapMs : state.positionsMs;
-    statusEl.innerHTML = `${count} vehicles · updated ${time24(state.lastUpdated)}`
+    // The age span is refilled by its own ticking interval (see initMap),
+    // not by render() — it needs to count up between refreshes, not just
+    // whenever the vehicle layers happen to redraw.
+    statusEl.innerHTML = `${count} vehicles · data age <span id="data-age"></span>`
       + latencyBadgeHtml(ms);
   }
 
-  // While a line is selected the camera follows it: fitted on selection and
-  // re-fitted after every refresh, so the whole line stays in view as the
-  // vehicles move. With "All vehicles" the refresh never moves the map.
+  // While a single vehicle is tracked (clicked), the camera keeps it
+  // centered on every refresh without changing zoom — panTo (not
+  // flyTo/fitBounds) leaves the user's chosen zoom level alone, unlike the
+  // whole-line fitToSelection below.
+  function followVehicle(d) {
+    map.panTo([d.lon, d.lat]);
+  }
+
+  // While a line is selected (and no single vehicle is tracked) the camera
+  // follows it: fitted on selection and re-fitted after every refresh, so
+  // the whole line stays in view as the vehicles move. With "All vehicles"
+  // the refresh never moves the map.
   function fitToSelection() {
     const route = routeSelect.value;
     if (!route) {
@@ -531,7 +563,7 @@ export async function initMap() {
       if (!v || String(v.route || '?') !== routeSelect.value) state.selectedTrip = null;
     }
     render();
-    fitToSelection();
+    if (!state.selectedTrip) fitToSelection(); // a tracked vehicle keeps the camera instead
     loadRouteHistogram(routeSelect.value);
   };
 
@@ -544,19 +576,22 @@ export async function initMap() {
       state.lastUpdated = Date.now();
       if (state.selectedTrip) {
         const v = state.lastRows.find(d => d.vehicleId === state.selectedTrip.vehicleId);
-        if (!v) {
+        if (v) {
+          if (v.tripId !== state.selectedTrip.tripId
+              || v.routeId !== state.selectedTrip.routeId) {
+            // finished the trip and started the return leg — swap the shape
+            state.selectedTrip = { vehicleId: v.vehicleId, routeId: v.routeId,
+                                   tripId: v.tripId, path: null };
+            loadTripPath(v);
+          }
+          followVehicle(v);
+        } else {
           state.selectedTrip = null; // vehicle left the feed
-        } else if (v.tripId !== state.selectedTrip.tripId
-                   || v.routeId !== state.selectedTrip.routeId) {
-          // finished the trip and started the return leg — swap the shape
-          state.selectedTrip = { vehicleId: v.vehicleId, routeId: v.routeId,
-                                 tripId: v.tripId, path: null };
-          loadTripPath(v);
         }
       }
-      rebuildRouteOptions(state.lastRows);
+      updateRouteActivity(state.lastRows);
       render();
-      if (routeSelect.value) fitToSelection();
+      if (!state.selectedTrip && routeSelect.value) fitToSelection();
       globalThis._log.push({ t: Date.now(), ev: 'refresh', n: state.lastRows.length, zoom: map.getZoom() });
     } catch (err) {
       statusEl.textContent = `Refresh failed: ${err.message}`;
@@ -571,7 +606,16 @@ export async function initMap() {
   // rest of the time.
   setInterval(() => { if (state.selectedTrip) render(); }, 100);
 
+  // Ticks the status line's data-age clock independently of render() —
+  // it needs to keep counting up between refreshes, not just jump once
+  // every 30 s. Cheap: one span's textContent, not a layer rebuild.
+  setInterval(() => {
+    const el = document.getElementById('data-age');
+    if (el) el.textContent = elapsedClock(state.lastUpdated);
+  }, 100);
+
   await refresh();
   setInterval(refresh, REFRESH_MS);
   loadStops();
+  loadRoutes();
 }

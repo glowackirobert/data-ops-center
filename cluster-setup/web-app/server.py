@@ -18,6 +18,7 @@ from app.config import BASE, PORT, PINOT_BROKER_URL, MAPBOX_KEY_FILE, read_secre
 from app.http import send, send_json, send_error_response
 
 STATIC_DIR = os.path.join(BASE, 'static')
+GTFS_NOT_LOADED = {'error': 'GTFS not loaded yet, retry shortly'}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -36,6 +37,7 @@ class Handler(BaseHTTPRequestHandler):
             '/api/guest-token': self._serve_guest_token,
             '/api/positions': self._serve_positions,
             '/api/stops': self._serve_stops,
+            '/api/routes': self._serve_routes,
             '/api/departures': self._serve_departures,
             '/api/route-shape': self._serve_route_shape,
             '/api/stats': self._serve_stats,
@@ -131,9 +133,15 @@ class Handler(BaseHTTPRequestHandler):
 
     def _serve_stops(self):
         if not gtfs.is_loaded():
-            self._send_json(503, {'error': 'GTFS not loaded yet, retry shortly'})
+            self._send_json(503, GTFS_NOT_LOADED)
             return
         self._send_json(200, gtfs.get_stops())
+
+    def _serve_routes(self):
+        if not gtfs.is_loaded():
+            self._send_json(503, GTFS_NOT_LOADED)
+            return
+        self._send_json(200, gtfs.get_routes())
 
     def _serve_departures(self):
         stop_id = self.query.get('stopId', [''])[0]
@@ -141,7 +149,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(400, {'error': 'stopId query parameter required'})
             return
         if not gtfs.is_loaded():
-            self._send_json(503, {'error': 'GTFS not loaded yet, retry shortly'})
+            self._send_json(503, GTFS_NOT_LOADED)
             return
         deps = gtfs.get_departures(stop_id)
         now = int(time.time() * 1000)

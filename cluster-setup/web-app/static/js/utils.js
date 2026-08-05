@@ -23,6 +23,18 @@ export function timeHM(ms) {
     [], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 }
 
+// hh:mm:ss.sss elapsed since sinceMs — a data-staleness clock meant to tick
+// on its own timer, not just be recomputed when the underlying data changes.
+export function elapsedClock(sinceMs) {
+  if (!sinceMs) return '--:--:--.---';
+  let ms = Math.max(0, Date.now() - sinceMs);
+  const h = Math.floor(ms / 3600000); ms -= h * 3600000;
+  const m = Math.floor(ms / 60000); ms -= m * 60000;
+  const s = Math.floor(ms / 1000); ms -= s * 1000;
+  const pad = (n, w = 2) => String(n).padStart(w, '0');
+  return `${pad(h)}:${pad(m)}:${pad(s)}.${pad(ms, 3)}`;
+}
+
 export function esc(s) {
   return String(s ?? '').replace(/[&<>"]/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

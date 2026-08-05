@@ -27,7 +27,7 @@ except ZoneInfoNotFoundError:
 
 _lock = threading.Lock()
 _state = {'stops': [], 'departures': {}, 'trip_ends': {}, 'trip_last_stop': {},
-          'loaded_at': None}
+          'routes': [], 'loaded_at': None}
 
 
 def is_loaded():
@@ -38,6 +38,13 @@ def is_loaded():
 def get_stops():
     with _lock:
         return _state['stops']
+
+
+def get_routes():
+    """All route short names known to the schedule, not just ones with a
+    live vehicle right now — lets the dropdown show idle routes too."""
+    with _lock:
+        return _state['routes']
 
 
 def get_departures(stop_id):
@@ -205,6 +212,7 @@ def load_gtfs():
         _state['departures'] = departures
         _state['trip_ends'] = trip_ends
         _state['trip_last_stop'] = trip_last_stop
+        _state['routes'] = sorted(set(route_name.values()))
         _state['loaded_at'] = time.time()
     print(f'GTFS: loaded {len(stops)} stops, '
           f'{sum(map(len, departures.values()))} departures, '

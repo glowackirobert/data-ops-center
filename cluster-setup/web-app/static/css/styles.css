@@ -29,6 +29,7 @@ nav button.active { background: #374151; color: #fff; }
   display: flex; align-items: center; gap: 10px;
 }
 #route-filter { font: inherit; max-width: 140px; }
+#route-filter option.route-inactive { color: #9ca3af; }
 #heatmap-label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
 #stop-box {
   position: absolute; z-index: 15; max-width: 280px; max-height: 320px;
