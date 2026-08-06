@@ -185,15 +185,22 @@ PINOT_CONTROLLER_URL=http://localhost:9000 TABLE_CONFIG_DIR=cluster-setup/table_
 
 ## S3 Batch Ingestion
 
-The `gdansk_public_transport_ingestion_job_spec.json` spec reads the compacted daily files 
-`s3://gdansk-public-transport/daily/YYYY/YYYY-MM-DD.json.gz` and pushes one segment per day, 
-named `gdansk_public_transport_YYYY-MM-DD`, to the offline Pinot table.
+The `gdansk_public_transport_ingestion_job_spec.json` spec reads every compacted file under
+`s3://gdansk-public-transport/squashed/` and pushes one segment per file to the offline Pinot
+table, named `gdansk_public_transport_<file stem>`. `squashed/` holds a mix of granularities —
+day files (`YYYY/YYYY-MM-DD.json.gz` → `gdansk_public_transport_YYYY-MM-DD`) for recent,
+not-yet-rolled-up history, and month files (`YYYY/YYYY-MM.json.gz` → `gdansk_public_transport_YYYY-MM`)
+for fully-elapsed months — but never both for the same range: the `monthly` compaction
+subcommand deletes a month's day files once it's squashed them into one month file (see
+`gdansk_public_transport_s3_compaction.py`'s docstring), so ingestion never has to know or
+care which granularity a given file is.
 
-`INGESTION_DATE` is a **filename glob** substituted into the job spec's
-`${DATE}` placeholder: an exact day (`2026-02-01`) matches exactly one file;
-unset/empty, a month (`2026-06-*`), or a year (`2025-*`) match many.
+`INGESTION_DATE` is a **filename glob** substituted into the job spec's `${DATE}` placeholder:
+an exact day (`2026-02-01`) or exact month (`2026-02`) each match exactly one file; unset/empty,
+a partial month (`2026-06-*`), or a year (`2025-*`) match many — whatever mix of day/month files
+currently exists for that range.
 
-> **Only the exact-single-day case works as a direct `docker compose run`.**
+> **Only the exact-single-file case works as a direct `docker compose run`.**
 > Pinot's `IngestionJobLauncher` pre-resolves the `inputFile` segment name
 > generator's output by matching `file.path.pattern` against
 > `includeFileNamePattern` *before* it lists any real S3 files — correct only
@@ -203,12 +210,13 @@ unset/empty, a month (`2026-06-*`), or a year (`2025-*`) match many.
 > `env.dev` and `env.prod` ship `INGESTION_DATE` empty, so **a plain
 > `--profile init up` currently fails to ingest anything** — the
 > `pinot-ingestion-runner` init container exits non-zero (the other init
-> containers are unaffected). For a full backfill or any multi-day range, use
-> `backfill_pinot_offline.py` below instead of a bare wildcard `INGESTION_DATE`.
+> containers are unaffected). For a full backfill or any multi-day/month range, use
+> `backfill_pinot_offline.py` below instead of a bare wildcard `INGESTION_DATE`
+> (daily only currently — see its `--help`).
 
-Ingestion is idempotent for a given day — segments are named by date and
-overwritten, not duplicated — so retrying one failed day is simply re-running
-it for that date.
+Ingestion is idempotent for a given file — segments are named after it and
+overwritten, not duplicated — so retrying one failed day/month is simply
+re-running it for that date/month.
 
 > **Caveat — days already merged by MergeRollup are no longer idempotent.**
 > Once the MergeRollup task (below) has folded a day's segment into a
@@ -217,9 +225,25 @@ it for that date.
 > already-merged window, first delete the overlapping `merged_1week_*`
 > segments via the controller API, then re-run the job for that range.
 
+> **Caveat — ingesting a month file after its days were already ingested.**
+> Squashing a month deletes its day files from S3, but doesn't touch Pinot:
+> if those days were already batch-ingested as individual day segments,
+> ingesting the new month file adds a differently-named segment *alongside*
+> them rather than replacing them — double-counting. Delete the superseded
+> day OFFLINE segments for that range via the controller API after
+> ingesting the month replacement.
+
 ```bash
 # Single day (against an already-running cluster; skip init dependencies)
 INGESTION_DATE=2026-02-01 docker compose \
+  --env-file cluster-setup/env/versions.env \
+  --env-file cluster-setup/env/env.prod \
+  -f cluster-setup/container/container-compose.yml \
+  --profile init \
+  run --no-deps pinot-ingestion-runner
+
+# Single month (once squashed, it's just another file in squashed/)
+INGESTION_DATE=2026-02 docker compose \
   --env-file cluster-setup/env/versions.env \
   --env-file cluster-setup/env/env.prod \
   -f cluster-setup/container/container-compose.yml \
@@ -238,15 +262,16 @@ each parallel segment-build thread shares the same `-Xmx`.
 
 `cluster-setup/scripts/backfill_pinot_offline.py` loops the ingestion job one
 explicit date at a time (working around the wildcard limitation above),
-listing candidate dates from `s3://gdansk-public-transport/daily/` via the AWS
-CLI. It tracks which dates it has already ingested in a local JSON manifest
+listing candidate dates from `s3://gdansk-public-transport/squashed/` via the AWS
+CLI (day files only — `YYYY-MM-DD.json.gz`; month files already squashed are
+skipped by the filename match). It tracks which dates it has already ingested in a local JSON manifest
 (`cluster-setup/volumes/pinot/ingested_dates.json`) rather than by inspecting
 Pinot segment state, since MergeRollup renames/deletes day segments on its own
 schedule independent of the script — skipping already-ingested days by
 default avoids both wasted re-work and the double-counting caveat above.
 
 ```bash
-# Full backfill of everything in s3://gdansk-public-transport/daily/
+# Full backfill of everything in s3://gdansk-public-transport/squashed/
 python cluster-setup/scripts/backfill_pinot_offline.py --env prod
 
 # Narrow to a range

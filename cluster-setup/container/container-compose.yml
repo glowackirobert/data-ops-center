@@ -275,7 +275,7 @@ services:
       - |
         DATE_GLOB="$${INGESTION_DATE:-*}" &&
         PARALLELISM="$${INGESTION_JOB_PARALLELISM:-2}" &&
-        echo "Ingesting daily files matching: $$DATE_GLOB (parallelism $$PARALLELISM)" &&
+        echo "Ingesting squashed/ files matching: $$DATE_GLOB (parallelism $$PARALLELISM)" &&
         sed -e "s|\$${DATE}|$$DATE_GLOB|g" \
             -e "s|\"segmentCreationJobParallelism\": [0-9]*|\"segmentCreationJobParallelism\": $$PARALLELISM|" \
             -e "s|\"pushParallelism\": [0-9]*|\"pushParallelism\": $$PARALLELISM|" \

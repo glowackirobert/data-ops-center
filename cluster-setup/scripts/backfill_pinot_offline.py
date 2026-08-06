@@ -67,7 +67,7 @@ def list_daily_dates(bucket, prefix, insecure):
     for line in result.stdout.splitlines():
         m = DAILY_FILE_RE.search(line)
         if m:
-            dates[m.group(1)] = line.split()[-1]  # key, e.g. daily/2026/2026-01-30.json.gz
+            dates[m.group(1)] = line.split()[-1]  # key, e.g. squashed/2026/2026-01-30.json.gz
     return dates
 
 
@@ -115,7 +115,7 @@ def main():
     parser.add_argument("--env", choices=["dev", "prod"], default="dev",
                          help="which env file to use (default: dev)")
     parser.add_argument("--bucket", default="gdansk-public-transport")
-    parser.add_argument("--prefix", default="daily/")
+    parser.add_argument("--prefix", default="squashed/")
     parser.add_argument("--start-date", type=str, default=None, help="YYYY-MM-DD, inclusive")
     parser.add_argument("--end-date", type=str, default=None, help="YYYY-MM-DD, inclusive")
     parser.add_argument("--parallelism", type=int, default=None,

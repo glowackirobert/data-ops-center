@@ -18,7 +18,7 @@ Unless pointed at specific files, review everything in scope.
 
 - Tables: `trade` (REALTIME, Kafka topic `trade`, Avro via Schema Registry) and `gdansk_public_transport` (hybrid: REALTIME from Kafka topic `gdansk-public-transport` JSON-decoded with 7-day retention, plus OFFLINE batch-ingested from S3 with 365-day retention).
 - Kafka is reachable inside the compose network at `kafka:9092`; Schema Registry at `schema-registry:8081`; the controller at `pinot-controller:9000`; ZooKeeper at `zookeeper:2181`. Cluster name is `ApachePinot`.
-- S3 bucket `gdansk-public-transport`: raw files at `raw/YYYY/MM/DD/YYYY-MM-DD-HH-MM.txt` (region `eu-north-1`); compacted daily files at `daily/YYYY/YYYY-MM-DD.json.gz`. Ingestion job specs may contain a literal `${DATE}` placeholder (format `YYYY/MM/DD`) substituted at runtime from the `INGESTION_DATE` env var — the placeholder itself is not an error.
+- S3 bucket `gdansk-public-transport`: raw files at `raw/YYYY/MM/DD/YYYY-MM-DD-HH-MM.txt` (region `eu-north-1`); compacted files at `squashed/YYYY/YYYY-MM-DD.json.gz` (day) and `squashed/YYYY/YYYY-MM.json.gz` (month) — same prefix for both, never both for the same range (squashing a month deletes the day files it replaced). Ingestion job specs may contain a literal `${DATE}` placeholder in `includeFileNamePattern` (substituted at runtime from `INGESTION_DATE`) — the placeholder itself is not an error.
 - `Dockerfile.apache-pinot` copies `cluster-setup/table_config/` and `cluster-setup/pinot/` into the image at build time.
 
 ## Verification checklist
@@ -46,7 +46,7 @@ Unless pointed at specific files, review everything in scope.
 - `task.taskTypeConfigsMap` cron schedules are valid Quartz expressions; `bufferTimePeriod`/`bucketTimePeriod` are sensible relative to segment flush times.
 
 **Ingestion job specs**
-- `inputDirURI`/`includeFileNamePattern` match the real S3 layout (raw `.txt` vs daily `.json.gz` — a gzip input needs the right record reader config).
+- `inputDirURI`/`includeFileNamePattern` match the real S3 layout (raw `.txt` vs daily/monthly `.json.gz` — a gzip input needs the right record reader config).
 - `tableSpec` URIs point at `pinot-controller:9000` and reference the `_OFFLINE` table; `recordReaderSpec.dataFormat` matches the files being read.
 - S3 `region` matches `eu-north-1`.
 

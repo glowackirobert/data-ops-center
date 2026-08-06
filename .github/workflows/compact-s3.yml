@@ -1,11 +1,13 @@
 name: Compact S3 files
 
 # Runs cluster-setup/py/gdansk_public_transport_s3_compaction.py to keep the
-# S3 bucket compacted for Pinot batch ingestion:
+# S3 bucket compacted for Pinot batch ingestion. Both subcommands write into
+# the same squashed/ prefix:
 #   - `daily`   nightly, rolling the previous day's raw/ (per-minute) files
-#               into one daily/YYYY/YYYY-MM-DD.json.gz object.
+#               into one squashed/YYYY/YYYY-MM-DD.json.gz object.
 #   - `monthly` on the 1st of each month, rolling the previous month's
-#               daily/ files into one monthly/YYYY/YYYY-MM.json.gz object.
+#               squashed/ day files into one squashed/YYYY/YYYY-MM.json.gz
+#               object, then deleting the day files it just combined.
 # Which subcommand a scheduled run uses is picked by cron expression (see
 # "Determine command" below). Manual dispatch lets you pick either
 # subcommand and a date/month range for backfills. Already-compacted
