@@ -10,13 +10,15 @@
     { "name": "tripId",         "dataType": "INT"    },
     { "name": "headsign",       "dataType": "STRING" },
     { "name": "direction",      "dataType": "INT"    },
-    { "name": "gpsQuality",     "dataType": "INT"    }
+    { "name": "gpsQuality",     "dataType": "INT"    },
+    { "name": "dayBucket",      "dataType": "STRING" }
   ],
   "metricFieldSpecs": [
-    { "name": "lat",   "dataType": "DOUBLE" },
-    { "name": "lon",   "dataType": "DOUBLE" },
-    { "name": "speed", "dataType": "FLOAT"  },
-    { "name": "delay", "dataType": "INT"    }
+    { "name": "lat",      "dataType": "DOUBLE"  },
+    { "name": "lon",      "dataType": "DOUBLE"  },
+    { "name": "speed",    "dataType": "FLOAT"   },
+    { "name": "delay",    "dataType": "INT"     },
+    { "name": "isOnTime", "dataType": "INT"     }
   ],
   "dateTimeFieldSpecs": [
     {
