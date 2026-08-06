@@ -27,7 +27,7 @@ Docker Compose based setup for the Data Ops Center cluster.
 |------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `kafka-topic-init`                       | Creates Kafka topics.                                                                                                                                                                                                 |
 | `kafka-producer`                         | Publishes Avro-serialized `trade` events to Kafka.                                                                                                                                                                    |
-| `pinot-command-runner`                   | Registers schemas and tables with the Pinot Controller.                                                                                                                                                               |
+| `pinot-table-registrar`                   | Registers schemas and tables with the Pinot Controller.                                                                                                                                                               |
 | `gdansk-public-transport-kafka-producer` | Fetches current GPS positions from the Gdansk public transport API every <br/>10 s and publishes changed vehicle positions as JSON to the `gdansk-public-transport` topic. Keeps running (`restart: unless-stopped`). |
 | `pinot-ingestion-runner`                 | Runs a batch ingestion job that reads from S3 and pushes segments to Pinot.                                                                                                                                           |
 | `superset-init`                          | Runs DB migrations, creates the admin user, initialises Superset roles, registers the Apache Pinot database connection, imports dashboards, creates the `EmbeddedGuest` role and registers dashboards for embedding   |
@@ -164,7 +164,7 @@ docker exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/kafka/bin/kafka-conso
 ## Pinot Tables
 
 Schemas and table configs live in `cluster-setup/table_config/` and are registered
-automatically by the `pinot-command-runner` init container (`add-tables.sh`). The script
+automatically by the `pinot-table-registrar` init container (`add-tables.sh`). The script
 is idempotent: it POSTs missing schemas/tables and PUTs existing ones (schemas with
 `?reload=true`), so re-running init never drops ingested segments. To apply config/schema
 edits to a running controller directly, run the same script from the host:

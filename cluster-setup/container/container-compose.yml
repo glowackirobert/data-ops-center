@@ -75,8 +75,8 @@ services:
       test: [ "CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/8081 && printf \"GET / HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3 && head -1 <&3 | grep -q \"200 OK\"'" ]
       interval: 15s
       timeout: 10s
-      retries: 5
-      start_period: 60s
+      retries: 8
+      start_period: 120s
     networks:
       - pinot-network
 
@@ -236,10 +236,10 @@ services:
     networks:
       - pinot-network
 
-  pinot-command-runner:
+  pinot-table-registrar:
     profiles: ["init"]
     image: ${DOCKER_IMAGE_BASE_PATH}apache-pinot:${APACHE_PINOT_VERSION}
-    container_name: pinot-command-runner
+    container_name: pinot-table-registrar
     entrypoint: [ "/bin/bash" ]
     command: [ "/opt/pinot/scripts/add-tables.sh" ]
     restart: "no"
@@ -293,7 +293,7 @@ services:
       - ../volumes/pinot/ingestion-logs:/opt/pinot/logs
       - ../volumes/pinot/ingestion-staging:/tmp/pinot
     depends_on:
-      pinot-command-runner:
+      pinot-table-registrar:
         condition: service_completed_successfully
     networks:
       - pinot-network

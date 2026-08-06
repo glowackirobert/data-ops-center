@@ -90,6 +90,7 @@ class Handler(BaseHTTPRequestHandler):
         trip_ends = gtfs.get_trip_ends()
         for row in rows:
             row['atTerminus'] = gtfs.at_terminus(row, trip_ends)
+            row['inService'] = row['tripId'] != pinot.NULL_INT
         self._send_json(200, rows, time_used_ms=ms)
 
     def _serve_stats(self):

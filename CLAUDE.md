@@ -36,7 +36,7 @@ All commands are in `cluster-setup/README-docker.md`. Key facts:
 - The `secrets/` directory (`cluster-setup/container/secrets/`) is gitignored and must be populated before first run — the README lists the required files.
 - Custom images (`apache-pinot`, `superset`, `kafka-producer-app`, `web-app`) must be built locally before first start in **dev mode** (`env.dev`, `DOCKER_IMAGE_BASE_PATH` empty). **Prod mode** (`env.prod`) pulls them from Docker Hub `robertglowacki83/` — built and pushed automatically by `.github/workflows/docker-ci.yml` on pushes to `master` that touch image inputs.
 - Files are baked into the custom images at build time: `cluster-setup/table_config/` and `cluster-setup/pinot/` into `apache-pinot`, `cluster-setup/web-app/server.py`, `cluster-setup/web-app/app/`, and `cluster-setup/web-app/static/` into `web-app` — rebuild the image after changing them.
-- `--profile init` additionally runs the one-shot seeding containers: `kafka-topic-init`, `pinot-command-runner` (registers schemas/tables), `kafka-producer`, `pinot-ingestion-runner` (S3 batch ingestion), `superset-init`.
+- `--profile init` additionally runs the one-shot seeding containers: `kafka-topic-init`, `pinot-table-registrar` (registers schemas/tables), `kafka-producer`, `pinot-ingestion-runner` (S3 batch ingestion), `superset-init`.
 
 Service ports and dev/prod bind behaviour are documented in `cluster-setup/README-docker.md`.
 
@@ -59,7 +59,7 @@ Build with `mvn package` (`-DskipTests` to skip tests), from repo root or `kafka
 
 ## Apache Pinot Tables
 
-Three tables are managed by `cluster-setup/table_config/add-tables.sh`, run automatically by the `pinot-command-runner` init container (manual re-registration curls are in `cluster-setup/README-docker.md`):
+Three tables are managed by `cluster-setup/table_config/add-tables.sh`, run automatically by the `pinot-table-registrar` init container (manual re-registration curls are in `cluster-setup/README-docker.md`):
 
 - **`trade` (REALTIME)** — consumes from the Kafka `trade` topic; schema in `trade_table_schema.json`
 - **`gdansk_public_transport` (REALTIME)** — consumes from the Kafka `gdansk-public-transport` topic; JSON-decoded; 1-day retention; schema in `gdansk_public_transport_table_schema.json`
@@ -103,4 +103,4 @@ The `k8s/` directory uses Kustomize with base + overlays (dev/prod); deployment 
 ## AWS Lambda & S3 Data (Gdansk Public Transport)
 
 - The Lambda (`cluster-setup/py/gdansk_public_transport_aws.py`, handler `lambda_handler`) fetches GPS positions from the Gdansk public transport API and stores JSON-lines files in S3 bucket `gdansk-public-transport` under `raw/YYYY/MM/DD/YYYY-MM-DD-HH-MM.txt`. Deployment is automated by `.github/workflows/lambda-function.yaml`; manual packaging steps are in `cluster-setup/README-lambda.md`.
-- The `gdansk_public_transport_s3_compaction.py` script merges each day's raw S3 files into a single `daily/YYYY/YYYY-MM-DD.json.gz` object; it runs nightly via `.github/workflows/compact-s3-daily.yml` (manual dispatch with a date range for backfills).
+- The `gdansk_public_transport_s3_compaction.py` script has two subcommands: `daily` merges each day's raw S3 files into a single `daily/YYYY/YYYY-MM-DD.json.gz` object (runs nightly via `.github/workflows/compact-s3-daily.yml`, manual dispatch with a date range for backfills); `monthly` rolls a fully-elapsed month's `daily/` files into one `monthly/YYYY/YYYY-MM.json.gz` object, so batch-ingesting that range gives the OFFLINE table one segment per month instead of one per day. No workflow runs `monthly` automatically yet — invoke it manually, then re-run batch ingestion for that range and delete the superseded per-day OFFLINE segments (the monthly segment has a different name, so it doesn't overwrite them).

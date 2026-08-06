@@ -21,6 +21,9 @@ nav button.active { background: #374151; color: #fff; }
 #dash-mount { flex: 1; position: relative; }
 .view { position: absolute; top: 46px; bottom: 0; left: 0; right: 0; }
 .hidden { display: none; }
+#map {
+  position: absolute; inset: 16px; border-radius: 8px;
+}
 #panel {
   position: absolute; top: 10px; left: 10px; z-index: 10;
   background: rgba(255, 255, 255, 0.92); border-radius: 6px;

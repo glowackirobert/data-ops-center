@@ -1,4 +1,4 @@
-import { colorForRoute, time24, timeHM, esc, isTram, latencyMs, latencyBadgeHtml, elapsedClock } from './utils.js';
+import { colorForRoute, time24, timeHM, esc, isTram, latencyMs, latencyBadgeHtml } from './utils.js';
 import { OFF_ROUTE_M, projectOnPath, nearestRouteStop } from './geo.js';
 
 const REFRESH_MS = 30000;
@@ -23,6 +23,12 @@ const state = {
   heatmapAt: 0,
 };
 
+function vehicleActionText(d) {
+  if (d.inService === false) return 'Not currently in service';
+  const verb = state.selectedTrip?.vehicleId === d.vehicleId ? 'hide' : 'show';
+  return `Click to ${verb} the route path`;
+}
+
 function tooltip({ object: d }) {
   if (!d) return null;
   if (d.stopId) {
@@ -44,8 +50,7 @@ function tooltip({ object: d }) {
            <b>Delay:</b> ${Math.round(d.delay / 60)} min<br>
            <b>Speed:</b> ${d.speed} km/h<br>
            <b>Seen:</b> ${time24(d.lastSeen)}<br>
-           Click to ${state.selectedTrip?.vehicleId === d.vehicleId
-                      ? 'hide' : 'show'} the route path`,
+           ${vehicleActionText(d)}`,
   };
 }
 
@@ -208,6 +213,12 @@ export async function initMap() {
   async function selectVehicle(d) {
     if (state.selectedTrip?.vehicleId === d.vehicleId) {
       clearTripPath();
+      return;
+    }
+    if (d.inService === false) {
+      // No active trip (e.g. laying over between runs) — nothing to draw.
+      statusEl.textContent =
+        `Vehicle on line ${d.route} is not currently in service`;
       return;
     }
     state.selectedTrip = { vehicleId: d.vehicleId, routeId: d.routeId,
@@ -523,10 +534,7 @@ export async function initMap() {
     });
     const count = route ? `${rows.length} of ${state.lastRows.length}` : `${rows.length}`;
     const ms = heatOn ? state.heatmapMs : state.positionsMs;
-    // The age span is refilled by its own ticking interval (see initMap),
-    // not by render() — it needs to count up between refreshes, not just
-    // whenever the vehicle layers happen to redraw.
-    statusEl.innerHTML = `${count} vehicles · data age <span id="data-age"></span>`
+    statusEl.innerHTML = `${count} vehicles · updated ${time24(state.lastUpdated)}`
       + latencyBadgeHtml(ms);
   }
 
@@ -576,7 +584,12 @@ export async function initMap() {
       state.lastUpdated = Date.now();
       if (state.selectedTrip) {
         const v = state.lastRows.find(d => d.vehicleId === state.selectedTrip.vehicleId);
-        if (v) {
+        if (v?.inService === false) {
+          // finished its last trip and went out of service — nothing left to track
+          statusEl.textContent =
+            `Vehicle on line ${v.route} is not currently in service`;
+          state.selectedTrip = null;
+        } else if (v) {
           if (v.tripId !== state.selectedTrip.tripId
               || v.routeId !== state.selectedTrip.routeId) {
             // finished the trip and started the return leg — swap the shape
@@ -605,14 +618,6 @@ export async function initMap() {
   // a no-op (skipped) whenever nothing is selected, so it costs nothing the
   // rest of the time.
   setInterval(() => { if (state.selectedTrip) render(); }, 100);
-
-  // Ticks the status line's data-age clock independently of render() —
-  // it needs to keep counting up between refreshes, not just jump once
-  // every 30 s. Cheap: one span's textContent, not a layer rebuild.
-  setInterval(() => {
-    const el = document.getElementById('data-age');
-    if (el) el.textContent = elapsedClock(state.lastUpdated);
-  }, 100);
 
   await refresh();
   setInterval(refresh, REFRESH_MS);

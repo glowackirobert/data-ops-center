@@ -11,6 +11,11 @@ from app.cache import TTLCache
 from app.config import APPLICATION_JSON, PINOT_BROKER_URL, PINOT_CONTROLLER_URL, \
     DELAYS_TTL_S, HEATMAP_TTL_S, STATS_TTL_S
 
+# Pinot's INT null sentinel (Integer.MIN_VALUE). LASTWITHTIME(tripId, ...)
+# returns this for a vehicle currently between trips (e.g. laying over at a
+# depot/terminus) — used to derive the inService flag on /api/positions.
+NULL_INT = -2147483648
+
 # Latest position per vehicle seen in the last 10 minutes. The Kafka feed only
 # publishes changed positions, so a 10-minute window keeps parked vehicles
 # visible while LASTWITHTIME dedupes to the freshest row.
