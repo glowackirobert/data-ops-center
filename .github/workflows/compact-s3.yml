@@ -1,0 +1,104 @@
+name: Compact S3 files
+
+# Runs cluster-setup/py/gdansk_public_transport_s3_compaction.py to keep the
+# S3 bucket compacted for Pinot batch ingestion:
+#   - `daily`   nightly, rolling the previous day's raw/ (per-minute) files
+#               into one daily/YYYY/YYYY-MM-DD.json.gz object.
+#   - `monthly` on the 1st of each month, rolling the previous month's
+#               daily/ files into one monthly/YYYY/YYYY-MM.json.gz object.
+# Which subcommand a scheduled run uses is picked by cron expression (see
+# "Determine command" below). Manual dispatch lets you pick either
+# subcommand and a date/month range for backfills. Already-compacted
+# days/months are skipped, so re-runs are safe.
+
+on:
+  schedule:
+    - cron: '47 2 * * *'  # 02:47 UTC daily, well after the previous day is complete -> daily
+    - cron: '11 3 1 * *'   # 03:11 UTC on the 1st, after the job above closed out the last day of the previous month -> monthly
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Subcommand to run'
+        type: choice
+        options: [daily, monthly]
+        required: true
+        default: daily
+      start:
+        description: 'Range start (YYYY-MM-DD for daily, YYYY-MM for monthly); defaults to the last completed day/month'
+        required: false
+      end:
+        description: 'Range end (same format as start); defaults to start'
+        required: false
+      force:
+        description: 'Overwrite existing files'
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+# Queue runs instead of overlapping: a manual backfill and a scheduled run
+# would otherwise compact the same range twice. daily and monthly share a
+# group (rather than one each) since both write to the same S3 prefixes
+# tree and the same downstream Pinot OFFLINE table.
+concurrency:
+  group: compact-s3
+  cancel-in-progress: false
+
+jobs:
+  compact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - run: pip install 'boto3~=1.42'
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::689522024200:role/S3AccessRole
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: GitHubActions-Compaction-${{ github.run_id }}
+
+      # Manual dispatch picks the subcommand explicitly. A scheduled run has
+      # no `inputs.command` (workflow_dispatch inputs only exist on that
+      # trigger) - github.event.schedule carries which of the two cron
+      # expressions above fired this run instead.
+      - name: Determine command
+        id: cmd
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "command=${{ inputs.command }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 3 1 * *" ]; then
+            echo "command=monthly" >> "$GITHUB_OUTPUT"
+          else
+            echo "command=daily" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compute range
+        id: range
+        run: |
+          COMMAND="${{ steps.cmd.outputs.command }}"
+          START="${{ inputs.start }}"
+          END="${{ inputs.end }}"
+          if [ "$COMMAND" = daily ]; then
+            if [ -z "$START" ]; then START=$(date -u -d "yesterday" +%F); fi
+          else
+            if [ -z "$START" ]; then START=$(date -u -d "$(date -u +%Y-%m-01) -1 month" +%Y-%m); fi
+          fi
+          if [ -z "$END" ]; then END="$START"; fi
+          echo "start=$START" >> "$GITHUB_OUTPUT"
+          echo "end=$END" >> "$GITHUB_OUTPUT"
+
+      - name: Run compaction
+        run: |
+          python cluster-setup/py/gdansk_public_transport_s3_compaction.py "${{ steps.cmd.outputs.command }}" \
+            --start "${{ steps.range.outputs.start }}" \
+            --end "${{ steps.range.outputs.end }}" \
+            ${{ inputs.force == true && '--force' || '' }}
