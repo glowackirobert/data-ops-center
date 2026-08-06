@@ -54,6 +54,7 @@ import argparse
 import concurrent.futures
 import gzip
 import os
+import re
 import sys
 import tempfile
 from datetime import date, timedelta
@@ -185,14 +186,17 @@ def day_range(start, end):
 
 
 def run_daily(args):
-    if args.date:
-        start = end = date.fromisoformat(args.date)
-    elif args.start and args.end:
-        start, end = date.fromisoformat(args.start), date.fromisoformat(args.end)
-        if start > end:
-            args.error('--start must not be after --end')
-    else:
-        args.error('provide either --date or both --start and --end')
+    try:
+        if args.date:
+            start = end = date.fromisoformat(args.date)
+        elif args.start and args.end:
+            start, end = date.fromisoformat(args.start), date.fromisoformat(args.end)
+            if start > end:
+                args.error('--start must not be after --end')
+        else:
+            args.error('provide either --date or both --start and --end')
+    except ValueError as e:
+        args.error(str(e))
 
     failures = []
     for day in day_range(start, end):
@@ -284,20 +288,34 @@ def month_range(start, end):
         y, m = (y + 1, 1) if m == 12 else (y, m + 1)
 
 
+_MONTH_RE = re.compile(r'^\d{4}-\d{2}$')
+
+
 def parse_month(s):
+    """(year, month) from a strict 'YYYY-MM' string, or raises ValueError.
+
+    date.fromisoformat(f'{s}-01') alone would also accept e.g. '2026-01-22'
+    (silently treating the day as part of the month), producing a confusing
+    downstream error instead of rejecting the malformed input up front.
+    """
+    if not _MONTH_RE.match(s):
+        raise ValueError(f"invalid month {s!r}: expected YYYY-MM")
     d = date.fromisoformat(f'{s}-01')
     return d.year, d.month
 
 
 def run_monthly(args):
-    if args.month:
-        start = end = parse_month(args.month)
-    elif args.start and args.end:
-        start, end = parse_month(args.start), parse_month(args.end)
-        if start > end:
-            args.error('--start must not be after --end')
-    else:
-        args.error('provide either --month or both --start and --end')
+    try:
+        if args.month:
+            start = end = parse_month(args.month)
+        elif args.start and args.end:
+            start, end = parse_month(args.start), parse_month(args.end)
+            if start > end:
+                args.error('--start must not be after --end')
+        else:
+            args.error('provide either --month or both --start and --end')
+    except ValueError as e:
+        args.error(str(e))
 
     failures = []
     for year, month in month_range(start, end):
