@@ -17,7 +17,9 @@ Docker Compose based setup for the Data Ops Center cluster.
 | Pinot Server /query/  | 8098 | Internal netty port the Broker uses to send queries to and read results from the server.                     |
 | Pinot Minion          | 7500 | Background task executor, driven by Controller-scheduled jobs, responsible for segment lifecycle operations. |
 | Prometheus            | 9090 | Scrapes JMX metrics from Kafka and all Pinot components.                                                     |
-| Grafana               | 3000 | Dashboards over Prometheus metrics.                                                                          |
+| Grafana               | 3000 | Dashboards over Prometheus metrics and Loki logs.                                                            |
+| Loki                  | 3100 | Log storage/query backend (LogQL).                                                                           |
+| Alloy                 | 12345 | Tails every container's stdout/stderr via the Docker socket and ships it to Loki; `12345` serves its debug UI (component graph, live pipeline state). |
 | Superset              | 8088 | BI and data exploration UI connected to Pinot via `pinotdb`.                                                 |
 | Web app               | 3001 | Live vehicle map (flicker-free 30 s refresh) + Analytics tab embedding the Superset dashboard                |
 
@@ -42,6 +44,30 @@ start the GPS feed (the map shows no vehicles until `--profile init up` has
 run once), and a plain `down` will not remove it — stop it with
 `docker stop gdansk-public-transport-kafka-producer` or run `down` with
 `--profile init`.
+
+### Logs (Loki + Alloy)
+
+Alloy discovers containers via the Docker socket (scoped to this compose
+project only, via the `com.docker.compose.project=container` label filter —
+otherwise it would also pick up unrelated containers on the same host) and
+ships stdout/stderr to Loki, labeled by `container` (container name) and
+`stream` (`stdout`/`stderr`).
+
+Grafana's home page (`http://localhost:3000/`) is the provisioned **"Container
+Logs"** dashboard (`cluster-setup/grafana/dashboards/logs_dashboard.json`,
+set via `GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH`) — a full-width Logs panel
+with `container` and `stream` dropdown variables (both default to "All") to
+switch between containers without writing LogQL. For anything beyond
+filtering by container/stream, use Grafana → Explore → Loki datasource, e.g.:
+
+```logql
+{container="pinot-server"}
+{container=~"pinot-.*"} |= "ERROR"
+```
+
+Alloy's own debug UI (component graph, live pipeline state) is at
+`http://localhost:12345`. Log retention in Loki is 168h (7 days), matching
+Kafka's `KAFKA_LOG_RETENTION_HOURS`.
 
 
 

@@ -1,4 +1,4 @@
-import { colorForRoute, time24, timeHM, esc, isTram, latencyMs, latencyBadgeHtml } from './utils.js';
+import { colorForRoute, time24, timeHM, esc, isTram, isNightBus, latencyMs, latencyBadgeHtml } from './utils.js';
 import { OFF_ROUTE_M, projectOnPath, nearestRouteStop } from './geo.js';
 
 const REFRESH_MS = 30000;
@@ -421,7 +421,8 @@ export async function initMap() {
     routeSelect.append(new Option('All vehicles', ''));
     for (const [label, group] of [
       ['Trams', sorted.filter(isTram)],
-      ['Buses', sorted.filter(r => !isTram(r))],
+      ['Buses', sorted.filter(r => !isTram(r) && !isNightBus(r))],
+      ['Night buses', sorted.filter(isNightBus)],
     ]) {
       if (!group.length) continue;
       const g = document.createElement('optgroup');
@@ -557,9 +558,14 @@ export async function initMap() {
       return;
     }
     const rows = state.lastRows.filter(d => String(d.route || '?') === route);
-    if (!rows.length) return;
+    const stops = state.stopsData.filter(s => s.routes.includes(route));
+    if (!rows.length && !stops.length) return;
     const bounds = new mapboxgl.LngLatBounds();
     for (const d of rows) bounds.extend([d.lon, d.lat]);
+    // Vehicles alone can cluster on one segment of the line, leaving the
+    // route's other stops rendered but outside the fitted view — include
+    // them in the bounds so the whole line's stops stay visible too.
+    for (const s of stops) bounds.extend([s.lon, s.lat]);
     // maxZoom keeps a single-vehicle line from zooming into rooftop level.
     map.fitBounds(bounds, { padding: 80, maxZoom: 15 });
   }

@@ -210,7 +210,9 @@ services:
     environment:
       GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
       PROMETHEUS_URL: ${PROMETHEUS_URL}
+      LOKI_URL: ${LOKI_URL}
       GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/logs_dashboard.json
     secrets:
       - grafana_admin_password
     volumes:
@@ -219,6 +221,43 @@ services:
     depends_on:
       prometheus:
         condition: service_healthy
+      loki:
+        condition: service_started
+    networks:
+      - pinot-network
+
+  loki:
+    image: grafana/loki:${LOKI_VERSION}
+    container_name: loki
+    restart: unless-stopped
+    ports:
+      - "${BIND}:3100:3100"
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ../loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - ../volumes/loki:/loki
+    # No healthcheck: the image is a minimal (distroless-style) build with
+    # only the loki binary — no shell, wget, or curl to probe /ready with.
+    networks:
+      - pinot-network
+
+  alloy:
+    image: grafana/alloy:${ALLOY_VERSION}
+    container_name: alloy
+    restart: unless-stopped
+    ports:
+      - "${BIND}:12345:12345"
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ../alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      loki:
+        condition: service_started
     networks:
       - pinot-network
 

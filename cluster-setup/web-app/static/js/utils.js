@@ -34,6 +34,11 @@ export function isTram(route) {
   return /^\d{1,2}$/.test(String(route || ''));
 }
 
+// Gdansk night bus routes are N-prefixed (e.g. N1, N4, N8).
+export function isNightBus(route) {
+  return /^N/i.test(String(route || ''));
+}
+
 export function fmtBytes(b) {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let i = 0;
