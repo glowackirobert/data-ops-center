@@ -49,6 +49,9 @@
     ]
   },
   "ingestionConfig": {
+    "filterConfig": {
+      "filterFunction": "Groovy({gpsQuality == 0}, gpsQuality)"
+    },
     "transformConfigs": [
       {
         "columnName": "generatedTransformed",
