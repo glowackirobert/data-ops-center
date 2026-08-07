@@ -1,0 +1,45 @@
+// Tails every container's stdout/stderr via the Docker socket and ships it
+// to Loki. Portable to Kubernetes later: swap discovery.docker for
+// discovery.kubernetes and loki.source.docker for loki.source.kubernetes,
+// the loki.write sink stays the same.
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+
+  // Scope to this compose project only — the Docker socket sees every
+  // container on the host, including unrelated ones (e.g. Docker Desktop's
+  // own Kubernetes/kind internals).
+  filter {
+    name   = "label"
+    values = ["com.docker.compose.project=container"]
+  }
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_log_stream"]
+    target_label  = "stream"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.docker.containers.targets
+  labels     = {"job" = "docker"}
+  relabel_rules = discovery.relabel.containers.rules
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
