@@ -18,7 +18,8 @@
     { "name": "lon",      "dataType": "DOUBLE"  },
     { "name": "speed",    "dataType": "FLOAT"   },
     { "name": "delay",    "dataType": "INT"     },
-    { "name": "isOnTime", "dataType": "INT"     }
+    { "name": "isOnTime", "dataType": "INT"     },
+    { "name": "isLate",   "dataType": "INT"     }
   ],
   "dateTimeFieldSpecs": [
     {

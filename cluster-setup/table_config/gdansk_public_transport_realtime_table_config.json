@@ -21,8 +21,8 @@
       "stream.kafka.decoder.class.name": "org.apache.pinot.plugin.inputformat.json.JSONMessageDecoder",
       "stream.kafka.consumer.factory.class.name": "org.apache.pinot.plugin.stream.kafka30.KafkaConsumerFactory",
       "stream.kafka.broker.list": "kafka:9092",
-      "realtime.segment.flush.threshold.rows": "10000",
-      "realtime.segment.flush.threshold.time": "1h",
+      "realtime.segment.flush.threshold.rows": "500000",
+      "realtime.segment.flush.threshold.time": "6h",
       "stream.kafka.consumer.prop.auto.offset.reset": "smallest"
     },
     "enableDefaultStarTree": false,
@@ -43,7 +43,7 @@
       {
         "dimensionsSplitOrder": ["dayBucket", "routeShortName"],
         "skipStarNodeCreationForDimensions": [],
-        "functionColumnPairs": ["SUM__isOnTime", "COUNT__*", "AVG__speed"],
+        "functionColumnPairs": ["SUM__isOnTime", "SUM__isLate", "COUNT__*", "AVG__speed"],
         "maxLeafRecords": 10000
       }
     ]
@@ -65,6 +65,10 @@
       {
         "columnName": "isOnTime",
         "transformFunction": "CASE WHEN delay BETWEEN -60 AND 60 THEN 1 ELSE 0 END"
+      },
+      {
+        "columnName": "isLate",
+        "transformFunction": "CASE WHEN delay > 60 THEN 1 ELSE 0 END"
       }
     ]
   },

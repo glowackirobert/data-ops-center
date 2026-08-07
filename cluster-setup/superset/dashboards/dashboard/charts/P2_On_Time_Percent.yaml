@@ -21,12 +21,6 @@ params:
     expressionType: SIMPLE
     operator: TEMPORAL_RANGE
     subject: generatedTransformed
-  - clause: WHERE
-    expressionType: SQL
-    sqlExpression: NOT (speed = 0 AND delay > 1200)
-    comparator: null
-    operator: null
-    subject: null
   header_font_size: 0.4
   subheader_font_size: 0.15
   subheader: GPS snapshots within ±60 s of schedule

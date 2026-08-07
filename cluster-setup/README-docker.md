@@ -158,7 +158,7 @@ docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setu
 ### Verifying Kafka messages
 
 ```bash
-docker exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic trade --from-beginning"
+MSYS_NO_PATHCONV=1 docker exec -it kafka /bin/bash -c "env -u KAFKA_OPTS /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic trade --from-beginning"
 ```
 
 ## Pinot Tables
@@ -191,9 +191,8 @@ table, named `gdansk_public_transport_<file stem>`. `squashed/` holds a mix of g
 day files (`YYYY/YYYY-MM-DD.json.gz` → `gdansk_public_transport_YYYY-MM-DD`) for recent,
 not-yet-rolled-up history, and month files (`YYYY/YYYY-MM.json.gz` → `gdansk_public_transport_YYYY-MM`)
 for fully-elapsed months — but never both for the same range: the `monthly` compaction
-subcommand deletes a month's day files once it's squashed them into one month file (see
-`gdansk_public_transport_s3_compaction.py`'s docstring), so ingestion never has to know or
-care which granularity a given file is.
+subcommand deletes a month's day files once it's squashed them into one month file,
+so ingestion never has to know or care which granularity a given file is.
 
 `INGESTION_DATE` is a **filename glob** substituted into the job spec's `${DATE}` placeholder:
 an exact day (`2026-02-01`) or exact month (`2026-02`) each match exactly one file; unset/empty,
@@ -217,13 +216,6 @@ currently exists for that range.
 Ingestion is idempotent for a given file — segments are named after it and
 overwritten, not duplicated — so retrying one failed day/month is simply
 re-running it for that date/month.
-
-> **Caveat — days already merged by MergeRollup are no longer idempotent.**
-> Once the MergeRollup task (below) has folded a day's segment into a
-> `merged_1week_*` segment, re-ingesting that day pushes the same rows
-> *alongside* the merged segment — double-counting. To re-ingest an
-> already-merged window, first delete the overlapping `merged_1week_*`
-> segments via the controller API, then re-run the job for that range.
 
 > **Caveat — ingesting a month file after its days were already ingested.**
 > Squashing a month deletes its day files from S3, but doesn't touch Pinot:
@@ -272,7 +264,7 @@ default avoids both wasted re-work and the double-counting caveat above.
 
 ```bash
 # Full backfill of everything in s3://gdansk-public-transport/squashed/
-python cluster-setup/scripts/backfill_pinot_offline.py --env prod
+python cluster-setup/scripts/backfill_pinot_offline.py --env dev
 
 # Narrow to a range
 python cluster-setup/scripts/backfill_pinot_offline.py --env prod \
@@ -295,19 +287,7 @@ Pushed and completed segments are stored in
 the controller's local disk — servers and the minion fetch them from S3
 directly (`pinot.*.segment.fetcher.protocols=file,http,s3`). The controller,
 server, minion and ingestion-runner containers therefore all need the
-`aws_credentials` secret (already wired in the compose file). Segments pushed
-*before* deep store was enabled keep their local-disk download URIs; re-running
-the backfill re-pushes them into S3.
-
-### Segment merge (MergeRollup)
-
-A `MergeRollupTask` on the OFFLINE table (see
-`gdansk_public_transport_offline_table_config.json`) concatenates the small
-per-day segments into weekly buckets capped at 5M rows per segment. The
-controller schedules it hourly (`schedule` cron in the task config,
-`controller.task.scheduler.enabled=true`); the `pinot-minion` container
-executes it. Progress is visible in the controller UI under *Minion Task
-Manager*, or via `GET /tasks/MergeRollupTask/tasks`.
+`aws_credentials` secret (already wired in the compose file). 
 
 ### Load testing the broker
 
@@ -345,7 +325,11 @@ The dashboards directory is volume-mounted into `superset-init`, so YAML changes
 docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml --profile init up superset-init
 ```
 
-`superset-init.sh` skips the import when the dashboard UUID already exists in Superset, so on an already-initialized deployment first delete the dashboard in the Superset UI (Dashboards → trash icon). The container output should show `Importing dashboard.zip ... Imported successfully`; `Skipping — dashboards already exist` means the old copy is still in place.
+`superset-init.sh` skips the import when the dashboard UUID already exists in Superset, 
+so on an already-initialized deployment first delete the dashboard in the Superset UI 
+(Dashboards → trash icon). The container output should show `Importing dashboard.zip 
+... Imported successfully`; `Skipping — dashboards already exist` means the old 
+copy is still in place.
 
 ## Web App (port 3001)
 

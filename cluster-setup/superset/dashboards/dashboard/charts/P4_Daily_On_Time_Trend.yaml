@@ -7,29 +7,18 @@ viz_type: echarts_timeseries_line
 params:
   datasource: 1__table
   viz_type: echarts_timeseries_line
-  x_axis:
-    expressionType: SQL
-    sqlExpression: TODATETIME(generatedTransformed, 'yyyy-MM-dd', 'Europe/Warsaw')
-    label: day
-  x_axis_sort: day
+  x_axis: dayBucket
   x_axis_sort_asc: true
   time_grain_sqla: null
   metrics:
   - expressionType: SQL
-    sqlExpression: ROUNDDECIMAL(SUM(CASE WHEN delay BETWEEN -60 AND 60 THEN 1 ELSE
-      0 END) * 100.0 / COUNT(*), 1)
+    sqlExpression: ROUNDDECIMAL(SUM(isOnTime) * 100.0 / COUNT(*), 1)
     column: null
     aggregate: null
     hasCustomLabel: true
     label: pct_on_time
   groupby: []
-  adhoc_filters:
-  - clause: WHERE
-    expressionType: SQL
-    sqlExpression: NOT (speed = 0 AND delay > 1200)
-    comparator: null
-    operator: null
-    subject: null
+  adhoc_filters: []
   row_limit: 1000
   rich_tooltip: true
   show_legend: false

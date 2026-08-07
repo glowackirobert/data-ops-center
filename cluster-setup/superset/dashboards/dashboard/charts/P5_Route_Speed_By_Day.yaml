@@ -8,10 +8,8 @@ viz_type: echarts_timeseries_line
 params:
   datasource: 1__table
   viz_type: echarts_timeseries_line
-  x_axis:
-    expressionType: SQL
-    sqlExpression: TODATETIME(generatedTransformed, 'yyyy-MM-dd', 'Europe/Warsaw')
-    label: day
+  x_axis: dayBucket
+  x_axis_sort_asc: true
   time_grain_sqla: null
   metrics:
   - expressionType: SQL

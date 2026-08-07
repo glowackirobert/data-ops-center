@@ -15,8 +15,8 @@ name: Compact S3 files
 
 on:
   schedule:
-    - cron: '47 2 * * *'  # 02:47 UTC daily, well after the previous day is complete -> daily
-    - cron: '11 3 1 * *'   # 03:11 UTC on the 1st, after the job above closed out the last day of the previous month -> monthly
+    - cron: '47 2 * * *'   # 02:47 UTC daily, well after the previous day is complete -> daily
+    - cron: '11 4 1 * *'   # 04:11 UTC on the 1st, after the job above closed out the last day of the previous month -> monthly
   workflow_dispatch:
     inputs:
       command:

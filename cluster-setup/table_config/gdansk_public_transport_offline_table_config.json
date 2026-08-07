@@ -32,7 +32,7 @@
       {
         "dimensionsSplitOrder": ["dayBucket", "routeShortName"],
         "skipStarNodeCreationForDimensions": [],
-        "functionColumnPairs": ["SUM__isOnTime", "COUNT__*", "AVG__speed"],
+        "functionColumnPairs": ["SUM__isOnTime", "SUM__isLate", "COUNT__*", "AVG__speed"],
         "maxLeafRecords": 10000
       }
     ]
@@ -54,6 +54,10 @@
       {
         "columnName": "isOnTime",
         "transformFunction": "CASE WHEN delay BETWEEN -60 AND 60 THEN 1 ELSE 0 END"
+      },
+      {
+        "columnName": "isLate",
+        "transformFunction": "CASE WHEN delay > 60 THEN 1 ELSE 0 END"
       }
     ],
     "batchIngestionConfig": {

@@ -1,7 +1,8 @@
-slice_name: P6 · Route 9 hourly profile (last 24 h)
-description: 'How does route 9 behave through the day? Hour-by-hour speed and delay
-  on the same x-axis — rush hours drag speed down and delay up. Source: gdansk_public_transport_queries.sql
-  (P5).'
+slice_name: P6 · Route hourly profile (last 24 h)
+description: 'How does a route (or the whole network) behave through the day? Hour-by-hour
+  speed and delay on the same x-axis — rush hours drag speed down and delay up.
+  Route picked via the "Route" dashboard filter (all routes by default). Source:
+  gdansk_public_transport_queries.sql (P5).'
 certified_by: null
 certification_details: null
 viz_type: echarts_timeseries_line
@@ -35,17 +36,6 @@ params:
     expressionType: SIMPLE
     operator: TEMPORAL_RANGE
     subject: generatedTransformed
-  - clause: WHERE
-    expressionType: SIMPLE
-    operator: ==
-    subject: routeShortName
-    comparator: '9'
-  - clause: WHERE
-    expressionType: SQL
-    sqlExpression: NOT (speed = 0 AND delay > 1200)
-    comparator: null
-    operator: null
-    subject: null
   row_limit: 100
   rich_tooltip: true
   show_legend: true

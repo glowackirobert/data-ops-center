@@ -5,7 +5,7 @@ on:
     branches:
       - master
     # Only rebuild when image inputs change; docs/config-only pushes would
-    # otherwise overwrite all prod tags (compose pulls with --pull always).
+    # otherwise overwrite all prod tags.
     paths:
       - 'kafka-producer-app/**'
       - 'cluster-setup/web-app/**'

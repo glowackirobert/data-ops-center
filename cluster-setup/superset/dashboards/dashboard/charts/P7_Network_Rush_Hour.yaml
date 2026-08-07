@@ -1,7 +1,7 @@
 slice_name: P7 · Network rush hour (last 24 h)
 description: 'When is the network busiest? Hour-by-hour count of active vehicles
-  vs. their average speed — the morning and evening peaks put more vehicles on
-  the road and drag speed down. Whole network, all routes.'
+  across the whole network — shows the morning and evening peaks. Whole network,
+  all routes.'
 certified_by: null
 certification_details: null
 viz_type: echarts_timeseries_line
@@ -22,12 +22,6 @@ params:
     aggregate: null
     hasCustomLabel: true
     label: active_vehicles
-  - expressionType: SQL
-    sqlExpression: ROUNDDECIMAL(AVG(speed), 1)
-    column: null
-    aggregate: null
-    hasCustomLabel: true
-    label: avg_speed_kmh
   groupby: []
   adhoc_filters:
   - clause: WHERE

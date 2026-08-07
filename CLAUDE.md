@@ -65,7 +65,7 @@ Three tables are managed by `cluster-setup/table_config/add-tables.sh`, run auto
 - **`gdansk_public_transport` (REALTIME)** — consumes from the Kafka `gdansk-public-transport` topic; JSON-decoded; 1-day retention; schema in `gdansk_public_transport_table_schema.json`
 - **`gdansk_public_transport` (OFFLINE)** — batch-ingested from S3; schema in `gdansk_public_transport_table_schema.json`
 
-Segments live in the **S3 deep store** (`controller.data.dir=s3://gdansk-public-transport/pinot/deep-store`); the controller, server and minion all have the S3 filesystem + `s3` segment fetcher configured and receive the `aws_credentials` secret. A **MergeRollupTask** on the OFFLINE table (hourly controller schedule, executed by `pinot-minion`) concatenates per-day segments into weekly buckets of ≤5M rows.
+Segments live in the **S3 deep store** (`controller.data.dir=s3://gdansk-public-transport/pinot/deep-store`); the controller, server and minion all have the S3 filesystem + `s3` segment fetcher configured and receive the `aws_credentials` secret.
 
 ### S3 Batch Ingestion
 

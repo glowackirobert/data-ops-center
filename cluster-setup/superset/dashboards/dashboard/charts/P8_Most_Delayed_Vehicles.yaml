@@ -40,24 +40,6 @@ params:
     expressionType: SIMPLE
     operator: TEMPORAL_RANGE
     subject: generatedTransformed
-  - clause: WHERE
-    expressionType: SQL
-    sqlExpression: NOT (speed = 0 AND delay > 1200)
-    comparator: null
-    operator: null
-    subject: null
-  - clause: WHERE
-    expressionType: SQL
-    sqlExpression: LOWER(headsign) NOT LIKE '%zajezdnia%'
-    comparator: null
-    operator: null
-    subject: null
-  - clause: HAVING
-    expressionType: SQL
-    sqlExpression: AVG(delay) > 120 AND COUNT(*) >= 30
-    comparator: null
-    operator: null
-    subject: null
   timeseries_limit_metric:
     expressionType: SQL
     sqlExpression: AVG(delay)
