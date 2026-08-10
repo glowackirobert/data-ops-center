@@ -35,43 +35,15 @@ position:
     - GRID_ID
     - ROW-byRouteB100000000000
     type: CHART
-  CHART-tramPunctuality000000:
+  CHART-p3Punctuality000000000:
     children: []
-    id: CHART-tramPunctuality000000
+    id: CHART-p3Punctuality000000000
     meta:
       chartId: 10
       height: 50
-      sliceName: P3 · Tram punctuality
-      uuid: bb631340-6ed1-427b-ba04-f3ced050d232
-      width: 4
-    parents:
-    - ROOT_ID
-    - GRID_ID
-    - ROW-networkOverviewA1b000
-    type: CHART
-  CHART-busPunctuality0000000:
-    children: []
-    id: CHART-busPunctuality0000000
-    meta:
-      chartId: 11
-      height: 50
-      sliceName: P3 · Bus punctuality
-      uuid: d4049d29-913a-4692-92cb-715c124b9e8a
-      width: 4
-    parents:
-    - ROOT_ID
-    - GRID_ID
-    - ROW-networkOverviewA1b000
-    type: CHART
-  CHART-nightBusPunctuality00:
-    children: []
-    id: CHART-nightBusPunctuality00
-    meta:
-      chartId: 12
-      height: 50
-      sliceName: P3 · Night bus punctuality
-      uuid: 7ee41a06-36c3-4cf3-ab3b-f4f2d3d13122
-      width: 4
+      sliceName: P3 · Punctuality by route
+      uuid: 6811a592-5a90-4032-acfc-e83dc1a8b1a0
+      width: 12
     parents:
     - ROOT_ID
     - GRID_ID
@@ -223,9 +195,7 @@ position:
     type: ROW
   ROW-networkOverviewA1b000:
     children:
-    - CHART-tramPunctuality000000
-    - CHART-busPunctuality0000000
-    - CHART-nightBusPunctuality00
+    - CHART-p3Punctuality000000000
     id: ROW-networkOverviewA1b000
     meta:
       background: BACKGROUND_TRANSPARENT
@@ -308,22 +278,20 @@ metadata:
       - 8
       - 9
     # chartsInScope uses this file's position chartIds (P2=2, P4=4, P5=5,
-    # Tram=10, Bus=11, NightBus=12), but the Superset importer only remaps
-    # scope.excluded — after (re-)importing, fix chartsInScope to the live
-    # chart ids via PUT /api/v1/dashboard/{id}.
+    # P3=10), but the Superset importer only remaps scope.excluded — after
+    # (re-)importing, fix chartsInScope to the live chart ids via
+    # PUT /api/v1/dashboard/{id}.
     chartsInScope:
     - 2
     - 4
     - 5
     - 10
-    - 11
-    - 12
     tabsInScope: []
     type: NATIVE_FILTER
-    description: Date window for the report (applies to P2, P4, P5 and the three
-      P3 punctuality-by-category charts). Defaults to whole history — P2 still
-      effectively shows the last 24h since it carries its own fixed window; narrow
-      this to shrink the others' window too.
+    description: Date window for the report (applies to P2, P4, P5 and P3).
+      Defaults to whole history — P2 still effectively shows the last 24h since
+      it carries its own fixed window; narrow this to shrink the others' window
+      too.
   - id: NATIVE_FILTER-routePicker000000
     name: Route
     filterType: filter_select
@@ -370,8 +338,6 @@ metadata:
     - 2
     - 7
     - 10
-    - 11
-    - 12
     - 4
     - 5
     - 6
@@ -391,3 +357,4 @@ metadata:
   cross_filters_enabled: true
   default_filters: '{}'
 version: 1.0.0
+

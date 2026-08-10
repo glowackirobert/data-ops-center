@@ -50,7 +50,7 @@
   },
   "ingestionConfig": {
     "filterConfig": {
-      "filterFunction": "Groovy({gpsQuality == 0}, gpsQuality)"
+      "filterFunction": "gpsQuality = 0"
     },
     "transformConfigs": [
       {

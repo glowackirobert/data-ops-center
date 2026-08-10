@@ -127,11 +127,11 @@ source cluster-setup/env/versions.env
 # Apache Pinot — adds table configs, JMX exporter and ingestion scripts
 docker build --build-arg APACHE_PINOT_VERSION=$APACHE_PINOT_VERSION -t apache-pinot:$APACHE_PINOT_VERSION -f cluster-setup/container/Dockerfile.apache-pinot .
 
-# Apache Superset — adds pinotdb driver on top of the official image
-docker build --build-arg SUPERSET_VERSION=$SUPERSET_VERSION -t superset:$SUPERSET_VERSION -f cluster-setup/container/Dockerfile.superset .
-
 # Kafka producer app — Maven multi-stage build of the Java Avro producer (version from pom.xml)
 docker build -t kafka-producer-app:1.0.0 -f kafka-producer-app/Dockerfile.kafka-producer-app .
+
+# Apache Superset — adds pinotdb driver on top of the official image
+docker build --build-arg SUPERSET_VERSION=$SUPERSET_VERSION -t superset:$SUPERSET_VERSION -f cluster-setup/container/Dockerfile.superset .
 
 # Web app — stdlib-only Python server serving the vehicle map UI
 docker build --build-arg PYTHON_VERSION=$PYTHON_VERSION -t web-app:$WEB_APP_VERSION -f cluster-setup/container/Dockerfile.web-app .

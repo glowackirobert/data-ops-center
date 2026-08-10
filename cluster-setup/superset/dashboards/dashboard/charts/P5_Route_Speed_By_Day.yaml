@@ -1,7 +1,6 @@
 slice_name: P5 · Route speed by day
 description: 'How fast is each route day by day? Commercial speed (stops included),
-  one line per route; depot returns excluded. Source: gdansk_public_transport_queries.sql
-  (P4).'
+  one line per route. Source: gdansk_public_transport_queries.sql (P4).'
 certified_by: null
 certification_details: null
 viz_type: echarts_timeseries_line
@@ -20,13 +19,7 @@ params:
     label: avg_speed_kmh
   groupby:
   - routeShortName
-  adhoc_filters:
-  - clause: WHERE
-    expressionType: SQL
-    sqlExpression: LOWER(headsign) NOT LIKE '%zajezdnia%'
-    comparator: null
-    operator: null
-    subject: null
+  adhoc_filters: []
   row_limit: 2000
   rich_tooltip: true
   show_legend: true
