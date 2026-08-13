@@ -1,4 +1,4 @@
-slice_name: P8 · Most delayed vehicles (last 7 days)
+slice_name: Most delayed vehicles (last 7 days)
 description: 'Chronic offenders: vehicles that run late most consistently, by
   route and fleet number. Average and worst delay in minutes over the last week;
   parked-at-depot snapshots and depot return trips are excluded, and vehicles

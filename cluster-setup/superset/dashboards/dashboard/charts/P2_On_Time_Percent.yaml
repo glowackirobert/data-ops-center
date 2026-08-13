@@ -1,4 +1,4 @@
-slice_name: P2 · On-time %
+slice_name: On-time %
 description: 'What % of vehicles were on time? On time = delay between -60 and +60 s
   — early is not on time.'
 certified_by: null

@@ -1,4 +1,4 @@
-slice_name: P6 · Route hourly profile (last 24 h)
+slice_name: Route hourly profile (last 24 h)
 description: 'How does a route (or the whole network) behave through the day? Hour-by-hour
   speed and delay on the same x-axis — rush hours drag speed down and delay up.
   Route picked via the "Route" dashboard filter (all routes by default). Source:
