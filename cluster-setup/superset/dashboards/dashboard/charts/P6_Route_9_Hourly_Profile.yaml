@@ -45,7 +45,7 @@ params:
   extra_form_data: {}
   dashboards: []
 query_context: ''
-cache_timeout: 0
+cache_timeout: 3600
 uuid: 5f45ddd1-e684-42e0-a4c3-1a299061e097
 version: 1.0.0
 dataset_uuid: 0fd033bf-2b72-4a3d-9cc5-740588b70c37

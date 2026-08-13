@@ -7,20 +7,6 @@ certification_details: ''
 published: true
 uuid: 2dfac769-638e-42d9-8143-6f7cb1e91626
 position:
-  CHART-totalRowsKpi00000000:
-    children: []
-    id: CHART-totalRowsKpi00000000
-    meta:
-      chartId: 7
-      height: 50
-      sliceName: P1 · Total rows
-      uuid: 2b3e54e1-db7a-4d4e-bfd1-4c8196b6d875
-      width: 4
-    parents:
-    - ROOT_ID
-    - GRID_ID
-    - ROW-networkOverviewA1000
-    type: CHART
   CHART-p1OnTimeKpi0000000000:
     children: []
     id: CHART-p1OnTimeKpi0000000000
@@ -32,7 +18,8 @@ position:
       width: 4
     parents:
     - ROOT_ID
-    - GRID_ID
+    - TABS-mainTabs00000000000
+    - TAB-byRoute0000000000000
     - ROW-byRouteB100000000000
     type: CHART
   CHART-p3Punctuality000000000:
@@ -46,7 +33,8 @@ position:
       width: 12
     parents:
     - ROOT_ID
-    - GRID_ID
+    - TABS-mainTabs00000000000
+    - TAB-networkOverview00000
     - ROW-networkOverviewA1b000
     type: CHART
   CHART-p3DailyTrend000000000:
@@ -60,22 +48,60 @@ position:
       width: 8
     parents:
     - ROOT_ID
-    - GRID_ID
+    - TABS-mainTabs00000000000
+    - TAB-byRoute0000000000000
     - ROW-byRouteB100000000000
     type: CHART
-  CHART-p4RouteSpeed000000000:
+  CHART-p5TramsSpeed00000000:
     children: []
-    id: CHART-p4RouteSpeed000000000
+    id: CHART-p5TramsSpeed00000000
     meta:
       chartId: 5
       height: 50
-      sliceName: P5 · Route speed by day
+      sliceName: P5 · Route speed by day — Trams (last 10 days)
       uuid: 911cfcbe-945d-435f-9ea2-13894faedd7a
-      width: 6
+      width: 12
     parents:
     - ROOT_ID
-    - GRID_ID
-    - ROW-networkOverviewA2000
+    - TABS-mainTabs00000000000
+    - TAB-networkOverview00000
+    - ROW-networkOverviewA2a000
+    type: CHART
+  CHART-p5BusesSpeed00000000:
+    children: []
+    id: CHART-p5BusesSpeed00000000
+    meta:
+      chartId: 11
+      height: 259
+      sliceName: P5 · Route speed by day — Buses (last 10 days)
+      uuid: 97bbbac5-6af9-4400-911b-ea5062ff1eb1
+      width: 12
+    parents:
+    - ROOT_ID
+    - TABS-mainTabs00000000000
+    - TAB-networkOverview00000
+    - ROW-networkOverviewA2b000
+    type: CHART
+  CHART-p5NightBusesSpeed0000:
+    children: []
+    id: CHART-p5NightBusesSpeed0000
+    meta:
+      chartId: 12
+      # heatmap_v2's per-row pixel height = (panel height - fixed chrome) /
+      # route count, so matching Trams' and Buses' row height isn't a fixed
+      # number — it scales with each chart's own route count. Solved from
+      # Trams (11 routes, height 50) and Buses (75 routes, height 259):
+      # ~3.27 height units/route + ~14 units fixed chrome. Night buses has
+      # 13 routes -> 57. Re-solve this if route counts change materially.
+      height: 57
+      sliceName: P5 · Route speed by day — Night buses (last 10 days)
+      uuid: 8e63cefb-4b60-4ba9-83f6-0915719f533c
+      width: 12
+    parents:
+    - ROOT_ID
+    - TABS-mainTabs00000000000
+    - TAB-networkOverview00000
+    - ROW-networkOverviewA2c000
     type: CHART
   CHART-p5HourlyProfile000000:
     children: []
@@ -88,22 +114,9 @@ position:
       width: 12
     parents:
     - ROOT_ID
-    - GRID_ID
+    - TABS-mainTabs00000000000
+    - TAB-byRoute0000000000000
     - ROW-byRouteB200000000000
-    type: CHART
-  CHART-p7NetworkRushHour000:
-    children: []
-    id: CHART-p7NetworkRushHour000
-    meta:
-      chartId: 8
-      height: 50
-      sliceName: P7 · Network rush hour (last 24 h)
-      uuid: 80e8c990-7e29-4e12-abb6-0e61cef5dfa0
-      width: 6
-    parents:
-    - ROOT_ID
-    - GRID_ID
-    - ROW-networkOverviewA2000
     type: CHART
   CHART-p8DelayedVehicles000:
     children: []
@@ -116,83 +129,57 @@ position:
       width: 12
     parents:
     - ROOT_ID
-    - GRID_ID
+    - TABS-mainTabs00000000000
+    - TAB-byRoute0000000000000
     - ROW-byRouteB300000000000
     type: CHART
   DASHBOARD_VERSION_KEY: v2
-  GRID_ID:
+  TABS-mainTabs00000000000:
     children:
-    - ROW-groupAHeader00000000
-    - ROW-networkOverviewA1000
+    - TAB-networkOverview00000
+    - TAB-byRoute0000000000000
+    id: TABS-mainTabs00000000000
+    meta: {}
+    parents:
+    - ROOT_ID
+    type: TABS
+  TAB-networkOverview00000:
+    children:
     - ROW-networkOverviewA1b000
-    - ROW-networkOverviewA2000
-    - ROW-groupBHeader00000000
+    - ROW-networkOverviewA2a000
+    - ROW-networkOverviewA2b000
+    - ROW-networkOverviewA2c000
+    id: TAB-networkOverview00000
+    meta:
+      text: Network overview (all routes)
+      defaultText: Network overview (all routes)
+    parents:
+    - ROOT_ID
+    - TABS-mainTabs00000000000
+    type: TAB
+  TAB-byRoute0000000000000:
+    children:
     - ROW-byRouteB100000000000
     - ROW-byRouteB200000000000
     - ROW-byRouteB300000000000
-    id: GRID_ID
+    id: TAB-byRoute0000000000000
+    meta:
+      text: By route
+      defaultText: By route
     parents:
     - ROOT_ID
-    type: GRID
+    - TABS-mainTabs00000000000
+    type: TAB
   HEADER_ID:
     id: HEADER_ID
     meta:
       text: Gdansk Public Transport
     type: HEADER
-  MARKDOWN-groupAHeader0000:
-    children: []
-    id: MARKDOWN-groupAHeader0000
-    meta:
-      code: '## Network overview (all routes)
-
-        Always shows every route — unaffected by the Route filter above.'
-      height: 12
-      width: 12
-    parents:
-    - ROOT_ID
-    - GRID_ID
-    - ROW-groupAHeader00000000
-    type: MARKDOWN
-  MARKDOWN-groupBHeader0000:
-    children: []
-    id: MARKDOWN-groupBHeader0000
-    meta:
-      code: '## By route
-
-        Scoped to the route picked in the Route filter above — all routes by default,
-        or narrow to one.'
-      height: 12
-      width: 12
-    parents:
-    - ROOT_ID
-    - GRID_ID
-    - ROW-groupBHeader00000000
-    type: MARKDOWN
   ROOT_ID:
     children:
-    - GRID_ID
+    - TABS-mainTabs00000000000
     id: ROOT_ID
     type: ROOT
-  ROW-groupAHeader00000000:
-    children:
-    - MARKDOWN-groupAHeader0000
-    id: ROW-groupAHeader00000000
-    meta:
-      background: BACKGROUND_TRANSPARENT
-    parents:
-    - ROOT_ID
-    - GRID_ID
-    type: ROW
-  ROW-networkOverviewA1000:
-    children:
-    - CHART-totalRowsKpi00000000
-    id: ROW-networkOverviewA1000
-    meta:
-      background: BACKGROUND_TRANSPARENT
-    parents:
-    - ROOT_ID
-    - GRID_ID
-    type: ROW
   ROW-networkOverviewA1b000:
     children:
     - CHART-p3Punctuality000000000
@@ -201,28 +188,41 @@ position:
       background: BACKGROUND_TRANSPARENT
     parents:
     - ROOT_ID
-    - GRID_ID
+    - TABS-mainTabs00000000000
+    - TAB-networkOverview00000
     type: ROW
-  ROW-networkOverviewA2000:
+  ROW-networkOverviewA2a000:
     children:
-    - CHART-p4RouteSpeed000000000
-    - CHART-p7NetworkRushHour000
-    id: ROW-networkOverviewA2000
+    - CHART-p5TramsSpeed00000000
+    id: ROW-networkOverviewA2a000
     meta:
       background: BACKGROUND_TRANSPARENT
     parents:
     - ROOT_ID
-    - GRID_ID
+    - TABS-mainTabs00000000000
+    - TAB-networkOverview00000
     type: ROW
-  ROW-groupBHeader00000000:
+  ROW-networkOverviewA2b000:
     children:
-    - MARKDOWN-groupBHeader0000
-    id: ROW-groupBHeader00000000
+    - CHART-p5BusesSpeed00000000
+    id: ROW-networkOverviewA2b000
     meta:
       background: BACKGROUND_TRANSPARENT
     parents:
     - ROOT_ID
-    - GRID_ID
+    - TABS-mainTabs00000000000
+    - TAB-networkOverview00000
+    type: ROW
+  ROW-networkOverviewA2c000:
+    children:
+    - CHART-p5NightBusesSpeed0000
+    id: ROW-networkOverviewA2c000
+    meta:
+      background: BACKGROUND_TRANSPARENT
+    parents:
+    - ROOT_ID
+    - TABS-mainTabs00000000000
+    - TAB-networkOverview00000
     type: ROW
   ROW-byRouteB100000000000:
     children:
@@ -233,7 +233,8 @@ position:
       background: BACKGROUND_TRANSPARENT
     parents:
     - ROOT_ID
-    - GRID_ID
+    - TABS-mainTabs00000000000
+    - TAB-byRoute0000000000000
     type: ROW
   ROW-byRouteB200000000000:
     children:
@@ -243,7 +244,8 @@ position:
       background: BACKGROUND_TRANSPARENT
     parents:
     - ROOT_ID
-    - GRID_ID
+    - TABS-mainTabs00000000000
+    - TAB-byRoute0000000000000
     type: ROW
   ROW-byRouteB300000000000:
     children:
@@ -253,7 +255,8 @@ position:
       background: BACKGROUND_TRANSPARENT
     parents:
     - ROOT_ID
-    - GRID_ID
+    - TABS-mainTabs00000000000
+    - TAB-byRoute0000000000000
     type: ROW
 metadata:
   native_filter_configuration:
@@ -264,34 +267,58 @@ metadata:
     cascadeParentIds: []
     defaultDataMask:
       extraFormData:
-        time_range: No filter
+        time_range: 'DATEADD(DATETIME("now"), -30, day) : now'
       filterState:
-        value: No filter
+        value: 'DATEADD(DATETIME("now"), -30, day) : now'
     controlValues:
       enableEmptyFilter: false
     scope:
       rootPath:
       - ROOT_ID
       excluded:
-      - 7
       - 6
-      - 8
       - 9
-    # chartsInScope uses this file's position chartIds (P2=2, P4=4, P5=5,
-    # P3=10), but the Superset importer only remaps scope.excluded — after
+      - 5
+      - 11
+      - 12
+    # The three P5 heatmaps (5/11/12: Trams/Buses/Night buses) are DELIBERATELY
+    # in scope.excluded, not chartsInScope: the importer remaps excluded ids by
+    # UUID on every import, but does NOT remap chartsInScope — so any chart id
+    # listed only in chartsInScope points at an arbitrary chart after each
+    # delete+reimport cycle, and the date filter silently applied to a random
+    # subset of the P5 heatmaps (observed: the three x-axes showing different
+    # day ranges that reshuffled per import). Each P5 chart carries its own
+    # fixed 10-day TEMPORAL_RANGE adhoc_filter instead, so excluding them here
+    # loses nothing and makes their window import-proof.
+    # chartsInScope uses this file's position chartIds (P2=2, P4=4, P3=10),
+    # but the Superset importer only remaps scope.excluded — after
     # (re-)importing, fix chartsInScope to the live chart ids via
-    # PUT /api/v1/dashboard/{id}.
+    # PUT /api/v1/dashboard/{id}. Same caveat applies
+    # to tabsInScope below: it should resolve to the live "Network overview
+    # (all routes)" and "By route" tab component ids. Note tabsInScope/
+    # chartsInScope only control which charts the filter's value actually
+    # applies to — Superset's native FilterBar does not hide or dim a
+    # filter's control based on tab scope (confirmed against its source),
+    # so the control itself still shows on every tab regardless. P1 and P7
+    # (fixed windows, ignore this filter entirely) were moved to a separate
+    # filter-free "Overview" dashboard for exactly this reason — see
+    # Gdansk_Public_Transport_Overview.yaml.
     chartsInScope:
     - 2
     - 4
-    - 5
     - 10
-    tabsInScope: []
+    tabsInScope:
+    - TAB-networkOverview00000
+    - TAB-byRoute0000000000000
     type: NATIVE_FILTER
-    description: Date window for the report (applies to P2, P4, P5 and P3).
-      Defaults to whole history — P2 still effectively shows the last 24h since
-      it carries its own fixed window; narrow this to shrink the others' window
-      too.
+    description: Date window for the report (applies to P2, P4 and P3).
+      Defaults to last 30 days (same DATEADD/DATETIME syntax
+      as P2's own fixed 24h filter) to keep the dashboard fast as the OFFLINE
+      table's history grows — P2 still effectively shows the last 24h since it
+      carries its own fixed window; widen or narrow this to change P4/P3's
+      window. The three P5 heatmaps are excluded from this filter entirely
+      (each has its own fixed 10-day window) — see the scope comment above
+      for why exclusion is the only wiring that survives reimports intact.
   - id: NATIVE_FILTER-routePicker000000
     name: Route
     filterType: filter_select
@@ -312,22 +339,26 @@ metadata:
       rootPath:
       - ROOT_ID
       excluded:
-      - 7
-      - 3
+      - 10
       - 5
-      - 8
+      - 11
+      - 12
     # chartsInScope uses this file's position chartIds (P2=2, P4=4, P6=6, P8=9), but
     # the Superset importer only remaps scope.excluded — after (re-)importing, fix
     # chartsInScope to the live P2/P4/P6/P8 chart ids via PUT /api/v1/dashboard/{id}.
+    # tabsInScope should resolve to just the live "By route" tab id. As with the
+    # date range filter above, this only controls which charts respond to the
+    # filter's value, not whether the control itself is shown on other tabs.
     chartsInScope:
     - 2
     - 4
     - 6
     - 9
-    tabsInScope: []
+    tabsInScope:
+    - TAB-byRoute0000000000000
     type: NATIVE_FILTER
     description: Route shown (applies to P2, P4, P6 and P8); defaults to all routes,
-      optionally narrow to one
+      optionally narrow to one.
   chart_configuration: {}
   global_chart_configuration:
     scope:
@@ -336,13 +367,13 @@ metadata:
       excluded: []
     chartsInScope:
     - 2
-    - 7
     - 10
     - 4
     - 5
     - 6
-    - 8
     - 9
+    - 11
+    - 12
   map_label_colors: {}
   color_scheme: ''
   refresh_frequency: 10
@@ -352,9 +383,350 @@ metadata:
     pct_on_time: '#5ac189'
     pct_late: '#e04355'
     pct_early: '#d63cbe'
+    'pct_on_time, 2.0': '#5ac189'
+    'pct_late, 2.0': '#e04355'
+    'pct_early, 2.0': '#d63cbe'
+    'pct_on_time, 3.0': '#5ac189'
+    'pct_late, 3.0': '#e04355'
+    'pct_early, 3.0': '#d63cbe'
+    'pct_on_time, 4.0': '#5ac189'
+    'pct_late, 4.0': '#e04355'
+    'pct_early, 4.0': '#d63cbe'
+    'pct_on_time, 5.0': '#5ac189'
+    'pct_late, 5.0': '#e04355'
+    'pct_early, 5.0': '#d63cbe'
+    'pct_on_time, 6.0': '#5ac189'
+    'pct_late, 6.0': '#e04355'
+    'pct_early, 6.0': '#d63cbe'
+    'pct_on_time, 7.0': '#5ac189'
+    'pct_late, 7.0': '#e04355'
+    'pct_early, 7.0': '#d63cbe'
+    'pct_on_time, 8.0': '#5ac189'
+    'pct_late, 8.0': '#e04355'
+    'pct_early, 8.0': '#d63cbe'
+    'pct_on_time, 9.0': '#5ac189'
+    'pct_late, 9.0': '#e04355'
+    'pct_early, 9.0': '#d63cbe'
+    'pct_on_time, 10.0': '#5ac189'
+    'pct_late, 10.0': '#e04355'
+    'pct_early, 10.0': '#d63cbe'
+    'pct_on_time, 11.0': '#5ac189'
+    'pct_late, 11.0': '#e04355'
+    'pct_early, 11.0': '#d63cbe'
+    'pct_on_time, 12.0': '#5ac189'
+    'pct_late, 12.0': '#e04355'
+    'pct_early, 12.0': '#d63cbe'
+    'pct_on_time, 60.0': '#5ac189'
+    'pct_late, 60.0': '#e04355'
+    'pct_early, 60.0': '#d63cbe'
+    'pct_on_time, 63.0': '#5ac189'
+    'pct_late, 63.0': '#e04355'
+    'pct_early, 63.0': '#d63cbe'
+    'pct_on_time, 90.0': '#5ac189'
+    'pct_late, 90.0': '#e04355'
+    'pct_early, 90.0': '#d63cbe'
+    'pct_on_time, 92.0': '#5ac189'
+    'pct_late, 92.0': '#e04355'
+    'pct_early, 92.0': '#d63cbe'
+    'pct_on_time, 93.0': '#5ac189'
+    'pct_late, 93.0': '#e04355'
+    'pct_early, 93.0': '#d63cbe'
+    'pct_on_time, 1100.0': '#5ac189'
+    'pct_late, 1100.0': '#e04355'
+    'pct_early, 1100.0': '#d63cbe'
+    'pct_on_time, 1106.0': '#5ac189'
+    'pct_late, 1106.0': '#e04355'
+    'pct_early, 1106.0': '#d63cbe'
+    'pct_on_time, 1107.0': '#5ac189'
+    'pct_late, 1107.0': '#e04355'
+    'pct_early, 1107.0': '#d63cbe'
+    'pct_on_time, 1108.0': '#5ac189'
+    'pct_late, 1108.0': '#e04355'
+    'pct_early, 1108.0': '#d63cbe'
+    'pct_on_time, 1110.0': '#5ac189'
+    'pct_late, 1110.0': '#e04355'
+    'pct_early, 1110.0': '#d63cbe'
+    'pct_on_time, 1111.0': '#5ac189'
+    'pct_late, 1111.0': '#e04355'
+    'pct_early, 1111.0': '#d63cbe'
+    'pct_on_time, 1112.0': '#5ac189'
+    'pct_late, 1112.0': '#e04355'
+    'pct_early, 1112.0': '#d63cbe'
+    'pct_on_time, 1113.0': '#5ac189'
+    'pct_late, 1113.0': '#e04355'
+    'pct_early, 1113.0': '#d63cbe'
+    'pct_on_time, 1115.0': '#5ac189'
+    'pct_late, 1115.0': '#e04355'
+    'pct_early, 1115.0': '#d63cbe'
+    'pct_on_time, 1116.0': '#5ac189'
+    'pct_late, 1116.0': '#e04355'
+    'pct_early, 1116.0': '#d63cbe'
+    'pct_on_time, 1117.0': '#5ac189'
+    'pct_late, 1117.0': '#e04355'
+    'pct_early, 1117.0': '#d63cbe'
+    'pct_on_time, 1118.0': '#5ac189'
+    'pct_late, 1118.0': '#e04355'
+    'pct_early, 1118.0': '#d63cbe'
+    'pct_on_time, 1120.0': '#5ac189'
+    'pct_late, 1120.0': '#e04355'
+    'pct_early, 1120.0': '#d63cbe'
+    'pct_on_time, 1122.0': '#5ac189'
+    'pct_late, 1122.0': '#e04355'
+    'pct_early, 1122.0': '#d63cbe'
+    'pct_on_time, 1123.0': '#5ac189'
+    'pct_late, 1123.0': '#e04355'
+    'pct_early, 1123.0': '#d63cbe'
+    'pct_on_time, 1124.0': '#5ac189'
+    'pct_late, 1124.0': '#e04355'
+    'pct_early, 1124.0': '#d63cbe'
+    'pct_on_time, 1126.0': '#5ac189'
+    'pct_late, 1126.0': '#e04355'
+    'pct_early, 1126.0': '#d63cbe'
+    'pct_on_time, 1127.0': '#5ac189'
+    'pct_late, 1127.0': '#e04355'
+    'pct_early, 1127.0': '#d63cbe'
+    'pct_on_time, 1130.0': '#5ac189'
+    'pct_late, 1130.0': '#e04355'
+    'pct_early, 1130.0': '#d63cbe'
+    'pct_on_time, 1131.0': '#5ac189'
+    'pct_late, 1131.0': '#e04355'
+    'pct_early, 1131.0': '#d63cbe'
+    'pct_on_time, 1132.0': '#5ac189'
+    'pct_late, 1132.0': '#e04355'
+    'pct_early, 1132.0': '#d63cbe'
+    'pct_on_time, 1136.0': '#5ac189'
+    'pct_late, 1136.0': '#e04355'
+    'pct_early, 1136.0': '#d63cbe'
+    'pct_on_time, 1138.0': '#5ac189'
+    'pct_late, 1138.0': '#e04355'
+    'pct_early, 1138.0': '#d63cbe'
+    'pct_on_time, 1143.0': '#5ac189'
+    'pct_late, 1143.0': '#e04355'
+    'pct_early, 1143.0': '#d63cbe'
+    'pct_on_time, 1148.0': '#5ac189'
+    'pct_late, 1148.0': '#e04355'
+    'pct_early, 1148.0': '#d63cbe'
+    'pct_on_time, 1149.0': '#5ac189'
+    'pct_late, 1149.0': '#e04355'
+    'pct_early, 1149.0': '#d63cbe'
+    'pct_on_time, 1154.0': '#5ac189'
+    'pct_late, 1154.0': '#e04355'
+    'pct_early, 1154.0': '#d63cbe'
+    'pct_on_time, 1155.0': '#5ac189'
+    'pct_late, 1155.0': '#e04355'
+    'pct_early, 1155.0': '#d63cbe'
+    'pct_on_time, 1156.0': '#5ac189'
+    'pct_late, 1156.0': '#e04355'
+    'pct_early, 1156.0': '#d63cbe'
+    'pct_on_time, 1157.0': '#5ac189'
+    'pct_late, 1157.0': '#e04355'
+    'pct_early, 1157.0': '#d63cbe'
+    'pct_on_time, 1158.0': '#5ac189'
+    'pct_late, 1158.0': '#e04355'
+    'pct_early, 1158.0': '#d63cbe'
+    'pct_on_time, 1162.0': '#5ac189'
+    'pct_late, 1162.0': '#e04355'
+    'pct_early, 1162.0': '#d63cbe'
+    'pct_on_time, 1166.0': '#5ac189'
+    'pct_late, 1166.0': '#e04355'
+    'pct_early, 1166.0': '#d63cbe'
+    'pct_on_time, 1167.0': '#5ac189'
+    'pct_late, 1167.0': '#e04355'
+    'pct_early, 1167.0': '#d63cbe'
+    'pct_on_time, 1168.0': '#5ac189'
+    'pct_late, 1168.0': '#e04355'
+    'pct_early, 1168.0': '#d63cbe'
+    'pct_on_time, 1169.0': '#5ac189'
+    'pct_late, 1169.0': '#e04355'
+    'pct_early, 1169.0': '#d63cbe'
+    'pct_on_time, 1171.0': '#5ac189'
+    'pct_late, 1171.0': '#e04355'
+    'pct_early, 1171.0': '#d63cbe'
+    'pct_on_time, 1174.0': '#5ac189'
+    'pct_late, 1174.0': '#e04355'
+    'pct_early, 1174.0': '#d63cbe'
+    'pct_on_time, 1175.0': '#5ac189'
+    'pct_late, 1175.0': '#e04355'
+    'pct_early, 1175.0': '#d63cbe'
+    'pct_on_time, 1176.0': '#5ac189'
+    'pct_late, 1176.0': '#e04355'
+    'pct_early, 1176.0': '#d63cbe'
+    'pct_on_time, 1178.0': '#5ac189'
+    'pct_late, 1178.0': '#e04355'
+    'pct_early, 1178.0': '#d63cbe'
+    'pct_on_time, 1179.0': '#5ac189'
+    'pct_late, 1179.0': '#e04355'
+    'pct_early, 1179.0': '#d63cbe'
+    'pct_on_time, 1183.0': '#5ac189'
+    'pct_late, 1183.0': '#e04355'
+    'pct_early, 1183.0': '#d63cbe'
+    'pct_on_time, 1184.0': '#5ac189'
+    'pct_late, 1184.0': '#e04355'
+    'pct_early, 1184.0': '#d63cbe'
+    'pct_on_time, 1186.0': '#5ac189'
+    'pct_late, 1186.0': '#e04355'
+    'pct_early, 1186.0': '#d63cbe'
+    'pct_on_time, 1189.0': '#5ac189'
+    'pct_late, 1189.0': '#e04355'
+    'pct_early, 1189.0': '#d63cbe'
+    'pct_on_time, 1195.0': '#5ac189'
+    'pct_late, 1195.0': '#e04355'
+    'pct_early, 1195.0': '#d63cbe'
+    'pct_on_time, 1199.0': '#5ac189'
+    'pct_late, 1199.0': '#e04355'
+    'pct_early, 1199.0': '#d63cbe'
+    'pct_on_time, 1200.0': '#5ac189'
+    'pct_late, 1200.0': '#e04355'
+    'pct_early, 1200.0': '#d63cbe'
+    'pct_on_time, 1205.0': '#5ac189'
+    'pct_late, 1205.0': '#e04355'
+    'pct_early, 1205.0': '#d63cbe'
+    'pct_on_time, 1207.0': '#5ac189'
+    'pct_late, 1207.0': '#e04355'
+    'pct_early, 1207.0': '#d63cbe'
+    'pct_on_time, 1208.0': '#5ac189'
+    'pct_late, 1208.0': '#e04355'
+    'pct_early, 1208.0': '#d63cbe'
+    'pct_on_time, 1210.0': '#5ac189'
+    'pct_late, 1210.0': '#e04355'
+    'pct_early, 1210.0': '#d63cbe'
+    'pct_on_time, 1212.0': '#5ac189'
+    'pct_late, 1212.0': '#e04355'
+    'pct_early, 1212.0': '#d63cbe'
+    'pct_on_time, 1213.0': '#5ac189'
+    'pct_late, 1213.0': '#e04355'
+    'pct_early, 1213.0': '#d63cbe'
+    'pct_on_time, 1227.0': '#5ac189'
+    'pct_late, 1227.0': '#e04355'
+    'pct_early, 1227.0': '#d63cbe'
+    'pct_on_time, 1232.0': '#5ac189'
+    'pct_late, 1232.0': '#e04355'
+    'pct_early, 1232.0': '#d63cbe'
+    'pct_on_time, 1255.0': '#5ac189'
+    'pct_late, 1255.0': '#e04355'
+    'pct_early, 1255.0': '#d63cbe'
+    'pct_on_time, 1256.0': '#5ac189'
+    'pct_late, 1256.0': '#e04355'
+    'pct_early, 1256.0': '#d63cbe'
+    'pct_on_time, 1258.0': '#5ac189'
+    'pct_late, 1258.0': '#e04355'
+    'pct_early, 1258.0': '#d63cbe'
+    'pct_on_time, 1262.0': '#5ac189'
+    'pct_late, 1262.0': '#e04355'
+    'pct_early, 1262.0': '#d63cbe'
+    'pct_on_time, 1267.0': '#5ac189'
+    'pct_late, 1267.0': '#e04355'
+    'pct_early, 1267.0': '#d63cbe'
+    'pct_on_time, 1268.0': '#5ac189'
+    'pct_late, 1268.0': '#e04355'
+    'pct_early, 1268.0': '#d63cbe'
+    'pct_on_time, 1269.0': '#5ac189'
+    'pct_late, 1269.0': '#e04355'
+    'pct_early, 1269.0': '#d63cbe'
+    'pct_on_time, 1283.0': '#5ac189'
+    'pct_late, 1283.0': '#e04355'
+    'pct_early, 1283.0': '#d63cbe'
+    'pct_on_time, 1289.0': '#5ac189'
+    'pct_late, 1289.0': '#e04355'
+    'pct_early, 1289.0': '#d63cbe'
+    'pct_on_time, 1295.0': '#5ac189'
+    'pct_late, 1295.0': '#e04355'
+    'pct_early, 1295.0': '#d63cbe'
+    'pct_on_time, 1307.0': '#5ac189'
+    'pct_late, 1307.0': '#e04355'
+    'pct_early, 1307.0': '#d63cbe'
+    'pct_on_time, 1333.0': '#5ac189'
+    'pct_late, 1333.0': '#e04355'
+    'pct_early, 1333.0': '#d63cbe'
+    'pct_on_time, 1507.0': '#5ac189'
+    'pct_late, 1507.0': '#e04355'
+    'pct_early, 1507.0': '#d63cbe'
+    'pct_on_time, 1512.0': '#5ac189'
+    'pct_late, 1512.0': '#e04355'
+    'pct_early, 1512.0': '#d63cbe'
+    'pct_on_time, 1600.0': '#5ac189'
+    'pct_late, 1600.0': '#e04355'
+    'pct_early, 1600.0': '#d63cbe'
+    'pct_on_time, 1606.0': '#5ac189'
+    'pct_late, 1606.0': '#e04355'
+    'pct_early, 1606.0': '#d63cbe'
+    'pct_on_time, 1607.0': '#5ac189'
+    'pct_late, 1607.0': '#e04355'
+    'pct_early, 1607.0': '#d63cbe'
+    'pct_on_time, 1612.0': '#5ac189'
+    'pct_late, 1612.0': '#e04355'
+    'pct_early, 1612.0': '#d63cbe'
+    'pct_on_time, 1622.0': '#5ac189'
+    'pct_late, 1622.0': '#e04355'
+    'pct_early, 1622.0': '#d63cbe'
+    'pct_on_time, 1658.0': '#5ac189'
+    'pct_late, 1658.0': '#e04355'
+    'pct_early, 1658.0': '#d63cbe'
+    'pct_on_time, 1909.0': '#5ac189'
+    'pct_late, 1909.0': '#e04355'
+    'pct_early, 1909.0': '#d63cbe'
+    'pct_on_time, 1911.0': '#5ac189'
+    'pct_late, 1911.0': '#e04355'
+    'pct_early, 1911.0': '#d63cbe'
+    'pct_on_time, 1940.0': '#5ac189'
+    'pct_late, 1940.0': '#e04355'
+    'pct_early, 1940.0': '#d63cbe'
+    'pct_on_time, 2008.0': '#5ac189'
+    'pct_late, 2008.0': '#e04355'
+    'pct_early, 2008.0': '#d63cbe'
+    'pct_on_time, 2010.0': '#5ac189'
+    'pct_late, 2010.0': '#e04355'
+    'pct_early, 2010.0': '#d63cbe'
+    'pct_on_time, 2012.0': '#5ac189'
+    'pct_late, 2012.0': '#e04355'
+    'pct_early, 2012.0': '#d63cbe'
+    'pct_on_time, 2032.0': '#5ac189'
+    'pct_late, 2032.0': '#e04355'
+    'pct_early, 2032.0': '#d63cbe'
+    'pct_on_time, 2034.0': '#5ac189'
+    'pct_late, 2034.0': '#e04355'
+    'pct_early, 2034.0': '#d63cbe'
+    'pct_on_time, 3001.0': '#5ac189'
+    'pct_late, 3001.0': '#e04355'
+    'pct_early, 3001.0': '#d63cbe'
+    'pct_on_time, 3002.0': '#5ac189'
+    'pct_late, 3002.0': '#e04355'
+    'pct_early, 3002.0': '#d63cbe'
+    'pct_on_time, 3003.0': '#5ac189'
+    'pct_late, 3003.0': '#e04355'
+    'pct_early, 3003.0': '#d63cbe'
+    'pct_on_time, 3004.0': '#5ac189'
+    'pct_late, 3004.0': '#e04355'
+    'pct_early, 3004.0': '#d63cbe'
+    'pct_on_time, 3005.0': '#5ac189'
+    'pct_late, 3005.0': '#e04355'
+    'pct_early, 3005.0': '#d63cbe'
+    'pct_on_time, 3006.0': '#5ac189'
+    'pct_late, 3006.0': '#e04355'
+    'pct_early, 3006.0': '#d63cbe'
+    'pct_on_time, 3008.0': '#5ac189'
+    'pct_late, 3008.0': '#e04355'
+    'pct_early, 3008.0': '#d63cbe'
+    'pct_on_time, 3009.0': '#5ac189'
+    'pct_late, 3009.0': '#e04355'
+    'pct_early, 3009.0': '#d63cbe'
+    'pct_on_time, 3014.0': '#5ac189'
+    'pct_late, 3014.0': '#e04355'
+    'pct_early, 3014.0': '#d63cbe'
+    'pct_on_time, 3016.0': '#5ac189'
+    'pct_late, 3016.0': '#e04355'
+    'pct_early, 3016.0': '#d63cbe'
+    'pct_on_time, 3056.0': '#5ac189'
+    'pct_late, 3056.0': '#e04355'
+    'pct_early, 3056.0': '#d63cbe'
+    'pct_on_time, 3078.0': '#5ac189'
+    'pct_late, 3078.0': '#e04355'
+    'pct_early, 3078.0': '#d63cbe'
+    'pct_on_time, 3089.0': '#5ac189'
+    'pct_late, 3089.0': '#e04355'
+    'pct_early, 3089.0': '#d63cbe'
   shared_label_colors: []
   timed_refresh_immune_slices: []
   cross_filters_enabled: true
   default_filters: '{}'
 version: 1.0.0
-

@@ -109,5 +109,35 @@ class RouteHourlyDelayTests(unittest.TestCase):
             pinot.route_hourly_delay("8' OR '1'='1")
 
 
+class NetworkHourlyTests(unittest.TestCase):
+
+    def setUp(self):
+        self._orig_urlopen = urllib.request.urlopen
+        pinot._network_hourly_cache = pinot.TTLCache(pinot.NETWORK_HOURLY_TTL_S)
+
+    def tearDown(self):
+        urllib.request.urlopen = self._orig_urlopen
+
+    def test_network_hourly_returns_rows_and_time(self):
+        urllib.request.urlopen = lambda req, timeout=None: _FakeResponse(
+            _pinot_result(['hour', 'activeVehicles'],
+                          [['07:00', 350], ['08:00', 412]], time_used_ms=19))
+        rows, ms = pinot.network_hourly()
+        self.assertEqual(rows, [{'hour': '07:00', 'activeVehicles': 350},
+                                {'hour': '08:00', 'activeVehicles': 412}])
+        self.assertEqual(ms, 19)
+
+    def test_network_hourly_is_cached(self):
+        urllib.request.urlopen = lambda req, timeout=None: _FakeResponse(
+            _pinot_result(['hour', 'activeVehicles'], [['07:00', 350]]))
+        first, _ = pinot.network_hourly()
+
+        def boom(req, timeout=None):
+            raise AssertionError('cached call must not hit the broker')
+        urllib.request.urlopen = boom
+        second, _ = pinot.network_hourly()
+        self.assertEqual(second, first)
+
+
 if __name__ == '__main__':
     unittest.main()

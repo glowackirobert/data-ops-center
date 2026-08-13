@@ -1,6 +1,6 @@
 slice_name: P2 · On-time %
 description: 'What % of vehicles were on time? On time = delay between -60 and +60 s
-  — early is not on time. Source: gdansk_public_transport_queries.sql (P1).'
+  — early is not on time.'
 certified_by: null
 certification_details: null
 viz_type: big_number_total
@@ -9,8 +9,7 @@ params:
   viz_type: big_number_total
   metric:
     expressionType: SQL
-    sqlExpression: ROUNDDECIMAL(SUM(CASE WHEN delay BETWEEN -60 AND 60 THEN 1 ELSE
-      0 END) * 100.0 / COUNT(*), 1)
+    sqlExpression: ROUNDDECIMAL(SUM(isOnTime) * 100.0 / COUNT(*), 1)
     column: null
     aggregate: null
     hasCustomLabel: true
@@ -29,7 +28,7 @@ params:
   extra_form_data: {}
   dashboards: []
 query_context: ''
-cache_timeout: 0
+cache_timeout: 3600
 uuid: 44ec6e99-4846-4969-b04c-e17bec6e5757
 version: 1.0.0
 dataset_uuid: 0fd033bf-2b72-4a3d-9cc5-740588b70c37

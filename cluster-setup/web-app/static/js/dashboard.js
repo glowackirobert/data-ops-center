@@ -1,4 +1,4 @@
-import { fmtBytes, latencyMs, latencyBadgeHtml } from './utils.js';
+import { esc, fmtBytes, latencyMs, latencyBadgeHtml } from './utils.js';
 
 let dashboardEmbedded = false;
 
@@ -32,7 +32,7 @@ export async function initDashboard() {
 }
 
 // Storage strip on the Analytics tab: Pinot internals the dashboard can't
-// show (the row count lives in the "Total rows" Big Number chart instead).
+// show (the row count lives in the overview strip's Total rows tile instead).
 // Deliberately not in the top bar — a big row count next to the live map
 // reads as "points on the map", which it is not.
 export async function refreshStats() {
@@ -46,4 +46,53 @@ export async function refreshStats() {
       `<b>${fmtBytes(s.sizeBytes)}</b>` +
       latencyBadgeHtml(latencyMs(resp));
   } catch { /* strip stays as-is; next tick retries */ }
+}
+
+// Native overview strip (Total rows + Network rush hour — formerly the
+// embedded Superset "Overview" dashboard): both panels query Pinot through
+// server.py, so they paint in tens of milliseconds while the embedded SDK is
+// still booting Superset's frontend bundle inside the main iframe below. The
+// main dashboard stays embedded — its filters and chart tooling are worth the
+// load time; these two always-on-screen numbers are not.
+export async function refreshOverview() {
+  const el = document.getElementById('dash-overview');
+  try {
+    const [statsResp, rushResp] = await Promise.all([
+      fetch('/api/stats'),
+      fetch('/api/network-hourly'),
+    ]);
+    const stats = await statsResp.json();
+    const rush = await rushResp.json();
+    if (stats.error) throw new Error(stats.error);
+    if (rush.error) throw new Error(rush.error);
+    renderOverview(el, stats, rush, latencyMs(rushResp));
+  } catch (err) {
+    el.innerHTML =
+      `<span class="ov-error">Overview failed to load: ${esc(err.message)}</span>`;
+  }
+}
+
+function renderOverview(el, stats, rows, ms) {
+  const byHour = new Map(rows.map(r => [r.hour, r.activeVehicles]));
+  // All 24 slots always drawn, same as the route-delay histogram: hours with
+  // no data (feed gaps) read as an empty slot, not a squeezed axis.
+  const hours = Array.from({ length: 24 }, (_, h) =>
+    byHour.get(`${String(h).padStart(2, '0')}:00`) ?? 0);
+  const max = Math.max(...hours, 1);
+  const bars = hours.map((v, h) =>
+    `<div class="bar" style="height:${Math.max(Math.round((v / max) * 100), 2)}%" ` +
+    `title="${h}:00 — ${v} active vehicles"></div>`).join('');
+  const ticks = [0, 6, 12, 18].map(h => `<span>${h}:00</span>`).join('');
+  el.innerHTML =
+    `<div class="ov-panel" id="overview-total">` +
+      `<h4>Total GPS snapshots</h4>` +
+      `<div class="ov-big">${stats.totalDocs.toLocaleString()}</div>` +
+      `<div class="ov-sub">rows in Pinot (realtime + offline)</div>` +
+    `</div>` +
+    `<div class="ov-panel" id="overview-rush">` +
+      `<h4>Network rush hour — active vehicles by hour (last 24 h)` +
+      `${latencyBadgeHtml(ms)}</h4>` +
+      `<div class="bars">${bars}</div>` +
+      `<div class="hours">${ticks}</div>` +
+    `</div>`;
 }

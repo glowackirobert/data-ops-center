@@ -9,7 +9,7 @@ import urllib.request
 
 from app.cache import TTLCache
 from app.config import APPLICATION_JSON, PINOT_BROKER_URL, PINOT_CONTROLLER_URL, \
-    DELAYS_TTL_S, HEATMAP_TTL_S, STATS_TTL_S
+    DELAYS_TTL_S, HEATMAP_TTL_S, NETWORK_HOURLY_TTL_S, STATS_TTL_S
 
 # Pinot's INT null sentinel (Integer.MIN_VALUE). LASTWITHTIME(tripId, ...)
 # returns this for a vehicle currently between trips (e.g. laying over at a
@@ -93,6 +93,24 @@ WHERE routeShortName = '{route}'
 GROUP BY hour
 ORDER BY hour
 """
+# Hour-by-hour count of distinct active vehicles across the whole network over
+# the last 24 h — the "network rush hour" panel on the Analytics tab's native
+# overview strip (formerly Superset chart P7, moved here because the embedded
+# SDK spends seconds booting Superset's frontend inside the iframe while this
+# query answers in tens of ms). TODATETIME folds the window's two partial
+# hours (yesterday's and today's share of the current wall-clock hour) into
+# one 'HH:00' bucket, same as the original chart. Cached: whole-network
+# aggregate, moves slowly.
+NETWORK_HOURLY_SQL = """
+SELECT TODATETIME(generatedTransformed, 'HH:00', 'Europe/Warsaw') AS hour,
+       COUNT(DISTINCT vehicleId) AS activeVehicles
+FROM gdansk_public_transport
+WHERE generatedTransformed > ago('P1D')
+GROUP BY hour
+ORDER BY hour
+LIMIT 100
+"""
+
 # Route short names are short alphanumeric codes (trams "8", "12"; buses incl.
 # night lines "N1", "159") — never containing a quote or other SQL-meaningful
 # character. Validated before string-interpolating into ROUTE_HOURLY_DELAY_SQL
@@ -103,6 +121,7 @@ _ROUTE_RE = re.compile(r'^[A-Za-z0-9]{1,10}$')
 _delays_cache = TTLCache(DELAYS_TTL_S)
 _heatmap_cache = TTLCache(HEATMAP_TTL_S)
 _stats_cache = TTLCache(STATS_TTL_S)
+_network_hourly_cache = TTLCache(NETWORK_HOURLY_TTL_S)
 
 
 class PinotQueryError(Exception):
@@ -170,6 +189,16 @@ def heatmap_cells():
     rows, ms = _query(HEATMAP_SQL, timeout=30)
     result = (rows, ms)
     _heatmap_cache.set(result)
+    return result
+
+
+def network_hourly():
+    """(rows of {hour, activeVehicles} over the last 24 h, timeUsedMs)."""
+    cached = _network_hourly_cache.get()
+    if cached is not None:
+        return cached
+    result = _query(NETWORK_HOURLY_SQL, timeout=15)
+    _network_hourly_cache.set(result)
     return result
 
 

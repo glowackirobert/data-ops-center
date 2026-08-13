@@ -41,6 +41,7 @@ SHAPES_URL = os.environ.get('SHAPES_URL', 'https://ckan2.multimediagdansk.pl/sha
 DELAYS_TTL_S = 20
 HEATMAP_TTL_S = 300
 STATS_TTL_S = 60
+NETWORK_HOURLY_TTL_S = 300
 
 
 def read_secret(path):

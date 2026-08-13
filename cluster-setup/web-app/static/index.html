@@ -26,7 +26,36 @@
     <button id="tab-map" class="active">Live Map</button>
     <button id="tab-dash">Analytics</button>
   </nav>
+  <button id="help-btn" title="About this app / how to use it">?</button>
 </header>
+<div id="help-modal" class="hidden">
+  <div id="help-card">
+    <button id="help-close" class="close" aria-label="Close">&times;</button>
+    <h2>Welcome to Gdansk Public Transport</h2>
+    <p>
+      This app visualizes live and historical GPS data for every bus and tram in
+      Gdansk. Vehicle positions stream in continuously and are stored for
+      analysis, so you can see what's happening right now and how the network
+      behaves over time.
+    </p>
+    <h3>Live Map</h3>
+    <ul>
+      <li>Colored dots are vehicles, refreshed every 30 seconds.</li>
+      <li>Use the <b>route filter</b> dropdown (top-left) to focus on a single line.</li>
+      <li>Click a <b>vehicle</b> to draw its current trip: grey = already covered, light blue = ahead.</li>
+      <li>Click a <b>stop</b> pole to see its scheduled departures and live delays.</li>
+      <li>Toggle <b>Heatmap</b> to see 24 h GPS density instead of live vehicles.</li>
+      <li>Small badges like <span class="latency-badge">12 ms</span> show how fast that panel's data query ran.</li>
+    </ul>
+    <h3>Analytics</h3>
+    <p>
+      The Analytics tab embeds dashboards covering on-time performance,
+      punctuality trends, and rush-hour load across the whole network — built
+      on the same underlying data as the live map.
+    </p>
+    <button id="help-dismiss">Got it</button>
+  </div>
+</div>
 <div id="map-view" class="view">
   <div id="map"></div>
   <div id="panel">
@@ -43,6 +72,7 @@
 </div>
 <div id="dash-view" class="view hidden">
   <div id="dash-stats"></div>
+  <div id="dash-overview">Loading overview…</div>
   <div id="dash-mount">
     <div id="dash-status">Loading dashboard…</div>
   </div>

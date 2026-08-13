@@ -1,5 +1,6 @@
 import { initMap, resizeMap } from './map.js';
-import { initDashboard, refreshStats } from './dashboard.js';
+import { initDashboard, refreshStats, refreshOverview } from './dashboard.js';
+import { initHelp } from './help.js';
 
 function showTab(name) {
   const isMap = name === 'map';
@@ -14,7 +15,11 @@ function showTab(name) {
 document.getElementById('tab-map').onclick = () => showTab('map');
 document.getElementById('tab-dash').onclick = () => showTab('dash');
 
+initHelp();
+
 refreshStats();
 setInterval(refreshStats, 60000);
+refreshOverview();
+setInterval(refreshOverview, 60000);
 
 await initMap();

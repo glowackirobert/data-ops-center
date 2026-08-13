@@ -41,6 +41,7 @@ class Handler(BaseHTTPRequestHandler):
             '/api/departures': self._serve_departures,
             '/api/route-shape': self._serve_route_shape,
             '/api/stats': self._serve_stats,
+            '/api/network-hourly': self._serve_network_hourly,
             '/api/heatmap': self._serve_heatmap,
             '/api/route-delay-histogram': self._serve_route_delay_histogram,
         }
@@ -96,6 +97,14 @@ class Handler(BaseHTTPRequestHandler):
     def _serve_stats(self):
         data, ms = pinot.table_stats()
         self._send_json(200, data, time_used_ms=ms)
+
+    def _serve_network_hourly(self):
+        try:
+            rows, ms = pinot.network_hourly()
+        except pinot.PinotQueryError as e:
+            self._send_json(502, {'error': e.exceptions})
+            return
+        self._send_json(200, rows, time_used_ms=ms)
 
     def _serve_heatmap(self):
         rows, ms = pinot.heatmap_cells()

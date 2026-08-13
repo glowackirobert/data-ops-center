@@ -17,6 +17,23 @@ GUEST_TOKEN_JWT_SECRET = SECRET_KEY + "-guest-token"
 # Set explicitly to silence the Flask-Limiter default-storage warning.
 # Switch to redis:// if Superset is ever scaled to multiple containers.
 RATELIMIT_STORAGE_URI = "memory://"
+
+# Without an explicit cache backend Superset falls back to a null cache, which
+# silently voids every chart's cache_timeout — each dashboard view re-runs the
+# whole query + pandas pipeline (~1-3 s per chart even though Pinot answers in
+# tens of ms). FileSystemCache: shared across gunicorn workers (SimpleCache is
+# per-process), no Redis dependency, and /app/superset_home is the persisted
+# volume so the cache survives container restarts. Chart YAMLs' cache_timeout
+# (3600) still takes precedence over CACHE_DEFAULT_TIMEOUT per chart.
+_FS_CACHE = {
+    "CACHE_TYPE": "FileSystemCache",
+    "CACHE_DEFAULT_TIMEOUT": 3600,
+    "CACHE_THRESHOLD": 2000,
+}
+DATA_CACHE_CONFIG = {**_FS_CACHE, "CACHE_DIR": "/app/superset_home/cache/data"}
+CACHE_CONFIG = {**_FS_CACHE, "CACHE_DIR": "/app/superset_home/cache/metadata"}
+FILTER_STATE_CACHE_CONFIG = {**_FS_CACHE, "CACHE_DIR": "/app/superset_home/cache/filter_state"}
+EXPLORE_FORM_DATA_CACHE_CONFIG = {**_FS_CACHE, "CACHE_DIR": "/app/superset_home/cache/explore_form_data"}
 MAPBOX_API_KEY = open('/run/secrets/superset_mapbox_api_key').read().strip() if os.path.exists('/run/secrets/superset_mapbox_api_key') else ""
 
 _SELF = "'self'"
