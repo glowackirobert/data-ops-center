@@ -1,0 +1,109 @@
+slice_name: Route speed by day — Trams (last 10 days)
+description: 'How fast is each tram route day by day? Commercial speed (stops
+  included), one row per route, colored by speed. Fixed 10-day window via its
+  own TEMPORAL_RANGE adhoc_filter on generatedTransformed (matches P2/P8''s
+  pattern and the Buses/Night buses charts), so the x-axis scope stays the
+  same across all three regardless of the dashboard-level "Report date range"
+  native filter''s scoping. The window is anchored to DATETIME("today")
+  (midnight) on both ends — the last 10 complete days, today excluded — not
+  "now": a "now"-anchored rolling window cuts two calendar days in half, so
+  whether those partial days contributed rows shifted with time of day and
+  realtime retention, and the x-axis column count wobbled between 9 and 11
+  across refreshes. Also carries params.granularity_sqla:
+  generatedTransformed, required for that filter to actually bind on
+  heatmap_v2 — see the Buses chart''s description for why (without it
+  Superset silently drops the TEMPORAL_RANGE filter and queries the whole
+  unfiltered table). row_limit is 30000 even though ~15 tram routes x 10 days
+  needs only ~150 rows: Superset translates sort_x_axis/sort_y_axis into a SQL
+  ORDER BY on the transformed group keys, and Pinot''s single-stage engine
+  silently truncates ordered GROUP BY results when LIMIT is small — with
+  LIMIT 2000 this exact query returned 46 of 123 groups covering a random
+  4-of-10 day subset (different days each run, partialResult=false, no
+  exception — reproduced directly against the broker; identical query without
+  ORDER BY, or with LIMIT >= 10000, returns all groups). Symptom: the three
+  P5 heatmaps showed different, shifting x-axis day counts. Split out of P5 into three
+  heatmaps (Trams / Buses / Night buses) — Superset''s heatmap_v2 has no way to
+  sort rows by a hidden column while showing a different label (unlike P3''s
+  x_axis_sort: sort_key trick), so getting a clean trams-then-buses-then-night
+  row order means one chart per category instead of one chart with a computed
+  sort key. Scoped to routes matching ^[0-9]{1,2}$ (1-2 digit routes — same
+  regex P3 uses for "trams"). Row label is the route number left-padded to 2
+  characters with a space (LPAD with a space pad character) so it sorts
+  numerically as text (2, 3, ... 12 instead of 12 sorting before 2) without a
+  visible leading zero — a bare zero pad character would satisfy the sort but
+  display as "02".."09", which reads as a different route number. dayBucket
+  is a plain VARCHAR (is_dttm: false), so
+  Superset''s date-format control has no effect on it — x_axis is a computed
+  SUBSTR(dayBucket, 5, 10) column instead, to show "MM-DD" and drop the
+  year that was crowding the axis. Deliberately spelled SUBSTR with Pinot''s
+  own 0-based (start, end) args, not the ANSI SUBSTRING(x, start, length)
+  form: Superset''s Pinot SQL compiler silently rewrites SUBSTRING into
+  SUBSTR *without* converting the third argument from length to end index,
+  so SUBSTRING(dayBucket, 6, 5) was actually executing as SUBSTR(dayBucket,
+  6, 5) — start=6 > end=5, an empty range — collapsing every row onto a
+  single blank x-axis category. Source: gdansk_public_transport_queries.sql
+  (P4).'
+certified_by: null
+certification_details: null
+viz_type: heatmap_v2
+params:
+  datasource: 1__table
+  viz_type: heatmap_v2
+  granularity_sqla: generatedTransformed
+  x_axis:
+    expressionType: SQL
+    sqlExpression: SUBSTR(dayBucket, 5, 10)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: day
+  groupby:
+    expressionType: SQL
+    sqlExpression: LPAD(routeShortName, 2, ' ')
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: route
+  metric:
+    expressionType: SQL
+    sqlExpression: ROUNDDECIMAL(AVG(speed), 1)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: avg_speed [km/h]
+  adhoc_filters:
+  - clause: WHERE
+    expressionType: SQL
+    sqlExpression: REGEXP_LIKE(routeShortName, '^[0-9]{1,2}$')
+    comparator: null
+    operator: null
+    subject: null
+  - clause: WHERE
+    comparator: 'DATEADD(DATETIME("today"), -10, day) : DATETIME("today")'
+    expressionType: SIMPLE
+    operator: TEMPORAL_RANGE
+    subject: generatedTransformed
+  row_limit: 30000
+  linear_color_scheme: superset_seq_1
+  legend_type: continuous
+  normalize_across: heatmap
+  sort_x_axis: alpha_asc
+  sort_y_axis: alpha_desc
+  xscale_interval: -1
+  yscale_interval: -1
+  value_bounds:
+  - null
+  - null
+  show_legend: true
+  show_values: false
+  show_percentage: false
+  y_axis_format: SMART_NUMBER
+  left_margin: auto
+  bottom_margin: auto
+  extra_form_data: {}
+  dashboards: []
+query_context: ''
+cache_timeout: 3600
+uuid: 911cfcbe-945d-435f-9ea2-13894faedd7a
+version: 1.0.0
+dataset_uuid: 0fd033bf-2b72-4a3d-9cc5-740588b70c37

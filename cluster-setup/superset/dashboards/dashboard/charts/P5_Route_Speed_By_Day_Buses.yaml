@@ -1,0 +1,99 @@
+slice_name: Route speed by day — Buses (last 10 days)
+description: 'How fast is each bus route day by day? Commercial speed (stops
+  included), one row per route, colored by speed. Fixed 10-day window via its
+  own TEMPORAL_RANGE adhoc_filter on generatedTransformed (matches P2/P8''s
+  pattern) so the x-axis scope holds regardless of whether the dashboard-level
+  "Report date range" native filter is correctly re-scoped to this chart after
+  a re-import — see the note on that filter in
+  Gdansk_Public_Transport_1.yaml. The window is anchored to DATETIME("today")
+  on both ends (last 10 complete days, today excluded), not "now" — see the
+  Trams chart''s description for why (a "now" anchor made the x-axis column
+  count fluctuate between refreshes). That TEMPORAL_RANGE filter alone is not
+  enough for heatmap_v2, unlike P2''s big_number_total/P8''s table: those viz
+  types expose a granularity_sqla control that Superset''s frontend
+  auto-populates from the datasource''s main_dttm_col, but heatmap_v2 does
+  not, so without params.granularity_sqla set explicitly here the TEMPORAL_RANGE
+  comparator has no column to bind to and Superset silently drops it, querying
+  the table''s whole unfiltered history instead (confirmed by replaying the
+  chart''s query_context through /api/v1/chart/data — the WHERE clause had no
+  generatedTransformed bound at all until this field was added). Split out of P5 into three
+  heatmaps (Trams / Buses / Night buses) — see the Trams chart''s description
+  for why. Scoped to everything that is not a 1-2 digit route (tram) and not
+  N-prefixed (night bus) — numeric bus routes (3+ digits, already uniform width
+  in the live data so no padding is needed to sort correctly) plus lettered
+  codes (e.g. M32, T8); 34M/34S excluded as a one-day rail-replacement service
+  (see P3). Row label is the plain route number/code — digits sort before
+  letters by default, so numeric routes land above lettered codes with no
+  extra transform needed. dayBucket is a plain VARCHAR (is_dttm: false), so
+  Superset''s date-format control has no effect on it — x_axis is a computed
+  SUBSTR(dayBucket, 5, 10) column instead, to show "MM-DD" and drop the year
+  that was crowding the axis (matches the Trams chart; see its description
+  for why this must be spelled SUBSTR with Pinot''s own 0-based (start, end)
+  args rather than ANSI SUBSTRING(x, start, length) — Superset''s Pinot SQL
+  compiler rewrites the latter into the former without converting the third
+  argument, silently breaking it). row_limit is 30000 — this chart covers ~80
+  bus routes vs. ~15 tram/night-bus routes, so at one row per route per day it
+  exhausted a 2000-row cap after only ~24 days and silently dropped the rest
+  of the date range. Trams/Night buses now also use 30000 for a different
+  reason: small LIMITs trigger a Pinot ordered-GROUP-BY truncation — see the
+  Trams chart''s description. Source:
+  gdansk_public_transport_queries.sql (P4).'
+certified_by: null
+certification_details: null
+viz_type: heatmap_v2
+params:
+  datasource: 1__table
+  viz_type: heatmap_v2
+  granularity_sqla: generatedTransformed
+  x_axis:
+    expressionType: SQL
+    sqlExpression: SUBSTR(dayBucket, 5, 10)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: day
+  groupby: routeShortName
+  metric:
+    expressionType: SQL
+    sqlExpression: ROUNDDECIMAL(AVG(speed), 1)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: avg_speed [km/h]
+  adhoc_filters:
+  - clause: WHERE
+    expressionType: SQL
+    sqlExpression: NOT REGEXP_LIKE(routeShortName, '^[0-9]{1,2}$') AND NOT REGEXP_LIKE(routeShortName,
+      '^N') AND routeShortName NOT IN ('34M', '34S')
+    comparator: null
+    operator: null
+    subject: null
+  - clause: WHERE
+    comparator: 'DATEADD(DATETIME("today"), -10, day) : DATETIME("today")'
+    expressionType: SIMPLE
+    operator: TEMPORAL_RANGE
+    subject: generatedTransformed
+  row_limit: 30000
+  linear_color_scheme: superset_seq_1
+  legend_type: continuous
+  normalize_across: heatmap
+  sort_x_axis: alpha_asc
+  sort_y_axis: alpha_desc
+  xscale_interval: -1
+  yscale_interval: -1
+  value_bounds:
+  - null
+  - null
+  show_legend: true
+  show_values: false
+  show_percentage: false
+  y_axis_format: SMART_NUMBER
+  left_margin: auto
+  bottom_margin: auto
+  extra_form_data: {}
+  dashboards: []
+query_context: ''
+cache_timeout: 3600
+uuid: 97bbbac5-6af9-4400-911b-ea5062ff1eb1
+version: 1.0.0
+dataset_uuid: 0fd033bf-2b72-4a3d-9cc5-740588b70c37
