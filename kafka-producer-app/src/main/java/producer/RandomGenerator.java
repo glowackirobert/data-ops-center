@@ -1,7 +1,13 @@
+package producer;
+
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.ThreadLocalRandom;
 
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class RandomGenerator {
 
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";

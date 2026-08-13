@@ -84,7 +84,7 @@
                         <manifest>
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>lib/</classpathPrefix>
-                            <mainClass>KafkaProducerApp</mainClass>
+                            <mainClass>producer.KafkaProducerApp</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

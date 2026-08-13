@@ -1,3 +1,5 @@
+package producer;
+
 import avro.Trade;
 import avro.TradeSide;
 import avro.TradeType;
@@ -9,7 +11,7 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static util.PropertiesLoader.loadProperties;
 
@@ -18,10 +20,10 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
 
     private static final String TOPIC = "trade";
     private static final String PROPERTIES_FILE = "kafka-producer.properties";
-    private static final int NUMBER_OF_MESSAGES = 1_000_000;
+    private static final long NUMBER_OF_MESSAGES = 1_000_000_000_000L;
     private static final int FLUSH_INTERVAL = 10_000;
     private static final int NUMBER_OF_THREADS = 2;
-    private static final int ITERATIONS = 5;
+    private static final int ITERATIONS = 1;
     private final KafkaProducer<String, Trade> producer;
 
     public KafkaCustomTopicProducer() {
@@ -33,7 +35,7 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
     public void produce() {
         for (int iteration = 0; iteration < ITERATIONS; iteration++) {
             log.info("Starting iteration {}/{}", iteration + 1, ITERATIONS);
-            AtomicInteger messageCounter = new AtomicInteger(0);
+            AtomicLong messageCounter = new AtomicLong(0);
             ExecutorService executorService = Executors.newFixedThreadPool(NUMBER_OF_THREADS);
 
             for (int i = 0; i < NUMBER_OF_THREADS; i++) {
@@ -50,11 +52,11 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
         producer.close();
     }
 
-    private void produceMessages(AtomicInteger messageCounter) {
-        int localCounter = 0;
+    private void produceMessages(AtomicLong messageCounter) {
+        long localCounter = 0;
         long lastFlushTime = System.nanoTime();
         while (true) {
-            int currentMsgIndex = messageCounter.getAndIncrement();
+            long currentMsgIndex = messageCounter.getAndIncrement();
             if (currentMsgIndex >= NUMBER_OF_MESSAGES) {
                 break;
             }
@@ -78,11 +80,11 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
     }
 
     private void sendSingleMessage(Trade trade) {
-        ProducerRecord<String, Trade> record = new ProducerRecord<>(TOPIC, trade);
-        producer.send(record, this::handleSendResult);
+        ProducerRecord<String, Trade> producerRecord = new ProducerRecord<>(TOPIC, trade);
+        producer.send(producerRecord, this::handleSendResult);
     }
 
-    private Trade createAvroMessage(int index) {
+    private Trade createAvroMessage(long index) {
         return Trade.newBuilder()
                 .setEventId(String.valueOf(index))
                 .setSymbol(RandomGenerator.generateStringValue())
