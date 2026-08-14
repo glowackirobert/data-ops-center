@@ -11,32 +11,33 @@ from app.cache import TTLCache
 from app.config import APPLICATION_JSON, PINOT_BROKER_URL, PINOT_CONTROLLER_URL, \
     DELAYS_TTL_S, HEATMAP_TTL_S, NETWORK_HOURLY_TTL_S, STATS_TTL_S
 
-# Pinot's INT null sentinel (Integer.MIN_VALUE). LASTWITHTIME(tripId, ...)
-# returns this for a vehicle currently between trips (e.g. laying over at a
-# depot/terminus) — used to derive the inService flag on /api/positions.
+# Pinot's INT null sentinel (Integer.MIN_VALUE) — what a null tripId (no
+# default set in either gdansk_public_transport schema) reads back as for a
+# vehicle currently between trips (e.g. laying over at a depot/terminus) —
+# used to derive the inService flag on /api/positions.
 NULL_INT = -2147483648
 
-# Latest position per vehicle seen in the last 10 minutes. The Kafka feed only
-# publishes changed positions, so a 10-minute window keeps parked vehicles
-# visible while LASTWITHTIME dedupes to the freshest row.
-# _REALTIME suffix: skips the OFFLINE side of the hybrid table — its many
-# batch-ingested segments add broker planning overhead, and a 10-minute window
-# is always within realtime retention (1 day).
+# Latest position per vehicle. gdansk_public_transport_latest is upsert-enabled
+# (primary key vehicleId), so a plain SELECT already returns exactly one row
+# per vehicle — no LASTWITHTIME/GROUP BY/MAX needed. The WHERE clause is still
+# required despite that: upsert only guarantees "one row per key", not
+# freshness — a vehicle's row lingers in the table for its full 1-day
+# retention even after it goes quiet (e.g. pulls into a depot), so the
+# 10-minute window is what actually drops silent vehicles off the map.
 POSITIONS_SQL = """
 SELECT vehicleId,
-       LASTWITHTIME(lat, generatedTransformed, 'DOUBLE')             AS lat,
-       LASTWITHTIME(lon, generatedTransformed, 'DOUBLE')             AS lon,
-       LASTWITHTIME(routeShortName, generatedTransformed, 'STRING')  AS route,
-       LASTWITHTIME(routeId, generatedTransformed, 'INT')            AS routeId,
-       LASTWITHTIME(tripId, generatedTransformed, 'INT')             AS tripId,
-       LASTWITHTIME(headsign, generatedTransformed, 'STRING')        AS headsign,
-       LASTWITHTIME(delay, generatedTransformed, 'INT')              AS delay,
-       LASTWITHTIME(speed, generatedTransformed, 'FLOAT')            AS speed,
-       LASTWITHTIME(direction, generatedTransformed, 'INT')          AS direction,
-       MAX(generatedTransformed)                                     AS lastSeen
-FROM gdansk_public_transport_REALTIME
+       lat,
+       lon,
+       routeShortName          AS route,
+       routeId,
+       tripId,
+       headsign,
+       delay,
+       speed,
+       direction,
+       generatedTransformed    AS lastSeen
+FROM gdansk_public_transport_latest
 WHERE generatedTransformed > ago('PT10M')
-GROUP BY vehicleId
 LIMIT 2000
 """
 

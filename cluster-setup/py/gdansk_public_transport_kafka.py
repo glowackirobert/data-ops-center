@@ -8,7 +8,7 @@ from confluent_kafka import Producer
 
 TOPIC = 'gdansk-public-transport'
 API_URL = 'https://ckan2.multimediagdansk.pl/gpsPositions?v=2'
-POLL_INTERVAL_SECONDS = 1
+POLL_INTERVAL_SECONDS = 2
 
 def fetch_vehicles():
     response = requests.get(API_URL, timeout=10)

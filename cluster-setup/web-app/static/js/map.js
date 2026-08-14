@@ -1,7 +1,7 @@
 import { colorForRoute, time24, timeHM, esc, isTram, isNightBus, latencyMs, latencyBadgeHtml } from './utils.js';
 import { OFF_ROUTE_M, projectOnPath, nearestRouteStop } from './geo.js';
 
-const REFRESH_MS = 30000;
+const REFRESH_MS = 2000;
 const INITIAL_VIEW = { center: [18.6466, 54.352], zoom: 15 }; // Gdansk Old Town
 const HEATMAP_TTL_MS = 300000;
 const HALO_PERIOD_MS = 2200;
@@ -159,7 +159,7 @@ export async function initMap() {
   // Interactive drill-down: selecting a route queries its whole-history,
   // per-hour average delay in one shot (see app/pinot.py route_hourly_delay —
   // deliberately uncached, so the badge shows Pinot's real query time, not a
-  // cache hit) and renders it as a small bar chart. Not fetched on every 30 s
+  // cache hit) and renders it as a small bar chart. Not fetched on every 2 s
   // refresh: the underlying data barely moves within a session, only the
   // selection does.
   async function loadRouteHistogram(route) {
@@ -257,7 +257,7 @@ export async function initMap() {
   }
 
   // The split is recomputed from the fresh position on every render, so each
-  // 30 s refresh advances the grey portion without re-fetching the geometry.
+  // 2 s refresh advances the grey portion without re-fetching the geometry.
   // The projected point closes both halves, so the colour changes exactly at
   // the vehicle dot.
   function tripPathLayers(rows) {
@@ -308,7 +308,7 @@ export async function initMap() {
   // A pulsing ring under the selected vehicle's badge, so it stays
   // identifiable a few minutes after picking it out of a cluster of nearby
   // vehicles. Pixel-sized (not geo-sized) so it reads the same at any zoom.
-  // Driven by a dedicated fast interval (below), separate from the 30 s data
+  // Driven by a dedicated fast interval (below), separate from the 2 s data
   // refresh, so the pulse is smooth without touching the "only the dot layer
   // redraws on refresh" perf design.
   function selectedVehicleHaloLayer(rows) {
