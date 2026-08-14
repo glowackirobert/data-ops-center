@@ -41,17 +41,16 @@ Run schema registry:
 docker run --rm -it --network pinot-network --name schema-registry -p 8081:8081 -e SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=PLAINTEXT://kafka:9092 -e SCHEMA_REGISTRY_HOST_NAME=schema-registry -e SCHEMA_REGISTRY_LISTENERS=http://0.0.0.0:8081 confluentinc/cp-schema-registry:7.6.5
 ```
 
-### Run the Application locally
+### Build the Application
 
-Build kafka producer app:
 ```bash
 mvn clean package -pl kafka-producer-app
 ```
 
-Run application:
-```bash
-java -jar kafka-producer-app/target/kafka-producer-app-1.0.0.jar local
-```
+The app runs in container mode only — it takes no arguments and loads its
+config from `kafka-producer.properties` on the classpath, which points at
+the container hostnames `kafka:9092` and `schema-registry:8081`. Run it via
+the container steps below rather than `java -jar` on the host.
 
 ### Run the Application in the container
 
