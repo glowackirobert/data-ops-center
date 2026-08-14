@@ -8,6 +8,7 @@ from confluent_kafka import Producer
 
 TOPIC = 'gdansk-public-transport'
 API_URL = 'https://ckan2.multimediagdansk.pl/gpsPositions?v=2'
+POLL_INTERVAL_SECONDS = 1
 
 def fetch_vehicles():
     response = requests.get(API_URL, timeout=10)
@@ -38,7 +39,6 @@ def main():
         'bootstrap.servers': bootstrap_servers,
         'enable.idempotence': True,
     })
-    last_generated: dict[str, str] = {}
 
     def shutdown(signum, frame):
         print("Received shutdown signal, flushing producer...", flush=True)
@@ -53,20 +53,15 @@ def main():
     while True:
         try:
             vehicles = fetch_vehicles()
-            fresh = [
-                v for v in vehicles
-                if v.get('generated') != last_generated.get(str(v.get('vehicleId')))
-            ]
-            if fresh:
-                sent = publish_to_kafka(producer, fresh)
-                for v in fresh:
-                    last_generated[str(v.get('vehicleId'))] = v.get('generated')
-                print(f"Published {sent} updated vehicles out of {len(vehicles)} total")
-            else:
-                print("No vehicle positions changed, skipping.")
+            # No freshness/dedup filtering: every vehicle is republished every
+            # cycle so the gdansk_public_transport_latest upsert table always
+            # has a current row per vehicleId, even when its GPS payload is
+            # unchanged since the last poll.
+            sent = publish_to_kafka(producer, vehicles)
+            print(f"Published {sent} vehicles")
         except Exception as e:
             print(f"Error: {e}", file=sys.stderr)
-        time.sleep(30)
+        time.sleep(POLL_INTERVAL_SECONDS)
 
 if __name__ == '__main__':
     main()

@@ -1,0 +1,56 @@
+{
+  "tableName": "gdansk_public_transport_latest",
+  "tableType": "REALTIME",
+  "segmentsConfig": {
+    "timeColumnName": "generatedTransformed",
+    "timeType": "MILLISECONDS",
+    "replicasPerPartition": "1",
+    "retentionTimeUnit": "DAYS",
+    "retentionTimeValue": "1"
+  },
+  "tenants": {
+    "broker": "DefaultTenant",
+    "server": "DefaultTenant"
+  },
+  "tableIndexConfig": {
+    "loadMode": "MMAP",
+    "streamConfigs": {
+      "streamType": "kafka",
+      "stream.kafka.consumer.type": "lowlevel",
+      "stream.kafka.topic.name": "gdansk-public-transport",
+      "stream.kafka.decoder.class.name": "org.apache.pinot.plugin.inputformat.json.JSONMessageDecoder",
+      "stream.kafka.consumer.factory.class.name": "org.apache.pinot.plugin.stream.kafka30.KafkaConsumerFactory",
+      "stream.kafka.broker.list": "kafka:9092",
+      "realtime.segment.flush.threshold.rows": "500000",
+      "realtime.segment.flush.threshold.time": "1h",
+      "stream.kafka.consumer.prop.auto.offset.reset": "smallest"
+    },
+    "nullHandlingEnabled": true
+  },
+  "upsertConfig": {
+    "mode": "FULL",
+    "comparisonColumn": "generatedTransformed"
+  },
+  "routing": {
+    "instanceSelectorType": "strictReplicaGroup"
+  },
+  "ingestionConfig": {
+    "filterConfig": {
+      "filterFunction": "gpsQuality = 0"
+    },
+    "transformConfigs": [
+      {
+        "columnName": "generatedTransformed",
+        "transformFunction": "FromDateTime(generated, 'YYYY-MM-dd''T''HH:mm:ss''Z''')"
+      },
+      {
+        "columnName": "scheduledTripStartTimeTransformed",
+        "transformFunction": "FromDateTime(scheduledTripStartTime, 'YYYY-MM-dd''T''HH:mm:ss''Z''')"
+      }
+    ]
+  },
+  "metadata": {
+    "customConfigs": {}
+  },
+  "isDimTable": false
+}

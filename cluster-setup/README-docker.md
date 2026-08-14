@@ -253,7 +253,7 @@ re-running it for that date/month.
 
 ```bash
 # Single day (against an already-running cluster; skip init dependencies)
-INGESTION_DATE=2026-02-01 docker compose \
+INGESTION_DATE=2026-07 docker compose \
   --env-file cluster-setup/env/versions.env \
   --env-file cluster-setup/env/env.prod \
   -f cluster-setup/container/container-compose.yml \
@@ -308,12 +308,16 @@ Requires the AWS CLI and Docker Compose; run with `-h` for the full flag list.
 
 ### S3 deep store
 
-Pushed and completed segments are stored in
-`s3://gdansk-public-transport/pinot/deep-store` (`controller.data.dir`), not on
+Pushed and completed segments are stored in S3 (`controller.data.dir`), not on
 the controller's local disk — servers and the minion fetch them from S3
-directly (`pinot.*.segment.fetcher.protocols=file,http,s3`). The controller,
-server, minion and ingestion-runner containers therefore all need the
-`aws_credentials` secret (already wired in the compose file). 
+directly (`pinot.*.segment.fetcher.protocols=file,http,s3`). The path is
+per-environment, set via `PINOT_CONTROLLER_DATA_DIR` (`dynamic.env.config` in
+`pinot-controller.conf`): `s3://gdansk-public-transport/pinot/deep-store/dev`
+for `env.dev`, `s3://gdansk-public-transport/pinot/deep-store/prod` for
+`env.prod` — kept separate so dev ingestion/segment churn never touches prod
+data. The controller, server, minion and ingestion-runner containers
+therefore all need the `aws_credentials` secret (already wired in the
+compose file). 
 
 ### Load testing the broker
 

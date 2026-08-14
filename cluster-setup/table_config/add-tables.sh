@@ -70,6 +70,14 @@ upsert_schema gdansk_public_transport gdansk_public_transport_table_schema.json
 upsert_table gdansk_public_transport_OFFLINE gdansk_public_transport_offline_table_config.json
 upsert_table gdansk_public_transport_REALTIME gdansk_public_transport_realtime_table_config.json
 
+# Second table consuming the same gdansk-public-transport Kafka topic as the
+# pair above, via its own independent consumer group (no producer changes
+# needed). Upsert-enabled on vehicleId, so a plain SELECT returns one row per
+# vehicle — its latest position — instead of the LASTWITHTIME/GROUP BY dance
+# the other table's REALTIME half requires.
+upsert_schema gdansk_public_transport_latest gdansk_public_transport_latest_table_schema.json
+upsert_table gdansk_public_transport_latest_REALTIME gdansk_public_transport_latest_realtime_table_config.json
+
 upsert_schema trade trade_table_schema.json
 upsert_table trade_REALTIME trade_table_config.json
 
