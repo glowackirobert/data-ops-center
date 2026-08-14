@@ -288,6 +288,17 @@ Pinot segment state, since MergeRollup renames/deletes day segments on its own
 schedule independent of the script — skipping already-ingested days by
 default avoids both wasted re-work and the double-counting caveat above.
 
+> **This script cannot backfill a month that's already been squashed.**
+> The monthly compaction job deletes a month's day files from S3 once it
+> rolls them into `squashed/YYYY/YYYY-MM.json.gz` — at that point no day
+> files remain for the script to find. A `--start-date`/`--end-date` range
+> falling inside such a month prints `0 daily file(s) in range` and exits
+> without ingesting anything (not an error — check the printed count).
+> Check which form a month is in first (`aws s3 ls
+> s3://gdansk-public-transport/squashed/YYYY/ | grep YYYY-MM`), and if it's
+> already a single month file, ingest it directly with the single-month
+> `INGESTION_DATE=YYYY-MM` command above instead of this script.
+
 ```bash
 # Full backfill of everything in s3://gdansk-public-transport/squashed/
 python cluster-setup/scripts/backfill_pinot_offline.py --env dev

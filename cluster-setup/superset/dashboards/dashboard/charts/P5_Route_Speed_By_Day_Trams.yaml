@@ -1,15 +1,16 @@
-slice_name: Route speed by day — Trams (last 10 days)
+slice_name: Route speed by day — Trams
 description: 'How fast is each tram route day by day? Commercial speed (stops
-  included), one row per route, colored by speed. Fixed 10-day window via its
-  own TEMPORAL_RANGE adhoc_filter on generatedTransformed (matches P2/P8''s
-  pattern and the Buses/Night buses charts), so the x-axis scope stays the
-  same across all three regardless of the dashboard-level "Report date range"
-  native filter''s scoping. The window is anchored to DATETIME("today")
-  (midnight) on both ends — the last 10 complete days, today excluded — not
-  "now": a "now"-anchored rolling window cuts two calendar days in half, so
-  whether those partial days contributed rows shifted with time of day and
-  realtime retention, and the x-axis column count wobbled between 9 and 11
-  across refreshes. Also carries params.granularity_sqla:
+  included), one row per route, colored by speed. Window comes from the
+  dashboard-level "Report date range" native filter (default last 10 days,
+  same as the Buses/Night buses charts) — the three P5 heatmaps used to carry
+  their own fixed TEMPORAL_RANGE adhoc_filter instead, anchored to
+  DATETIME("today") rather than "now" specifically because a "now"-anchored
+  rolling window cuts two calendar days in half, so whether those partial
+  days contributed rows shifted with time of day and realtime retention, and
+  the x-axis column count wobbled between 9 and 11 across refreshes. That
+  reasoning is why the shared filter itself is now anchored to "today" too
+  (see its description in Gdansk_Public_Transport_1.yaml) rather than a
+  return of the wobble bug. Also carries params.granularity_sqla:
   generatedTransformed, required for that filter to actually bind on
   heatmap_v2 — see the Buses chart''s description for why (without it
   Superset silently drops the TEMPORAL_RANGE filter and queries the whole
@@ -78,11 +79,6 @@ params:
     comparator: null
     operator: null
     subject: null
-  - clause: WHERE
-    comparator: 'DATEADD(DATETIME("today"), -10, day) : DATETIME("today")'
-    expressionType: SIMPLE
-    operator: TEMPORAL_RANGE
-    subject: generatedTransformed
   row_limit: 30000
   linear_color_scheme: superset_seq_1
   legend_type: continuous

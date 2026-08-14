@@ -1,14 +1,12 @@
-slice_name: Route speed by day — Buses (last 10 days)
+slice_name: Route speed by day — Buses
 description: 'How fast is each bus route day by day? Commercial speed (stops
-  included), one row per route, colored by speed. Fixed 10-day window via its
-  own TEMPORAL_RANGE adhoc_filter on generatedTransformed (matches P2/P8''s
-  pattern) so the x-axis scope holds regardless of whether the dashboard-level
-  "Report date range" native filter is correctly re-scoped to this chart after
-  a re-import — see the note on that filter in
-  Gdansk_Public_Transport_1.yaml. The window is anchored to DATETIME("today")
-  on both ends (last 10 complete days, today excluded), not "now" — see the
-  Trams chart''s description for why (a "now" anchor made the x-axis column
-  count fluctuate between refreshes). That TEMPORAL_RANGE filter alone is not
+  included), one row per route, colored by speed. Window comes from the
+  dashboard-level "Report date range" native filter (default last 10 days,
+  same as the Trams/Night buses charts) — see the note on that filter and its
+  scope-remapping caveat in Gdansk_Public_Transport_1.yaml. That filter is
+  anchored to DATETIME("today") rather than "now" — see the Trams chart''s
+  description for why (a "now" anchor made the x-axis column count fluctuate
+  between refreshes). A dashboard-level TEMPORAL_RANGE filter alone is not
   enough for heatmap_v2, unlike P2''s big_number_total/P8''s table: those viz
   types expose a granularity_sqla control that Superset''s frontend
   auto-populates from the datasource''s main_dttm_col, but heatmap_v2 does
@@ -68,11 +66,6 @@ params:
     comparator: null
     operator: null
     subject: null
-  - clause: WHERE
-    comparator: 'DATEADD(DATETIME("today"), -10, day) : DATETIME("today")'
-    expressionType: SIMPLE
-    operator: TEMPORAL_RANGE
-    subject: generatedTransformed
   row_limit: 30000
   linear_color_scheme: superset_seq_1
   legend_type: continuous

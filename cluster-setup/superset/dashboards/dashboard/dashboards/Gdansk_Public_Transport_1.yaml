@@ -58,7 +58,7 @@ position:
     meta:
       chartId: 5
       height: 50
-      sliceName: Route speed by day — Trams (last 10 days)
+      sliceName: Route speed by day — Trams
       uuid: 911cfcbe-945d-435f-9ea2-13894faedd7a
       width: 12
     parents:
@@ -73,7 +73,7 @@ position:
     meta:
       chartId: 11
       height: 259
-      sliceName: Route speed by day — Buses (last 10 days)
+      sliceName: Route speed by day — Buses
       uuid: 97bbbac5-6af9-4400-911b-ea5062ff1eb1
       width: 12
     parents:
@@ -94,7 +94,7 @@ position:
       # ~3.27 height units/route + ~14 units fixed chrome. Night buses has
       # 13 routes -> 57. Re-solve this if route counts change materially.
       height: 57
-      sliceName: Route speed by day — Night buses (last 10 days)
+      sliceName: Route speed by day — Night buses
       uuid: 8e63cefb-4b60-4ba9-83f6-0915719f533c
       width: 12
     parents:
@@ -267,9 +267,9 @@ metadata:
     cascadeParentIds: []
     defaultDataMask:
       extraFormData:
-        time_range: 'DATEADD(DATETIME("now"), -30, day) : now'
+        time_range: 'DATEADD(DATETIME("today"), -10, day) : DATETIME("today")'
       filterState:
-        value: 'DATEADD(DATETIME("now"), -30, day) : now'
+        value: 'DATEADD(DATETIME("today"), -10, day) : DATETIME("today")'
     controlValues:
       enableEmptyFilter: false
     scope:
@@ -278,24 +278,18 @@ metadata:
       excluded:
       - 6
       - 9
-      - 5
-      - 11
-      - 12
-    # The three P5 heatmaps (5/11/12: Trams/Buses/Night buses) are DELIBERATELY
-    # in scope.excluded, not chartsInScope: the importer remaps excluded ids by
-    # UUID on every import, but does NOT remap chartsInScope — so any chart id
+    # P5 heatmaps (Trams/Buses/Night buses) used to be in scope.excluded rather
+    # than relying on chartsInScope, because the importer remaps excluded ids by
+    # UUID on every import but does NOT remap chartsInScope — so a chart id
     # listed only in chartsInScope points at an arbitrary chart after each
-    # delete+reimport cycle, and the date filter silently applied to a random
-    # subset of the P5 heatmaps (observed: the three x-axes showing different
-    # day ranges that reshuffled per import). Each P5 chart carries its own
-    # fixed 10-day TEMPORAL_RANGE adhoc_filter instead, so excluding them here
-    # loses nothing and makes their window import-proof.
-    # chartsInScope uses this file's position chartIds (P2=2, P4=4, P3=10),
-    # but the Superset importer only remaps scope.excluded — after
-    # (re-)importing, fix chartsInScope to the live chart ids via
-    # PUT /api/v1/dashboard/{id}. Same caveat applies
-    # to tabsInScope below: it should resolve to the live "Network overview
-    # (all routes)" and "By route" tab component ids. Note tabsInScope/
+    # delete+reimport cycle. They're now in scope (each dropped its own fixed
+    # TEMPORAL_RANGE adhoc_filter in favor of this filter), which means their
+    # ids in chartsInScope below inherit the same fragility as P2/P4/P3's
+    # always did: after (re-)importing, fix chartsInScope to the live chart ids
+    # via PUT /api/v1/dashboard/{id} (this file's position chartIds: P2=2,
+    # P4=4, P3=10, P5 Trams=5, P5 Buses=11, P5 Night buses=12). Same caveat
+    # applies to tabsInScope below: it should resolve to the live "Network
+    # overview (all routes)" and "By route" tab component ids. Note tabsInScope/
     # chartsInScope only control which charts the filter's value actually
     # applies to — Superset's native FilterBar does not hide or dim a
     # filter's control based on tab scope (confirmed against its source),
@@ -307,18 +301,23 @@ metadata:
     - 2
     - 4
     - 10
+    - 5
+    - 11
+    - 12
     tabsInScope:
     - TAB-networkOverview00000
     - TAB-byRoute0000000000000
     type: NATIVE_FILTER
-    description: Date window for the report (applies to P2, P4 and P3).
-      Defaults to last 30 days (same DATEADD/DATETIME syntax
-      as P2's own fixed 24h filter) to keep the dashboard fast as the OFFLINE
-      table's history grows — P2 still effectively shows the last 24h since it
-      carries its own fixed window; widen or narrow this to change P4/P3's
-      window. The three P5 heatmaps are excluded from this filter entirely
-      (each has its own fixed 10-day window) — see the scope comment above
-      for why exclusion is the only wiring that survives reimports intact.
+    description: Date window for the report (applies to P2, P4, P3 and the
+      three P5 heatmaps). Defaults to last 10 days, anchored to
+      DATETIME("today") (midnight) on both ends rather than "now" — a
+      "now"-anchored rolling window cuts two calendar days in half, so
+      whether those partial days contribute rows shifts with time of day and
+      realtime retention, which made P5's x-axis day-count wobble between 9
+      and 11 across refreshes before P5 had its own fixed "today"-anchored
+      filter (see the P5 chart descriptions' history). P2 still effectively
+      shows the last 24h since it carries its own fixed window; widen or
+      narrow this to change P4/P3/P5's window.
   - id: NATIVE_FILTER-routePicker000000
     name: Route
     filterType: filter_select
