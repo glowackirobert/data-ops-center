@@ -91,6 +91,7 @@ services:
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_CONTROLLER_HEAP:--Xms256M -Xmx1G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-controller.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=19000:/opt/pinot/etc/jmx_prometheus_javaagent/configs/controller.yml"
       AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
+      PINOT_CONTROLLER_DATA_DIR: ${PINOT_CONTROLLER_DATA_DIR}
     secrets:
       - aws_credentials
     volumes:
