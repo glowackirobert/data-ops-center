@@ -1,7 +1,8 @@
 """Concurrency load test against the Pinot broker.
 
-Fires N concurrent copies of a representative analytical query (the P3 /
-"Route punctuality" dashboard chart's shape) and reports both client-observed
+Fires N concurrent copies of a representative analytical query (the all-routes
+punctuality aggregation behind the per-category "Punctuality by route"
+dashboard charts) and reports both client-observed
 wall-clock latency and Pinot's own reported timeUsedMs, at p50/p95/p99/max —
 the concurrency half of the "low-latency, high-QPS" showcase claim (see
 PINOT_SHOWCASE_GOALS.md item 4).

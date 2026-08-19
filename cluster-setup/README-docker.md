@@ -333,8 +333,9 @@ compose file).
 ### Load testing the broker
 
 `cluster-setup/scripts/load_test_broker.py` fires N concurrent copies of a
-representative analytical query (the P3 "Route punctuality" dashboard chart's
-shape) against the broker and reports both client-observed wall-clock latency
+representative analytical query (the all-routes punctuality aggregation behind
+the per-category "Punctuality by route" dashboard charts)
+against the broker and reports both client-observed wall-clock latency
 and Pinot's own `timeUsedMs`, at p50/p95/p99/max:
 
 ```bash

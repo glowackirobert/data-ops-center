@@ -1,0 +1,86 @@
+slice_name: Punctuality by route — Trams
+description: 'Which tram lines were punctual? One stacked bar per line: on time /
+  late / early sum to 100 %. Trams = 1-2 digit numeric routes, matching the web
+  app''s route grouping (cluster-setup/web-app/static/js/utils.js isTram),
+  sorted ascending via x_axis_sort: sort_key kept in timeseries_limit_metric
+  rather than groupby so it stays a query-ordering hint instead of an extra
+  dimension (groupby leaked its numeric value into every series name in the
+  hover tooltip). The trailing "+ 0" on sort_key is load-bearing: Pinot types
+  a bare CAST post-aggregation as OBJECT in the data schema, which pinotdb
+  maps to STRING, and pandas 2 (Superset >= 6.1) then fails the pivot''s mean
+  over string values with "Could not convert string ''1'' to numeric" — the
+  arithmetic forces a DOUBLE schema so sort_key arrives as floats. Colored
+  green/red/magenta = on time/late/early via the
+  dashboard''s label_colors block; the chart''s own legend is off so all three
+  category tabs share one fixed color scheme. Stack order pinned bottom-to-top as on time / late / early via
+  sort_series_type: name + sort_series_ascending: false. One of three
+  category charts that replaced the all-routes "Punctuality by route" chart
+  (see its git history for the full design notes). Respects the "Report date
+  range" dashboard filter (last 10 days by default). Source:
+  gdansk_public_transport_queries.sql (P2).'
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_bar
+params:
+  datasource: 1__table
+  viz_type: echarts_timeseries_bar
+  x_axis: routeShortName
+  x_axis_sort: sort_key
+  x_axis_sort_asc: true
+  time_grain_sqla: null
+  metrics:
+  - expressionType: SQL
+    sqlExpression: ROUNDDECIMAL(SUM(isOnTime) * 100.0 / COUNT(*), 1)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: pct_on_time
+  - expressionType: SQL
+    sqlExpression: ROUNDDECIMAL(SUM(isLate) * 100.0 / COUNT(*), 1)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: pct_late
+  - expressionType: SQL
+    sqlExpression: 100 - ROUNDDECIMAL(SUM(isOnTime) * 100.0 / COUNT(*), 1) - ROUNDDECIMAL(SUM(isLate)
+      * 100.0 / COUNT(*), 1)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: pct_early
+  groupby: []
+  timeseries_limit_metric:
+    expressionType: SQL
+    sqlExpression: CAST(REGEXP_EXTRACT(routeShortName, '([0-9]+)', 0) AS INT) + 0
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: sort_key
+  order_desc: false
+  adhoc_filters:
+  - clause: WHERE
+    expressionType: SQL
+    sqlExpression: REGEXP_LIKE(routeShortName, '^[0-9]{1,2}$')
+    comparator: null
+    operator: null
+    subject: null
+  row_limit: 200
+  stack: Stack
+  sort_series_type: name
+  sort_series_ascending: false
+  rich_tooltip: true
+  show_tooltip_total: false
+  show_legend: false
+  y_axis_format: SMART_NUMBER
+  y_axis_bounds:
+  - 0
+  - 100
+  x_axis_title: Route
+  y_axis_title: '% of snapshots'
+  extra_form_data: {}
+  dashboards: []
+query_context: ''
+cache_timeout: 3600
+uuid: 3586a278-79c3-4a5c-a595-96f7a9093c7c
+version: 1.0.0
+dataset_uuid: 0fd033bf-2b72-4a3d-9cc5-740588b70c37

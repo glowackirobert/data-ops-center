@@ -1,0 +1,96 @@
+slice_name: Punctuality by route — Buses
+description: 'Which bus lines were punctual? One stacked bar per line: on time /
+  late / early sum to 100 %. Buses = everything that is neither a tram (1-2
+  digit numeric) nor a night bus (N-prefixed), matching the web app''s route
+  grouping (cluster-setup/web-app/static/js/utils.js isTram/isNightBus): 3+
+  digit numeric routes first ascending, then special-purpose lettered codes
+  (e.g. T8, M32) by their numeric part — the sort_key CASE mirrors that order.
+  The CASE mixes an INT branch with a DOUBLE branch (Pinot''s + returns
+  DOUBLE), so the outer CAST(... AS INT) is load-bearing: without it the
+  broker reduce fails with "java.lang.Double cannot be cast to
+  java.lang.Integer" when the expression is only in SELECT/ORDER BY. The
+  trailing "+ 0" is equally load-bearing — see the Trams chart description
+  (bare CAST post-aggregations reach pandas as strings). sort_key
+  lives in timeseries_limit_metric rather than groupby so it stays a
+  query-ordering hint instead of an extra dimension (groupby leaked its
+  numeric value into every series name in the hover tooltip). Colored
+  green/red/magenta = on time/late/early via the dashboard''s label_colors
+  block; the chart''s own legend is off so all three category tabs share one
+  fixed color scheme. Stack order pinned bottom-to-top as on time / late / early via
+  sort_series_type: name + sort_series_ascending: false. 34M/34S excluded: a
+  one-day, single-vehicle tram-3 rail-replacement service (see P5
+  investigation), not a real bus line. One of three category charts that
+  replaced the all-routes "Punctuality by route" chart (see its git history
+  for the full design notes). Respects the "Report date range" dashboard
+  filter (last 10 days by default). Source:
+  gdansk_public_transport_queries.sql (P2).'
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_bar
+params:
+  datasource: 1__table
+  viz_type: echarts_timeseries_bar
+  x_axis: routeShortName
+  x_axis_sort: sort_key
+  x_axis_sort_asc: true
+  time_grain_sqla: null
+  metrics:
+  - expressionType: SQL
+    sqlExpression: ROUNDDECIMAL(SUM(isOnTime) * 100.0 / COUNT(*), 1)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: pct_on_time
+  - expressionType: SQL
+    sqlExpression: ROUNDDECIMAL(SUM(isLate) * 100.0 / COUNT(*), 1)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: pct_late
+  - expressionType: SQL
+    sqlExpression: 100 - ROUNDDECIMAL(SUM(isOnTime) * 100.0 / COUNT(*), 1) - ROUNDDECIMAL(SUM(isLate)
+      * 100.0 / COUNT(*), 1)
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: pct_early
+  groupby: []
+  timeseries_limit_metric:
+    expressionType: SQL
+    sqlExpression: "CAST(CASE\n  WHEN REGEXP_LIKE(routeShortName, '^[0-9]+$') THEN\
+      \ CAST(REGEXP_EXTRACT(routeShortName, '([0-9]+)', 0) AS INT)\n  ELSE 1000 +\
+      \ CAST(REGEXP_EXTRACT(routeShortName, '([0-9]+)', 0) AS INT)\nEND AS INT) +\
+      \ 0"
+    column: null
+    aggregate: null
+    hasCustomLabel: true
+    label: sort_key
+  order_desc: false
+  adhoc_filters:
+  - clause: WHERE
+    expressionType: SQL
+    sqlExpression: NOT REGEXP_LIKE(routeShortName, '^[0-9]{1,2}$') AND NOT REGEXP_LIKE(routeShortName,
+      '^N') AND routeShortName NOT IN ('34M', '34S')
+    comparator: null
+    operator: null
+    subject: null
+  row_limit: 200
+  stack: Stack
+  sort_series_type: name
+  sort_series_ascending: false
+  rich_tooltip: true
+  show_tooltip_total: false
+  show_legend: false
+  y_axis_format: SMART_NUMBER
+  y_axis_bounds:
+  - 0
+  - 100
+  x_axis_title: Route
+  y_axis_title: '% of snapshots'
+  extra_form_data: {}
+  dashboards: []
+query_context: ''
+cache_timeout: 3600
+uuid: 221bf65e-c079-445e-89c6-999980a3a3ef
+version: 1.0.0
+dataset_uuid: 0fd033bf-2b72-4a3d-9cc5-740588b70c37

@@ -22,20 +22,53 @@ position:
     - TAB-byRoute0000000000000
     - ROW-byRouteB100000000000
     type: CHART
-  CHART-p3Punctuality000000000:
+  CHART-p3TramsPunct0000000:
     children: []
-    id: CHART-p3Punctuality000000000
+    id: CHART-p3TramsPunct0000000
     meta:
-      chartId: 10
+      chartId: 13
       height: 50
-      sliceName: Punctuality by route
-      uuid: 6811a592-5a90-4032-acfc-e83dc1a8b1a0
+      sliceName: Punctuality by route — Trams
+      sliceNameOverride: Punctuality by route
+      uuid: 3586a278-79c3-4a5c-a595-96f7a9093c7c
       width: 12
     parents:
     - ROOT_ID
     - TABS-mainTabs00000000000
-    - TAB-networkOverview00000
-    - ROW-networkOverviewA1b000
+    - TAB-trams000000000000000
+    - ROW-tramsPunctuality0000
+    type: CHART
+  CHART-p3BusesPunct0000000:
+    children: []
+    id: CHART-p3BusesPunct0000000
+    meta:
+      chartId: 14
+      height: 50
+      sliceName: Punctuality by route — Buses
+      sliceNameOverride: Punctuality by route
+      uuid: 221bf65e-c079-445e-89c6-999980a3a3ef
+      width: 12
+    parents:
+    - ROOT_ID
+    - TABS-mainTabs00000000000
+    - TAB-buses000000000000000
+    - ROW-busesPunctuality0000
+    type: CHART
+  CHART-p3NightPunct0000000:
+    children: []
+    id: CHART-p3NightPunct0000000
+    meta:
+      chartId: 15
+      height: 50
+      sliceName: Punctuality by route — Night buses
+      sliceNameOverride: Punctuality by route
+      uuid: 2c715b80-fe9b-404d-922e-68f3edfeab83
+      width: 12
+    parents:
+    - ROOT_ID
+    - TABS-mainTabs00000000000
+    - TAB-nightBuses00000000000
+    - ROW-nightPunctuality0000
     type: CHART
   CHART-p3DailyTrend000000000:
     children: []
@@ -59,13 +92,14 @@ position:
       chartId: 5
       height: 50
       sliceName: Route speed by day — Trams
+      sliceNameOverride: Route speed by day
       uuid: 911cfcbe-945d-435f-9ea2-13894faedd7a
       width: 12
     parents:
     - ROOT_ID
     - TABS-mainTabs00000000000
-    - TAB-networkOverview00000
-    - ROW-networkOverviewA2a000
+    - TAB-trams000000000000000
+    - ROW-tramsSpeed0000000000
     type: CHART
   CHART-p5BusesSpeed00000000:
     children: []
@@ -74,13 +108,14 @@ position:
       chartId: 11
       height: 259
       sliceName: Route speed by day — Buses
+      sliceNameOverride: Route speed by day
       uuid: 97bbbac5-6af9-4400-911b-ea5062ff1eb1
       width: 12
     parents:
     - ROOT_ID
     - TABS-mainTabs00000000000
-    - TAB-networkOverview00000
-    - ROW-networkOverviewA2b000
+    - TAB-buses000000000000000
+    - ROW-busesSpeed0000000000
     type: CHART
   CHART-p5NightBusesSpeed0000:
     children: []
@@ -95,13 +130,14 @@ position:
       # 13 routes -> 57. Re-solve this if route counts change materially.
       height: 57
       sliceName: Route speed by day — Night buses
+      sliceNameOverride: Route speed by day
       uuid: 8e63cefb-4b60-4ba9-83f6-0915719f533c
       width: 12
     parents:
     - ROOT_ID
     - TABS-mainTabs00000000000
-    - TAB-networkOverview00000
-    - ROW-networkOverviewA2c000
+    - TAB-nightBuses00000000000
+    - ROW-nightSpeed0000000000
     type: CHART
   CHART-p5HourlyProfile000000:
     children: []
@@ -136,23 +172,47 @@ position:
   DASHBOARD_VERSION_KEY: v2
   TABS-mainTabs00000000000:
     children:
-    - TAB-networkOverview00000
+    - TAB-trams000000000000000
+    - TAB-buses000000000000000
+    - TAB-nightBuses00000000000
     - TAB-byRoute0000000000000
     id: TABS-mainTabs00000000000
     meta: {}
     parents:
     - ROOT_ID
     type: TABS
-  TAB-networkOverview00000:
+  TAB-trams000000000000000:
     children:
-    - ROW-networkOverviewA1b000
-    - ROW-networkOverviewA2a000
-    - ROW-networkOverviewA2b000
-    - ROW-networkOverviewA2c000
-    id: TAB-networkOverview00000
+    - ROW-tramsPunctuality0000
+    - ROW-tramsSpeed0000000000
+    id: TAB-trams000000000000000
     meta:
-      text: Network overview (all routes)
-      defaultText: Network overview (all routes)
+      text: Trams
+      defaultText: Trams
+    parents:
+    - ROOT_ID
+    - TABS-mainTabs00000000000
+    type: TAB
+  TAB-buses000000000000000:
+    children:
+    - ROW-busesPunctuality0000
+    - ROW-busesSpeed0000000000
+    id: TAB-buses000000000000000
+    meta:
+      text: Buses
+      defaultText: Buses
+    parents:
+    - ROOT_ID
+    - TABS-mainTabs00000000000
+    type: TAB
+  TAB-nightBuses00000000000:
+    children:
+    - ROW-nightPunctuality0000
+    - ROW-nightSpeed0000000000
+    id: TAB-nightBuses00000000000
+    meta:
+      text: Night buses
+      defaultText: Night buses
     parents:
     - ROOT_ID
     - TABS-mainTabs00000000000
@@ -180,49 +240,71 @@ position:
     - TABS-mainTabs00000000000
     id: ROOT_ID
     type: ROOT
-  ROW-networkOverviewA1b000:
+  ROW-tramsPunctuality0000:
     children:
-    - CHART-p3Punctuality000000000
-    id: ROW-networkOverviewA1b000
+    - CHART-p3TramsPunct0000000
+    id: ROW-tramsPunctuality0000
     meta:
       background: BACKGROUND_TRANSPARENT
     parents:
     - ROOT_ID
     - TABS-mainTabs00000000000
-    - TAB-networkOverview00000
+    - TAB-trams000000000000000
     type: ROW
-  ROW-networkOverviewA2a000:
+  ROW-tramsSpeed0000000000:
     children:
     - CHART-p5TramsSpeed00000000
-    id: ROW-networkOverviewA2a000
+    id: ROW-tramsSpeed0000000000
     meta:
       background: BACKGROUND_TRANSPARENT
     parents:
     - ROOT_ID
     - TABS-mainTabs00000000000
-    - TAB-networkOverview00000
+    - TAB-trams000000000000000
     type: ROW
-  ROW-networkOverviewA2b000:
+  ROW-busesPunctuality0000:
+    children:
+    - CHART-p3BusesPunct0000000
+    id: ROW-busesPunctuality0000
+    meta:
+      background: BACKGROUND_TRANSPARENT
+    parents:
+    - ROOT_ID
+    - TABS-mainTabs00000000000
+    - TAB-buses000000000000000
+    type: ROW
+  ROW-busesSpeed0000000000:
     children:
     - CHART-p5BusesSpeed00000000
-    id: ROW-networkOverviewA2b000
+    id: ROW-busesSpeed0000000000
     meta:
       background: BACKGROUND_TRANSPARENT
     parents:
     - ROOT_ID
     - TABS-mainTabs00000000000
-    - TAB-networkOverview00000
+    - TAB-buses000000000000000
     type: ROW
-  ROW-networkOverviewA2c000:
+  ROW-nightPunctuality0000:
+    children:
+    - CHART-p3NightPunct0000000
+    id: ROW-nightPunctuality0000
+    meta:
+      background: BACKGROUND_TRANSPARENT
+    parents:
+    - ROOT_ID
+    - TABS-mainTabs00000000000
+    - TAB-nightBuses00000000000
+    type: ROW
+  ROW-nightSpeed0000000000:
     children:
     - CHART-p5NightBusesSpeed0000
-    id: ROW-networkOverviewA2c000
+    id: ROW-nightSpeed0000000000
     meta:
       background: BACKGROUND_TRANSPARENT
     parents:
     - ROOT_ID
     - TABS-mainTabs00000000000
-    - TAB-networkOverview00000
+    - TAB-nightBuses00000000000
     type: ROW
   ROW-byRouteB100000000000:
     children:
@@ -287,9 +369,10 @@ metadata:
     # ids in chartsInScope below inherit the same fragility as P2/P4/P3's
     # always did: after (re-)importing, fix chartsInScope to the live chart ids
     # via PUT /api/v1/dashboard/{id} (this file's position chartIds: P2=2,
-    # P4=4, P3=10, P5 Trams=5, P5 Buses=11, P5 Night buses=12). Same caveat
-    # applies to tabsInScope below: it should resolve to the live "Network
-    # overview (all routes)" and "By route" tab component ids. Note tabsInScope/
+    # P4=4, P3 Trams=13, P3 Buses=14, P3 Night buses=15, P5 Trams=5,
+    # P5 Buses=11, P5 Night buses=12). Same caveat applies to tabsInScope
+    # below: it should resolve to the live Trams / Buses / Night buses /
+    # "By route" tab component ids. Note tabsInScope/
     # chartsInScope only control which charts the filter's value actually
     # applies to — Superset's native FilterBar does not hide or dim a
     # filter's control based on tab scope (confirmed against its source),
@@ -300,16 +383,20 @@ metadata:
     chartsInScope:
     - 2
     - 4
-    - 10
+    - 13
+    - 14
+    - 15
     - 5
     - 11
     - 12
     tabsInScope:
-    - TAB-networkOverview00000
+    - TAB-trams000000000000000
+    - TAB-buses000000000000000
+    - TAB-nightBuses00000000000
     - TAB-byRoute0000000000000
     type: NATIVE_FILTER
-    description: Date window for the report (applies to P2, P4, P3 and the
-      three P5 heatmaps). Defaults to last 10 days, anchored to
+    description: Date window for the report (applies to P2, P4, the three P3
+      punctuality charts and the three P5 heatmaps). Defaults to last 10 days, anchored to
       DATETIME("today") (midnight) on both ends rather than "now" — a
       "now"-anchored rolling window cuts two calendar days in half, so
       whether those partial days contribute rows shifts with time of day and
@@ -338,7 +425,9 @@ metadata:
       rootPath:
       - ROOT_ID
       excluded:
-      - 10
+      - 13
+      - 14
+      - 15
       - 5
       - 11
       - 12
@@ -366,7 +455,9 @@ metadata:
       excluded: []
     chartsInScope:
     - 2
-    - 10
+    - 13
+    - 14
+    - 15
     - 4
     - 5
     - 6
