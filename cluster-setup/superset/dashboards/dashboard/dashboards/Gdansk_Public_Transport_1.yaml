@@ -357,54 +357,27 @@ metadata:
     scope:
       rootPath:
       - ROOT_ID
-      excluded:
-      - 6
-      - 9
-    # P5 heatmaps (Trams/Buses/Night buses) used to be in scope.excluded rather
-    # than relying on chartsInScope, because the importer remaps excluded ids by
-    # UUID on every import but does NOT remap chartsInScope — so a chart id
-    # listed only in chartsInScope points at an arbitrary chart after each
-    # delete+reimport cycle. They're now in scope (each dropped its own fixed
-    # TEMPORAL_RANGE adhoc_filter in favor of this filter), which means their
-    # ids in chartsInScope below inherit the same fragility as P2/P4/P3's
-    # always did: after (re-)importing, fix chartsInScope to the live chart ids
-    # via PUT /api/v1/dashboard/{id} (this file's position chartIds: P2=2,
-    # P4=4, P3 Trams=13, P3 Buses=14, P3 Night buses=15, P5 Trams=5,
-    # P5 Buses=11, P5 Night buses=12). Same caveat applies to tabsInScope
-    # below: it should resolve to the live Trams / Buses / Night buses /
-    # "By route" tab component ids. Note tabsInScope/
-    # chartsInScope only control which charts the filter's value actually
-    # applies to — Superset's native FilterBar does not hide or dim a
-    # filter's control based on tab scope (confirmed against its source),
-    # so the control itself still shows on every tab regardless. P1 and P7
-    # (fixed windows, ignore this filter entirely) were moved to a separate
-    # filter-free "Overview" dashboard for exactly this reason — see
-    # Gdansk_Public_Transport_Overview.yaml.
+      excluded: []
     chartsInScope:
     - 2
     - 4
+    - 5
+    - 6
+    - 9
+    - 11
+    - 12
     - 13
     - 14
     - 15
-    - 5
-    - 11
-    - 12
     tabsInScope:
     - TAB-trams000000000000000
     - TAB-buses000000000000000
     - TAB-nightBuses00000000000
     - TAB-byRoute0000000000000
     type: NATIVE_FILTER
-    description: Date window for the report (applies to P2, P4, the three P3
-      punctuality charts and the three P5 heatmaps). Defaults to last 10 days, anchored to
-      DATETIME("today") (midnight) on both ends rather than "now" — a
-      "now"-anchored rolling window cuts two calendar days in half, so
-      whether those partial days contribute rows shifts with time of day and
-      realtime retention, which made P5's x-axis day-count wobble between 9
-      and 11 across refreshes before P5 had its own fixed "today"-anchored
-      filter (see the P5 chart descriptions' history). P2 still effectively
-      shows the last 24h since it carries its own fixed window; widen or
-      narrow this to change P4/P3/P5's window.
+    description: 'Date window for every chart on every tab, last 10 days by default. Both ends are anchored to midnight on purpose - a
+      window that cuts a day in half stops the star-tree from answering the query
+      and makes the heatmap day count wobble between refreshes.'
   - id: NATIVE_FILTER-routePicker000000
     name: Route
     filterType: filter_select
@@ -424,29 +397,27 @@ metadata:
     scope:
       rootPath:
       - ROOT_ID
-      excluded:
-      - 13
-      - 14
-      - 15
-      - 5
-      - 11
-      - 12
-    # chartsInScope uses this file's position chartIds (P2=2, P4=4, P6=6, P8=9), but
-    # the Superset importer only remaps scope.excluded — after (re-)importing, fix
-    # chartsInScope to the live P2/P4/P6/P8 chart ids via PUT /api/v1/dashboard/{id}.
-    # tabsInScope should resolve to just the live "By route" tab id. As with the
-    # date range filter above, this only controls which charts respond to the
-    # filter's value, not whether the control itself is shown on other tabs.
+      excluded: []
     chartsInScope:
     - 2
     - 4
+    - 5
     - 6
     - 9
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
     tabsInScope:
+    - TAB-trams000000000000000
+    - TAB-buses000000000000000
+    - TAB-nightBuses00000000000
     - TAB-byRoute0000000000000
     type: NATIVE_FILTER
-    description: Route shown (applies to P2, P4, P6 and P8); defaults to all routes,
-      optionally narrow to one.
+    description: 'Route shown across every tab; defaults to all routes. Picking one
+      narrows the punctuality and speed charts to that single line, so a route that
+      is not part of the tab''s category leaves that tab empty.'
   chart_configuration: {}
   global_chart_configuration:
     scope:

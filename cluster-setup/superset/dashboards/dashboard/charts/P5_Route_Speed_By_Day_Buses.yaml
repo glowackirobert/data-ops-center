@@ -1,41 +1,10 @@
+# Category filters are IN / range predicates, never REGEXP_LIKE: the star-tree index
+# (dayBucket, routeShortName) can answer =, IN and range predicates, and regex sends the
+# query to a full scan instead. See ../../../README.md.
+# granularity_sqla is required for heatmap_v2 to bind the dashboard date filter.
+# row_limit stays high: Pinot truncates ordered GROUP BY results under a small LIMIT.
 slice_name: Route speed by day — Buses
-description: 'How fast is each bus route day by day? Commercial speed (stops
-  included), one row per route, colored by speed. Window comes from the
-  dashboard-level "Report date range" native filter (default last 10 days,
-  same as the Trams/Night buses charts) — see the note on that filter and its
-  scope-remapping caveat in Gdansk_Public_Transport_1.yaml. That filter is
-  anchored to DATETIME("today") rather than "now" — see the Trams chart''s
-  description for why (a "now" anchor made the x-axis column count fluctuate
-  between refreshes). A dashboard-level TEMPORAL_RANGE filter alone is not
-  enough for heatmap_v2, unlike P2''s big_number_total/P8''s table: those viz
-  types expose a granularity_sqla control that Superset''s frontend
-  auto-populates from the datasource''s main_dttm_col, but heatmap_v2 does
-  not, so without params.granularity_sqla set explicitly here the TEMPORAL_RANGE
-  comparator has no column to bind to and Superset silently drops it, querying
-  the table''s whole unfiltered history instead (confirmed by replaying the
-  chart''s query_context through /api/v1/chart/data — the WHERE clause had no
-  generatedTransformed bound at all until this field was added). Split out of P5 into three
-  heatmaps (Trams / Buses / Night buses) — see the Trams chart''s description
-  for why. Scoped to everything that is not a 1-2 digit route (tram) and not
-  N-prefixed (night bus) — numeric bus routes (3+ digits, already uniform width
-  in the live data so no padding is needed to sort correctly) plus lettered
-  codes (e.g. M32, T8); 34M/34S excluded as a one-day rail-replacement service
-  (see P3). Row label is the plain route number/code — digits sort before
-  letters by default, so numeric routes land above lettered codes with no
-  extra transform needed. dayBucket is a plain VARCHAR (is_dttm: false), so
-  Superset''s date-format control has no effect on it — x_axis is a computed
-  SUBSTR(dayBucket, 5, 10) column instead, to show "MM-DD" and drop the year
-  that was crowding the axis (matches the Trams chart; see its description
-  for why this must be spelled SUBSTR with Pinot''s own 0-based (start, end)
-  args rather than ANSI SUBSTRING(x, start, length) — Superset''s Pinot SQL
-  compiler rewrites the latter into the former without converting the third
-  argument, silently breaking it). row_limit is 30000 — this chart covers ~80
-  bus routes vs. ~15 tram/night-bus routes, so at one row per route per day it
-  exhausted a 2000-row cap after only ~24 days and silently dropped the rest
-  of the date range. Trams/Night buses now also use 30000 for a different
-  reason: small LIMITs trigger a Pinot ordered-GROUP-BY truncation — see the
-  Trams chart''s description. Source:
-  gdansk_public_transport_queries.sql (P4).'
+description: Average bus speed (stops included) per line and day.
 certified_by: null
 certification_details: null
 viz_type: heatmap_v2
@@ -61,8 +30,14 @@ params:
   adhoc_filters:
   - clause: WHERE
     expressionType: SQL
-    sqlExpression: NOT REGEXP_LIKE(routeShortName, '^[0-9]{1,2}$') AND NOT REGEXP_LIKE(routeShortName,
-      '^N') AND routeShortName NOT IN ('34M', '34S')
+    sqlExpression: routeShortName NOT IN ('1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12',
+      '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28',
+      '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44',
+      '45', '46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60',
+      '61', '62', '63', '64', '65', '66', '67', '68', '69', '70', '71', '72', '73', '74', '75', '76',
+      '77', '78', '79', '80', '81', '82', '83', '84', '85', '86', '87', '88', '89', '90', '91', '92',
+      '93', '94', '95', '96', '97', '98', '99') AND NOT (routeShortName >= 'N' AND routeShortName <
+      'O') AND routeShortName NOT IN ('34M', '34S')
     comparator: null
     operator: null
     subject: null

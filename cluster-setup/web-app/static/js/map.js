@@ -511,7 +511,7 @@ export async function initMap() {
         // Heading arrow in the left slot of the box, pointing where the
         // vehicle is going. Hidden only for vehicles standing at a terminus
         // of their own course — the schedule-derived atTerminus flag from
-        // /api/positions (within 300 m of the trip's first/last stop). An
+        // /api/positions (within 150 m of the trip's first/last stop). An
         // ordinary speed-0 stop at lights or a stop keeps the last heading.
         new deck.TextLayer({
           id: 'vehicle-arrows',

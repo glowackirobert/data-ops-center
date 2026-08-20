@@ -1,6 +1,6 @@
+# Star-tree answers this from one pre-aggregated record per day in the window.
 slice_name: On-time %
-description: 'What % of vehicles were on time? On time = delay between -60 and +60 s
-  — early is not on time.'
+description: Share of GPS snapshots within 60 s of schedule, over the selected window.
 certified_by: null
 certification_details: null
 viz_type: big_number_total
@@ -14,15 +14,10 @@ params:
     aggregate: null
     hasCustomLabel: true
     label: pct_on_time
-  adhoc_filters:
-  - clause: WHERE
-    comparator: 'DATEADD(DATETIME("now"), -24, hour) : now'
-    expressionType: SIMPLE
-    operator: TEMPORAL_RANGE
-    subject: generatedTransformed
+  adhoc_filters: []
   header_font_size: 0.4
   subheader_font_size: 0.15
-  subheader: GPS snapshots within ±60 s of schedule
+  subheader: within 60 s of schedule
   y_axis_format: SMART_NUMBER
   time_format: smart_date
   extra_form_data: {}

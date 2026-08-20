@@ -1,6 +1,7 @@
+# Groups by dayBucket with no transform, so the star-tree answers it from one record
+# per day - the whole-history window costs the same as a narrow one.
 slice_name: Daily on-time trend
-description: 'Is punctuality getting better or worse? Daily on-time % over the whole
-  history, in Gdansk local time. Source: gdansk_public_transport_queries.sql (P3).'
+description: Daily on-time %, whole history, in Gdansk local time.
 certified_by: null
 certification_details: null
 viz_type: echarts_timeseries_line

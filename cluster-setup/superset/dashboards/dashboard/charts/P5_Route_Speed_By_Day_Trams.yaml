@@ -1,49 +1,11 @@
+# Category filters are IN / range predicates, never REGEXP_LIKE: the star-tree index
+# (dayBucket, routeShortName) can answer =, IN and range predicates, and regex sends the
+# query to a full scan instead. See ../../../README.md.
+# granularity_sqla is required for heatmap_v2 to bind the dashboard date filter;
+# without it Superset silently drops the filter and queries the whole table.
+# row_limit stays high: Pinot truncates ordered GROUP BY results under a small LIMIT.
 slice_name: Route speed by day — Trams
-description: 'How fast is each tram route day by day? Commercial speed (stops
-  included), one row per route, colored by speed. Window comes from the
-  dashboard-level "Report date range" native filter (default last 10 days,
-  same as the Buses/Night buses charts) — the three P5 heatmaps used to carry
-  their own fixed TEMPORAL_RANGE adhoc_filter instead, anchored to
-  DATETIME("today") rather than "now" specifically because a "now"-anchored
-  rolling window cuts two calendar days in half, so whether those partial
-  days contributed rows shifted with time of day and realtime retention, and
-  the x-axis column count wobbled between 9 and 11 across refreshes. That
-  reasoning is why the shared filter itself is now anchored to "today" too
-  (see its description in Gdansk_Public_Transport_1.yaml) rather than a
-  return of the wobble bug. Also carries params.granularity_sqla:
-  generatedTransformed, required for that filter to actually bind on
-  heatmap_v2 — see the Buses chart''s description for why (without it
-  Superset silently drops the TEMPORAL_RANGE filter and queries the whole
-  unfiltered table). row_limit is 30000 even though ~15 tram routes x 10 days
-  needs only ~150 rows: Superset translates sort_x_axis/sort_y_axis into a SQL
-  ORDER BY on the transformed group keys, and Pinot''s single-stage engine
-  silently truncates ordered GROUP BY results when LIMIT is small — with
-  LIMIT 2000 this exact query returned 46 of 123 groups covering a random
-  4-of-10 day subset (different days each run, partialResult=false, no
-  exception — reproduced directly against the broker; identical query without
-  ORDER BY, or with LIMIT >= 10000, returns all groups). Symptom: the three
-  P5 heatmaps showed different, shifting x-axis day counts. Split out of P5 into three
-  heatmaps (Trams / Buses / Night buses) — Superset''s heatmap_v2 has no way to
-  sort rows by a hidden column while showing a different label (unlike P3''s
-  x_axis_sort: sort_key trick), so getting a clean trams-then-buses-then-night
-  row order means one chart per category instead of one chart with a computed
-  sort key. Scoped to routes matching ^[0-9]{1,2}$ (1-2 digit routes — same
-  regex P3 uses for "trams"). Row label is the route number left-padded to 2
-  characters with a space (LPAD with a space pad character) so it sorts
-  numerically as text (2, 3, ... 12 instead of 12 sorting before 2) without a
-  visible leading zero — a bare zero pad character would satisfy the sort but
-  display as "02".."09", which reads as a different route number. dayBucket
-  is a plain VARCHAR (is_dttm: false), so
-  Superset''s date-format control has no effect on it — x_axis is a computed
-  SUBSTR(dayBucket, 5, 10) column instead, to show "MM-DD" and drop the
-  year that was crowding the axis. Deliberately spelled SUBSTR with Pinot''s
-  own 0-based (start, end) args, not the ANSI SUBSTRING(x, start, length)
-  form: Superset''s Pinot SQL compiler silently rewrites SUBSTRING into
-  SUBSTR *without* converting the third argument from length to end index,
-  so SUBSTRING(dayBucket, 6, 5) was actually executing as SUBSTR(dayBucket,
-  6, 5) — start=6 > end=5, an empty range — collapsing every row onto a
-  single blank x-axis category. Source: gdansk_public_transport_queries.sql
-  (P4).'
+description: Average tram speed (stops included) per line and day.
 certified_by: null
 certification_details: null
 viz_type: heatmap_v2
@@ -75,7 +37,13 @@ params:
   adhoc_filters:
   - clause: WHERE
     expressionType: SQL
-    sqlExpression: REGEXP_LIKE(routeShortName, '^[0-9]{1,2}$')
+    sqlExpression: routeShortName IN ('1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12',
+      '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28',
+      '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44',
+      '45', '46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60',
+      '61', '62', '63', '64', '65', '66', '67', '68', '69', '70', '71', '72', '73', '74', '75', '76',
+      '77', '78', '79', '80', '81', '82', '83', '84', '85', '86', '87', '88', '89', '90', '91', '92',
+      '93', '94', '95', '96', '97', '98', '99')
     comparator: null
     operator: null
     subject: null

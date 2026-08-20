@@ -1,31 +1,10 @@
-slice_name: Route speed by day — Night buses
-description: 'How fast is each night bus route day by day? Commercial speed
-  (stops included), one row per route, colored by speed. Window comes from
-  the dashboard-level "Report date range" native filter (default last 10
-  days, same as the Trams/Buses charts) — see the note on that filter and its
-  scope-remapping caveat in Gdansk_Public_Transport_1.yaml. That filter is
-  anchored to DATETIME("today") rather than "now" — see the Trams chart''s
-  description for why (a "now" anchor made the x-axis column count fluctuate
-  between refreshes). Also carries params.granularity_sqla:
-  generatedTransformed, required for that filter to actually bind on
-  heatmap_v2 — see the Buses chart''s description for why (without it
-  Superset silently drops the TEMPORAL_RANGE filter and queries the whole
-  unfiltered table). row_limit is 30000 despite the tiny group count — small
-  LIMITs make Pinot silently truncate ordered GROUP BY results (Superset adds
-  ORDER BY from sort_x_axis/sort_y_axis); see the Trams chart''s description
-  for the full story. Split out of P5 into
-  three heatmaps (Trams / Buses / Night buses) — see the Trams chart''s
-  description for why. Scoped to N-prefixed routes. Row label rebuilds the code
-  as N + the route number left-padded to 2 digits (LPAD/REGEXP_EXTRACT/CONCAT)
-  so N4 sorts before N14 as text instead of after it. dayBucket is a plain
-  VARCHAR (is_dttm: false), so Superset''s date-format control has no effect
-  on it — x_axis is a computed SUBSTR(dayBucket, 5, 10) column instead, to
-  show "MM-DD" and drop the year that was crowding the axis (matches the
-  Trams chart; see its description for why this must be spelled SUBSTR with
-  Pinot''s own 0-based (start, end) args rather than ANSI SUBSTRING(x, start,
-  length) — Superset''s Pinot SQL compiler rewrites the latter into the
-  former without converting the third argument, silently breaking it).
-  Source: gdansk_public_transport_queries.sql (P4).'
+# Category filters are IN / range predicates, never REGEXP_LIKE: the star-tree index
+# (dayBucket, routeShortName) can answer =, IN and range predicates, and regex sends the
+# query to a full scan instead. See ../../../README.md.
+# granularity_sqla is required for heatmap_v2 to bind the dashboard date filter.
+# row_limit stays high: Pinot truncates ordered GROUP BY results under a small LIMIT.
+slice_name: "Route speed by day \xE2\u20AC\u201D Night buses"
+description: Average night bus speed (stops included) per line and day.
 certified_by: null
 certification_details: null
 viz_type: heatmap_v2
@@ -42,8 +21,7 @@ params:
     label: day
   groupby:
     expressionType: SQL
-    sqlExpression: CONCAT('N', LPAD(REGEXP_EXTRACT(routeShortName, '([0-9]+)',
-      0), 2, '0'), '')
+    sqlExpression: LPAD(routeShortName, 3, ' ')
     column: null
     aggregate: null
     hasCustomLabel: true
@@ -58,7 +36,7 @@ params:
   adhoc_filters:
   - clause: WHERE
     expressionType: SQL
-    sqlExpression: REGEXP_LIKE(routeShortName, '^N')
+    sqlExpression: routeShortName >= 'N' AND routeShortName < 'O'
     comparator: null
     operator: null
     subject: null

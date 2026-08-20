@@ -1,21 +1,8 @@
+# Category filters are IN / range predicates, never REGEXP_LIKE: the star-tree index
+# (dayBucket, routeShortName) can answer =, IN and range predicates, and regex sends the
+# query to a full scan instead. See ../../../README.md.
 slice_name: Punctuality by route — Night buses
-description: 'Which night bus lines were punctual? One stacked bar per line: on
-  time / late / early sum to 100 %. Night buses = N-prefixed routes (e.g. N1,
-  N14), matching the web app''s route grouping
-  (cluster-setup/web-app/static/js/utils.js isNightBus), sorted by their
-  numeric part ascending via x_axis_sort: sort_key kept in
-  timeseries_limit_metric rather than groupby so it stays a query-ordering
-  hint instead of an extra dimension (groupby leaked its numeric value into
-  every series name in the hover tooltip). The trailing "+ 0" on sort_key is
-  load-bearing — see the Trams chart description. Colored green/red/magenta = on
-  time/late/early via the dashboard''s label_colors block; the chart''s own
-  legend is off so all three category tabs share one fixed color scheme.
-  Stack order pinned bottom-to-top as on time / late /
-  early via sort_series_type: name + sort_series_ascending: false. One of
-  three category charts that replaced the all-routes "Punctuality by route"
-  chart (see its git history for the full design notes). Respects the "Report
-  date range" dashboard filter (last 10 days by default). Source:
-  gdansk_public_transport_queries.sql (P2).'
+description: 'Punctuality per night bus line: on time / late / early, summing to 100 % of snapshots.'
 certified_by: null
 certification_details: null
 viz_type: echarts_timeseries_bar
@@ -58,7 +45,7 @@ params:
   adhoc_filters:
   - clause: WHERE
     expressionType: SQL
-    sqlExpression: REGEXP_LIKE(routeShortName, '^N')
+    sqlExpression: routeShortName >= 'N' AND routeShortName < 'O'
     comparator: null
     operator: null
     subject: null

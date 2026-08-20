@@ -31,8 +31,8 @@ GTFS_URL = os.environ.get(
 GTFS_REFRESH_S = int(os.environ.get('GTFS_REFRESH_S', str(6 * 3600)))
 
 # A vehicle standing within this range of its course's scheduled first or last
-# stop is "at the terminus" (loops and adjacent depot yards are large).
-TERMINUS_RADIUS_M = 300
+# stop is "at the terminus".
+TERMINUS_RADIUS_M = 150
 
 # --- Route shapes ---
 SHAPES_URL = os.environ.get('SHAPES_URL', 'https://ckan2.multimediagdansk.pl/shapes')

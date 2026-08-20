@@ -1,21 +1,19 @@
-slice_name: Route hourly profile (last 24 h)
-description: 'How does a route (or the whole network) behave through the day? Hour-by-hour
-  speed and delay on the same x-axis — rush hours drag speed down and delay up.
-  Route picked via the "Route" dashboard filter (all routes by default). Source:
-  gdansk_public_transport_queries.sql (P5).'
+# Hourly buckets come from Superset's PT1H time grain, not a TODATETIME() expression:
+# same rows scanned, about a quarter of the wall time, and a real time axis.
+# The one chart no index covers - there is no hour dimension, so its cost grows
+# with the selected window while every other chart's does not.
+slice_name: Speed and delay by hour
+description: Average speed and delay per hour over the selected window; rush hours drag speed down and
+  delay up.
 certified_by: null
 certification_details: null
 viz_type: echarts_timeseries_line
 params:
   datasource: 1__table
   viz_type: echarts_timeseries_line
-  x_axis:
-    expressionType: SQL
-    sqlExpression: TODATETIME(generatedTransformed, 'HH:00', 'Europe/Warsaw')
-    label: hour_of_day
-  x_axis_sort: hour_of_day
+  x_axis: generatedTransformed
   x_axis_sort_asc: true
-  time_grain_sqla: null
+  time_grain_sqla: PT1H
   metrics:
   - expressionType: SQL
     sqlExpression: ROUNDDECIMAL(AVG(speed), 1)
@@ -30,18 +28,13 @@ params:
     hasCustomLabel: true
     label: avg_delay_sec
   groupby: []
-  adhoc_filters:
-  - clause: WHERE
-    comparator: 'DATEADD(DATETIME("now"), -24, hour) : now'
-    expressionType: SIMPLE
-    operator: TEMPORAL_RANGE
-    subject: generatedTransformed
-  row_limit: 100
+  adhoc_filters: []
+  row_limit: 10000
   rich_tooltip: true
   show_legend: true
   markerEnabled: true
   y_axis_format: SMART_NUMBER
-  x_axis_title: Hour (local)
+  x_axis_title: Hour (local time)
   extra_form_data: {}
   dashboards: []
 query_context: ''
