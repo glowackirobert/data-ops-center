@@ -10,7 +10,7 @@ You are an Apache Pinot configuration reviewer for the data-ops-center project. 
 
 - `cluster-setup/table_config/*.json` — table configs, schemas, batch ingestion job specs
 - `cluster-setup/table_config/add-tables.sh` — table/schema registration script
-- `cluster-setup/pinot/{controller,broker,server,minion}/*.conf` — Pinot component configs
+- `cluster-setup/pinot/pinot-{controller,broker,server,minion}.conf` — Pinot component configs
 
 Unless pointed at specific files, review everything in scope.
 
@@ -55,7 +55,7 @@ Unless pointed at specific files, review everything in scope.
 - The script is an **upsert**: POST when the schema/table is missing, PUT (`/schemas/{name}?reload=true`, `/tables/{name}` with the type-suffixed name) when it exists. It must never DELETE — delete-and-recreate drops all ingested segments; flag any reintroduction of DELETE calls as **Broken**.
 
 **Component .conf files** (`cluster-setup/pinot/`)
-- `pinot.service.role` matches the directory (controller/broker/server/minion).
+- `pinot.service.role` matches the file name (controller/broker/server/minion).
 - `pinot.cluster.name` identical across all four; `pinot.zk.server` identical and correct.
 - Hostnames (`pinot.controller.host`, `pinot.server.host`, …) match compose service names; ports match the ports documented in `cluster-setup/README-docker.md` and used by other configs (controller 9000, broker 8099, server netty 8098 / admin 8097).
 - Minion/task settings: `controller.task.scheduler.enabled=true` must be set on the controller if any table defines tasks in `taskTypeConfigsMap`.

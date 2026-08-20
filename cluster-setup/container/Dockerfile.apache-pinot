@@ -17,7 +17,8 @@ RUN mkdir -p ${OUTPUT_DIR} ${LOG_DIR}
 COPY cluster-setup/table_config/* /opt/pinot/scripts/
 COPY cluster-setup/pinot/* /opt/pinot/config/
 
-# Fix line endings and make scripts executable
-RUN sed -i 's/\r$//' /opt/pinot/scripts/add-tables.sh && \
-    chmod +x /opt/pinot/scripts/* && \
-    chmod +x /opt/pinot/config/*
+# Normalize Windows line endings (belt and braces - see .gitattributes) and make
+# the shell scripts executable. The .conf files under /opt/pinot/config and the
+# .json table configs are read, never run, so they need no exec bit.
+RUN sed -i 's/\r$//' /opt/pinot/scripts/*.sh && \
+    chmod +x /opt/pinot/scripts/*.sh
