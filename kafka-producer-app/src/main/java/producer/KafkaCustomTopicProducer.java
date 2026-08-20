@@ -20,7 +20,7 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
 
     private static final String TOPIC = "trade";
     private static final String PROPERTIES_FILE = "kafka-producer.properties";
-    private static final long NUMBER_OF_MESSAGES = 1_000_000_000_000L;
+    private static final long NUMBER_OF_MESSAGES = 10_000_000_000L;
     private static final int FLUSH_INTERVAL = 10_000;
     private static final int NUMBER_OF_THREADS = 2;
     private static final int ITERATIONS = 1;

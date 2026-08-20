@@ -9,6 +9,7 @@ import json
 import os
 import sys
 import unittest
+import urllib.error
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -51,6 +52,37 @@ class QueryShapingTests(unittest.TestCase):
         urllib.request.urlopen = lambda req, timeout=None: _FakeResponse(
             body.encode('utf-8'))
         with self.assertRaises(pinot.PinotQueryError):
+            pinot._query('SELECT 1')
+
+    def test_query_sends_pinot_side_timeout_below_the_socket_timeout(self):
+        """Pinot must give up first, so an overloaded broker comes back as a
+        structured error instead of a bare socket TimeoutError."""
+        seen = {}
+
+        def fake_urlopen(req, timeout=None):
+            seen['options'] = json.loads(req.data)['queryOptions']
+            seen['socket_timeout'] = timeout
+            return _FakeResponse(_pinot_result(['a'], [[1]]))
+
+        urllib.request.urlopen = fake_urlopen
+        pinot._query('SELECT 1', timeout=10)
+        self.assertEqual(seen['options'], 'timeoutMs=10000')
+        self.assertGreater(seen['socket_timeout'], 10)
+
+    def test_query_raises_unavailable_on_socket_timeout(self):
+        def fake_urlopen(req, timeout=None):
+            raise TimeoutError('timed out')
+
+        urllib.request.urlopen = fake_urlopen
+        with self.assertRaises(pinot.PinotUnavailableError):
+            pinot._query('SELECT 1')
+
+    def test_query_raises_unavailable_when_broker_unreachable(self):
+        def fake_urlopen(req, timeout=None):
+            raise urllib.error.URLError('connection refused')
+
+        urllib.request.urlopen = fake_urlopen
+        with self.assertRaises(pinot.PinotUnavailableError):
             pinot._query('SELECT 1')
 
 

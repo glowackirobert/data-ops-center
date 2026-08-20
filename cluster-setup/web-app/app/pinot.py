@@ -5,6 +5,7 @@ route handlers never talk to the broker/controller directly.
 """
 import json
 import re
+import urllib.error
 import urllib.request
 
 from app.config import APPLICATION_JSON, PINOT_BROKER_URL, PINOT_CONTROLLER_URL
@@ -136,19 +137,60 @@ class PinotQueryError(Exception):
         self.exceptions = exceptions
 
 
+class PinotUnavailableError(Exception):
+    """Raised when the broker/controller never answered at all.
+
+    Distinct from PinotQueryError, which means Pinot *did* answer and said
+    the query failed. This one is the cluster being unreachable or too busy
+    to reply within the socket budget — expected under load (an S3 backfill
+    building a multi-million-row segment on the same host will do it), so
+    route handlers turn it into a 504 instead of an unexpected-error 500.
+    """
+
+
+# How much longer than the query budget the socket waits. Pinot enforces the
+# budget itself (see _query), so the extra seconds only cover response
+# transfer — the point is that the broker's own structured timeout error
+# wins the race and surfaces as a 502 with a real message, rather than the
+# socket giving up first and leaving us with a bare TimeoutError.
+_SOCKET_GRACE_SEC = 2
+
+
+def _read_json(target, timeout, what):
+    """urlopen + json.load for a Request or plain URL, transport failures
+    normalized.
+
+    Every way of *not getting an answer* — socket timeout, connection
+    refused, an HTTP error page — becomes PinotUnavailableError so callers
+    have one thing to catch instead of a bare TimeoutError escaping as a 500.
+    """
+    try:
+        with urllib.request.urlopen(target, timeout=timeout) as resp:
+            return json.load(resp)
+    except TimeoutError as e:
+        raise PinotUnavailableError(
+            f'{what} did not respond within {timeout}s') from e
+    except urllib.error.URLError as e:
+        raise PinotUnavailableError(f'{what} unreachable: {e.reason}') from e
+
+
 def _query(sql, timeout=15):
     """Run a SQL query against the broker; return (rows, timeUsedMs).
+
+    `timeout` is the *query* budget in seconds, handed to Pinot as the
+    queryOptions timeoutMs (which overrides the broker's own default) and
+    used to derive the socket timeout — see _SOCKET_GRACE_SEC.
 
     timeUsedMs is Pinot's own broker-reported query time — surfaced end to
     end as a latency badge in the app, not just used internally.
     """
+    payload = {'sql': sql, 'queryOptions': f'timeoutMs={int(timeout * 1000)}'}
     req = urllib.request.Request(
         PINOT_BROKER_URL + '/query/sql',
-        data=json.dumps({'sql': sql}).encode('utf-8'),
+        data=json.dumps(payload).encode('utf-8'),
         headers={'Content-Type': APPLICATION_JSON},
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        result = json.load(resp)
+    result = _read_json(req, timeout + _SOCKET_GRACE_SEC, 'broker')
     if result.get('exceptions'):
         raise PinotQueryError(result['exceptions'])
     cols = result['resultTable']['dataSchema']['columnNames']
@@ -202,15 +244,15 @@ def network_hourly():
 def table_stats():
     rows, ms = _query(STATS_SQL, timeout=15)
     docs = rows[0]['totalDocs']
-    with urllib.request.urlopen(
-            PINOT_CONTROLLER_URL + '/tables/gdansk_public_transport/size?detailed=false',
-            timeout=15) as resp:
-        size_bytes = json.load(resp)['reportedSizeInBytes']
-    with urllib.request.urlopen(
+    size_bytes = _read_json(
+        PINOT_CONTROLLER_URL + '/tables/gdansk_public_transport/size?detailed=false',
+        15, 'controller')['reportedSizeInBytes']
+    # [{"OFFLINE": [names…]}, {"REALTIME": [names…]}]
+    segments = sum(
+        len(names)
+        for entry in _read_json(
             PINOT_CONTROLLER_URL + '/segments/gdansk_public_transport',
-            timeout=15) as resp:
-        # [{"OFFLINE": [names…]}, {"REALTIME": [names…]}]
-        segments = sum(len(names) for entry in json.load(resp)
-                       for names in entry.values())
+            15, 'controller')
+        for names in entry.values())
     data = {'totalDocs': docs, 'segments': segments, 'sizeBytes': size_bytes}
     return data, ms

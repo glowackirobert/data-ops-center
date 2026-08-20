@@ -50,6 +50,7 @@ class HandlerTests(unittest.TestCase):
             'live_delays': pinot.live_delays,
             'route_hourly_delay': pinot.route_hourly_delay,
             'table_stats': pinot.table_stats,
+            'network_hourly': pinot.network_hourly,
         }
 
     def tearDown(self):
@@ -63,6 +64,7 @@ class HandlerTests(unittest.TestCase):
         pinot.live_delays = self._orig['live_delays']
         pinot.route_hourly_delay = self._orig['route_hourly_delay']
         pinot.table_stats = self._orig['table_stats']
+        pinot.network_hourly = self._orig['network_hourly']
 
     def _get(self, path):
         url = f'http://127.0.0.1:{self.port}{path}'
@@ -103,6 +105,23 @@ class HandlerTests(unittest.TestCase):
         status, body = self._get('/api/positions')
         self.assertEqual(status, 502)
         self.assertIn('error', body)
+
+    def test_network_hourly_504_when_pinot_does_not_answer(self):
+        """A busy/unreachable broker is a known transient condition — 504
+        with a real message, not the generic 500 an unexpected error gets."""
+        def boom():
+            raise pinot.PinotUnavailableError('broker did not respond within 17s')
+        pinot.network_hourly = boom
+        status, body = self._get('/api/network-hourly')
+        self.assertEqual(status, 504)
+        self.assertIn('Pinot unavailable', body['error'])
+
+    def test_stats_504_when_pinot_does_not_answer(self):
+        def boom():
+            raise pinot.PinotUnavailableError('controller unreachable: refused')
+        pinot.table_stats = boom
+        status, _ = self._get('/api/stats')
+        self.assertEqual(status, 504)
 
     def test_stops_503_before_gtfs_loaded(self):
         gtfs.is_loaded = lambda: False

@@ -55,6 +55,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._serve_static(parsed.path)
             else:
                 self._send(404, 'not found', 'text/plain')
+        except pinot.PinotUnavailableError as e:
+            # Pinot never answered — cluster down, or too busy to reply (an
+            # S3 backfill building a segment on the same host is enough).
+            # A known, transient condition: log one line, not a traceback,
+            # and say so rather than claiming an internal error.
+            print(f'WARN: {parsed.path}: {e}')
+            self._send_json(504, {'error': f'Pinot unavailable: {e}'})
         except Exception:  # keep the dev server alive on any request error
             send_error_response(self, parsed.path)
 
