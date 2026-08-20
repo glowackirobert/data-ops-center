@@ -211,7 +211,7 @@ PINOT_CONTROLLER_URL=http://localhost:9000 TABLE_CONFIG_DIR=cluster-setup/table_
 
 ## S3 Batch Ingestion
 
-The `gdansk_public_transport_ingestion_job_spec.json` spec reads every compacted file under
+The `gdansk_public_transport_ingestion_job_spec.yaml` spec reads every compacted file under
 `s3://gdansk-public-transport/squashed/` and pushes one segment per file to the offline Pinot
 table, named `gdansk_public_transport_<file stem>`. `squashed/` holds a mix of granularities —
 day files (`YYYY/YYYY-MM-DD.json.gz` → `gdansk_public_transport_YYYY-MM-DD`) for recent,
@@ -220,7 +220,7 @@ for fully-elapsed months — but never both for the same range: the `monthly` co
 subcommand deletes a month's day files once it's squashed them into one month file,
 so ingestion never has to know or care which granularity a given file is.
 
-`INGESTION_DATE` is a **filename glob** substituted into the job spec's `${DATE}` placeholder:
+`INGESTION_DATE` is a **filename glob** passed to the job spec's `${DATE}` template placeholder (via `LaunchDataIngestionJob -values`):
 an exact day (`2026-02-01`) or exact month (`2026-02`) each match exactly one file; unset/empty,
 a partial month (`2026-06-*`), or a year (`2025-*`) match many — whatever mix of day/month files
 currently exists for that range.

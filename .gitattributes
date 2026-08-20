@@ -1,5 +1,9 @@
-# These files are read inside Linux containers (shell interpreters and Pinot's
-# properties parser). A CRLF checkout on Windows would otherwise ship \r into
-# the image - hence the sed 's/\r$//' in Dockerfile.apache-pinot.
+# These files are read inside Linux containers (shell interpreters, Pinot's
+# properties parser, and Pinot's table-config/job-spec readers). A CRLF checkout
+# on Windows would otherwise ship \r into the image - hence the sed 's/\r$//'
+# in Dockerfile.apache-pinot.
 *.sh   text eol=lf
 *.conf text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml  text eol=lf

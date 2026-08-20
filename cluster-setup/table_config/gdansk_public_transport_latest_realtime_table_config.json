@@ -48,9 +48,5 @@
         "transformFunction": "FromDateTime(scheduledTripStartTime, 'YYYY-MM-dd''T''HH:mm:ss''Z''')"
       }
     ]
-  },
-  "metadata": {
-    "customConfigs": {}
-  },
-  "isDimTable": false
+  }
 }

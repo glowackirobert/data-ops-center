@@ -1,11 +1,20 @@
+# Reference example only - nothing in this repo runs it. It shows the shape of a
+# CSV batch ingestion job; the live job is gdansk_public_transport_ingestion_job_spec.yaml.
+# Placeholders (your-bucket, your_table) are meant to be filled in before use.
+#
+# Credentials are never written here: the Pinot containers get them from the
+# aws_credentials secret via AWS_SHARED_CREDENTIALS_FILE, and S3PinotFS picks
+# them up from the default AWS credential chain.
+
 executionFrameworkSpec:
-  name: 'standalone'
-  segmentGenerationJobRunnerClassName: 'org.apache.pinot.plugin.ingestion.batch.standalone.SegmentGenerationJobRunner'
-  segmentTarPushJobRunnerClassName: 'org.apache.pinot.plugin.ingestion.batch.standalone.SegmentTarPushJobRunner'
-  segmentUriPushJobRunnerClassName: 'org.apache.pinot.plugin.ingestion.batch.standalone.SegmentUriPushJobRunner'
+  name: standalone
+  segmentGenerationJobRunnerClassName: org.apache.pinot.plugin.ingestion.batch.standalone.SegmentGenerationJobRunner
+  segmentTarPushJobRunnerClassName: org.apache.pinot.plugin.ingestion.batch.standalone.SegmentTarPushJobRunner
+  segmentUriPushJobRunnerClassName: org.apache.pinot.plugin.ingestion.batch.standalone.SegmentUriPushJobRunner
 
 jobType: SegmentCreationAndTarPush
-inputDirURI: 's3://bucketName'
+
+inputDirURI: 's3://your-bucket/csv/'
 includeFileNamePattern: 'glob:**/*.csv'
 outputDirURI: '/tmp/pinot/segments'
 overwriteOutput: true
@@ -15,8 +24,6 @@ pinotFSSpecs:
     className: org.apache.pinot.plugin.filesystem.S3PinotFS
     configs:
       region: eu-north-1
-      accessKey:
-      secretKey:
 
 recordReaderSpec:
   dataFormat: csv
@@ -25,13 +32,16 @@ recordReaderSpec:
     delimiter: ","
     header: true
 
+# Controller hostnames are the compose service names, since the job runs inside
+# the pinot-ingestion-runner container; use localhost:9000 when running it from
+# the host against a published port.
 tableSpec:
-  tableName: 'gdansk_public_transport'
-  schemaURI: 'http://localhost:9000/tables/gdansk_public_transport/schema'
-  tableConfigURI: 'http://localhost:9000/tables/gdansk_public_transport_OFFLINE'
+  tableName: your_table
+  schemaURI: 'http://pinot-controller:9000/tables/your_table/schema'
+  tableConfigURI: 'http://pinot-controller:9000/tables/your_table_OFFLINE'
 
 pinotClusterSpecs:
-  - controllerURI: 'http://localhost:9000'
+  - controllerURI: 'http://pinot-controller:9000'
 
 pushJobSpec:
   pushAttempts: 2

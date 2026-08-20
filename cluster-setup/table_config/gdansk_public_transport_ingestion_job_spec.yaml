@@ -1,0 +1,63 @@
+# Batch ingestion of the compacted Gdansk GPS files from the S3 deep store into
+# the gdansk_public_transport OFFLINE table. Run by the pinot-ingestion-runner
+# container (see cluster-setup/README-docker.md).
+#
+# DATE and PARALLELISM below are job-spec template placeholders: Pinot renders
+# this whole file through a Groovy template before parsing it, and the runner
+# supplies both via "LaunchDataIngestionJob -values DATE=... PARALLELISM=...".
+# Consequences, both easy to trip over:
+#   - every dollar sign in this file is template syntax, comments included, so a
+#     literal one has to be backslash-escaped (see segment.name.template below,
+#     whose placeholder is meant for Pinot, not for the template engine);
+#   - a backslash-escaped dollar sign is not legal JSON, which is why this file
+#     is YAML.
+executionFrameworkSpec:
+  name: standalone
+  segmentGenerationJobRunnerClassName: org.apache.pinot.plugin.ingestion.batch.standalone.SegmentGenerationJobRunner
+  segmentTarPushJobRunnerClassName: org.apache.pinot.plugin.ingestion.batch.standalone.SegmentTarPushJobRunner
+  segmentUriPushJobRunnerClassName: org.apache.pinot.plugin.ingestion.batch.standalone.SegmentUriPushJobRunner
+
+jobType: SegmentCreationAndTarPush
+
+# squashed/ holds a mix of day (YYYY-MM-DD) and month (YYYY-MM) files; DATE is a
+# glob, so "*" backfills everything and e.g. "2026-02" narrows to one month.
+inputDirURI: 's3://gdansk-public-transport/squashed/'
+searchRecursively: true
+includeFileNamePattern: 'glob:**/${DATE}.json.gz'
+outputDirURI: '/tmp/pinot/segments'
+overwriteOutput: true
+cleanUpOutputDir: true
+segmentCreationJobParallelism: ${PARALLELISM}
+
+pinotFSSpecs:
+  - scheme: s3
+    className: org.apache.pinot.plugin.filesystem.S3PinotFS
+    configs:
+      # Credentials come from the aws_credentials secret via
+      # AWS_SHARED_CREDENTIALS_FILE - never put keys in this file.
+      region: eu-north-1
+
+recordReaderSpec:
+  dataFormat: json
+  className: org.apache.pinot.plugin.inputformat.json.JSONRecordReader
+
+# Segment names are derived from the input file name, so re-ingesting a file
+# overwrites its segment instead of duplicating the data.
+segmentNameGeneratorSpec:
+  type: inputFile
+  configs:
+    file.path.pattern: '.+/(.+)\.json\.gz'
+    segment.name.template: 'gdansk_public_transport_\${filePathPattern:\1}'
+
+tableSpec:
+  tableName: gdansk_public_transport
+  schemaURI: 'http://pinot-controller:9000/tables/gdansk_public_transport/schema'
+  tableConfigURI: 'http://pinot-controller:9000/tables/gdansk_public_transport_OFFLINE'
+
+pinotClusterSpecs:
+  - controllerURI: 'http://pinot-controller:9000'
+
+pushJobSpec:
+  pushAttempts: 3
+  pushRetryIntervalMillis: 5000
+  pushParallelism: ${PARALLELISM}
