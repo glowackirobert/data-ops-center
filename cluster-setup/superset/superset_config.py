@@ -18,19 +18,21 @@ GUEST_TOKEN_JWT_SECRET = SECRET_KEY + "-guest-token"
 # Switch to redis:// if Superset is ever scaled to multiple containers.
 RATELIMIT_STORAGE_URI = "memory://"
 
-# Without an explicit cache backend Superset falls back to a null cache, which
-# silently voids every chart's cache_timeout — each dashboard view re-runs the
-# whole query + pandas pipeline (~1-3 s per chart even though Pinot answers in
-# tens of ms). FileSystemCache: shared across gunicorn workers (SimpleCache is
-# per-process), no Redis dependency, and /app/superset_home is the persisted
-# volume so the cache survives container restarts. Chart YAMLs' cache_timeout
-# (3600) still takes precedence over CACHE_DEFAULT_TIMEOUT per chart.
+# Query results are deliberately NOT cached: every chart render re-runs its
+# query against Pinot (the chart YAMLs also pin cache_timeout: -1 = bypass, so
+# re-enabling a data cache backend later won't silently bring caching back).
+# Costs the query + pandas pipeline (~1-3 s per chart) on each dashboard view.
+DATA_CACHE_CONFIG = {"CACHE_TYPE": "NullCache"}
+
+# UI-state caches (dashboard/dataset metadata, native-filter state, Explore
+# permalinks) hold no query results and stay on FileSystemCache: shared across
+# gunicorn workers (SimpleCache is per-process), no Redis dependency, and
+# /app/superset_home is the persisted volume so they survive restarts.
 _FS_CACHE = {
     "CACHE_TYPE": "FileSystemCache",
     "CACHE_DEFAULT_TIMEOUT": 3600,
     "CACHE_THRESHOLD": 2000,
 }
-DATA_CACHE_CONFIG = {**_FS_CACHE, "CACHE_DIR": "/app/superset_home/cache/data"}
 CACHE_CONFIG = {**_FS_CACHE, "CACHE_DIR": "/app/superset_home/cache/metadata"}
 FILTER_STATE_CACHE_CONFIG = {**_FS_CACHE, "CACHE_DIR": "/app/superset_home/cache/filter_state"}
 EXPLORE_FORM_DATA_CACHE_CONFIG = {**_FS_CACHE, "CACHE_DIR": "/app/superset_home/cache/explore_form_data"}

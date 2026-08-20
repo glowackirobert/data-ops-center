@@ -28,14 +28,14 @@ Layers, in flow order:
 2. `cluster-setup/py/gdansk_public_transport_kafka.py` — publishes each vehicle object **unchanged** to topic `gdansk-public-transport`; and `cluster-setup/py/gdansk_public_transport_aws.py` — writes the same objects as JSON-lines to S3 (offline path). Both paths must carry the same shape; `gdansk_public_transport_s3_compaction.py` (both its `daily` and `monthly` subcommands) must also preserve it.
 3. Pinot schema `cluster-setup/table_config/gdansk_public_transport_table_schema.json` + the REALTIME/OFFLINE table configs. The JSON decoder maps **by exact field name** — a Pinot column that doesn't literally match an API field name (and isn't a transform destination like `generatedTransformed`) will be silently null.
 4. Superset dataset export `cluster-setup/superset/dashboards/dashboard/datasets/Apache_Pinot/gdansk_public_transport.yaml` and chart YAMLs next to it — column references must exist in the Pinot schema.
-5. `cluster-setup/web-app/server.py` — the broker SQL: every referenced column must exist, and the type argument of each `LASTWITHTIME(col, ts, 'TYPE')` must match the Pinot schema's dataType for that column.
+5. `cluster-setup/web-app/app/pinot.py` — the broker SQL strings (`*_SQL` constants): every referenced column must exist in the schema of the table each query reads (`gdansk_public_transport` vs the upsert table `gdansk_public_transport_latest`).
 6. `cluster-setup/table_config/gdansk_public_transport_queries.sql` — sample queries; same column-existence check.
 
 ## How to work
 
 1. Build the field inventory per layer for the affected pipeline (both pipelines if not told which).
 2. Diff adjacent layers pairwise; classify each discrepancy:
-   - **Silent data loss** — field exists upstream but is missing/misnamed downstream, or type/format mismatch that nulls or corrupts values (e.g. epoch-unit mismatch, `LASTWITHTIME` type argument wrong).
+   - **Silent data loss** — field exists upstream but is missing/misnamed downstream, or type/format mismatch that nulls or corrupts values (e.g. epoch-unit mismatch, or an aggregation function's type argument — like `LASTWITHTIME(col, ts, 'TYPE')` in the sample queries — not matching the column's dataType).
    - **Broken reference** — downstream (Superset YAML, web-app SQL, sample queries) references a column that doesn't exist in the Pinot schema.
    - **Dead field** — declared in Pinot/Superset but never produced upstream; harmless but misleading.
 3. For each finding give `path:line` on both sides of the mismatch, the field name, and the concrete fix (which side should change and to what).

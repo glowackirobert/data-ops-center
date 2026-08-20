@@ -406,8 +406,8 @@ The backend (stdlib Python, no dependencies) exposes:
 | `/api/stops`       | All stop poles (id, name, code, lat/lon) from the ZTM GTFS feed                               |
 | `/api/departures`  | `?stopId=` — scheduled departures in the next 60 min (or the next 3 if none), adjusted by live delays from the GPS feed: a delayed vehicle stays listed until its estimated time passes |
 | `/api/route-shape` | `?routeId=&tripId=` — today's trip trajectory (GeoJSON LineString coordinates) proxied from the ZTM shapes API, cached in memory per day; 404 if the trip has no shape today |
-| `/api/stats`       | Total docs (broker `COUNT(*)` over the hybrid table), segment count and reported size (controller API) — feeds the header scale strip; cached 60 s |
-| `/api/heatmap`     | 24 h GPS ping density on a ~100 m grid, for the map's heatmap toggle; cached 5 min |
+| `/api/stats`       | Total docs (broker `COUNT(*)` over the hybrid table), segment count and reported size (controller API) — feeds the header scale strip |
+| `/api/heatmap`     | 24 h GPS ping density on a ~100 m grid, for the map's heatmap toggle |
 
 The GTFS feed (`gtfsgoogle.zip`, ~20 MB) is downloaded on startup and every 6 h
 by a background thread; only today's and tomorrow's service days are kept in

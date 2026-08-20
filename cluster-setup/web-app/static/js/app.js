@@ -1,5 +1,5 @@
 import { initMap, resizeMap } from './map.js';
-import { initDashboard, refreshStats, refreshOverview } from './dashboard.js';
+import { initDashboard, refreshOverview } from './dashboard.js';
 import { initHelp } from './help.js';
 
 function showTab(name) {
@@ -17,9 +17,7 @@ document.getElementById('tab-dash').onclick = () => showTab('dash');
 
 initHelp();
 
-refreshStats();
-setInterval(refreshStats, 60000);
-refreshOverview();
+refreshOverview(); // also feeds the storage strip from its /api/stats fetch
 setInterval(refreshOverview, 60000);
 
 await initMap();

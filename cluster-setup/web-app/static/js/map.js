@@ -3,7 +3,6 @@ import { OFF_ROUTE_M, projectOnPath, nearestRouteStop } from './geo.js';
 
 const REFRESH_MS = 2000;
 const INITIAL_VIEW = { center: [18.6466, 54.352], zoom: 15 }; // Gdansk Old Town
-const HEATMAP_TTL_MS = 300000;
 const HALO_PERIOD_MS = 2200;
 
 // Single app-state object rather than many top-level lets, so refresh/render
@@ -20,7 +19,6 @@ const state = {
   heatmapMs: null,   // same, for the last /api/heatmap fetch
   stopsData: [],
   heatmapData: [],
-  heatmapAt: 0,
 };
 
 function vehicleActionText(d) {
@@ -121,16 +119,14 @@ export async function initMap() {
   const heatmapToggle = document.getElementById('heatmap-toggle');
   const histogramEl = document.getElementById('route-histogram');
 
-  // 24 h ping-density heatmap (server-cached Pinot aggregate). Fetched on
-  // first toggle-on; re-fetched only when older than the server's cache TTL.
+  // 24 h ping-density heatmap, queried live from Pinot on every toggle-on —
+  // no caching anywhere, so the latency badge always shows a real query.
   async function loadHeatmap() {
-    if (Date.now() - state.heatmapAt < HEATMAP_TTL_MS) return;
     try {
       const resp = await fetch('/api/heatmap');
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       state.heatmapData = await resp.json();
       state.heatmapMs = latencyMs(resp);
-      state.heatmapAt = Date.now();
     } catch (err) {
       statusEl.textContent = `Heatmap failed: ${err.message}`;
     }
@@ -560,10 +556,10 @@ export async function initMap() {
     map.panTo([d.lon, d.lat]);
   }
 
-  // While a line is selected (and no single vehicle is tracked) the camera
-  // follows it: fitted on selection and re-fitted after every refresh, so
-  // the whole line stays in view as the vehicles move. With "All vehicles"
-  // the refresh never moves the map.
+  // Camera fit for the moment a line is picked in the dropdown — called from
+  // routeSelect.onchange only, never from refresh(): once the user has the
+  // line in view they may pan/zoom freely, and a 2 s re-fit would keep
+  // snapping the camera back. "All vehicles" flies home to the initial view.
   function fitToSelection() {
     const route = routeSelect.value;
     if (!route) {
@@ -623,7 +619,6 @@ export async function initMap() {
       }
       updateRouteActivity(state.lastRows);
       render();
-      if (!state.selectedTrip && routeSelect.value) fitToSelection();
       globalThis._log.push({ t: Date.now(), ev: 'refresh', n: state.lastRows.length, zoom: map.getZoom() });
     } catch (err) {
       statusEl.textContent = `Refresh failed: ${err.message}`;

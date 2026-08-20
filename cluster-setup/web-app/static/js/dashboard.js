@@ -34,18 +34,15 @@ export async function initDashboard() {
 // Storage strip on the Analytics tab: Pinot internals the dashboard can't
 // show (the row count lives in the overview strip's Total rows tile instead).
 // Deliberately not in the top bar — a big row count next to the live map
-// reads as "points on the map", which it is not.
-export async function refreshStats() {
-  try {
-    const resp = await fetch('/api/stats');
-    const s = await resp.json();
-    if (s.error) throw new Error(s.error);
-    document.getElementById('dash-stats').innerHTML =
-      `Apache Pinot storage (hybrid realtime + offline table): ` +
-      `<b>${s.segments.toLocaleString()}</b> segments · ` +
-      `<b>${fmtBytes(s.sizeBytes)}</b>` +
-      latencyBadgeHtml(latencyMs(resp));
-  } catch { /* strip stays as-is; next tick retries */ }
+// reads as "points on the map", which it is not. Fed from refreshOverview's
+// /api/stats fetch rather than its own: the endpoint is uncached, so one
+// live stats query per tick serves both this strip and the Total-rows tile.
+function renderStorageStrip(s, ms) {
+  document.getElementById('dash-stats').innerHTML =
+    `Apache Pinot storage (hybrid realtime + offline table): ` +
+    `<b>${s.segments.toLocaleString()}</b> segments · ` +
+    `<b>${fmtBytes(s.sizeBytes)}</b>` +
+    latencyBadgeHtml(ms);
 }
 
 // Native overview strip (Total rows + Network rush hour — formerly the
@@ -64,7 +61,8 @@ export async function refreshOverview() {
     const stats = await statsResp.json();
     const rush = await rushResp.json();
     if (stats.error) throw new Error(stats.error);
-    if (rush.error) throw new Error(rush.error);
+    renderStorageStrip(stats, latencyMs(statsResp)); // before the rush check:
+    if (rush.error) throw new Error(rush.error);     // stats alone can still land
     renderOverview(el, stats, rush, latencyMs(rushResp));
   } catch (err) {
     el.innerHTML =

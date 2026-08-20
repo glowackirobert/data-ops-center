@@ -1,8 +1,8 @@
-"""Tests for app.pinot: SQL response shaping and TTL-cache behavior.
+"""Tests for app.pinot: SQL response shaping.
 
 The broker/controller are never actually contacted — urllib.request.urlopen
 is monkeypatched to return canned responses, so these test the response
-parsing and caching logic in isolation.
+parsing logic in isolation.
 """
 import io
 import json
@@ -54,11 +54,10 @@ class QueryShapingTests(unittest.TestCase):
             pinot._query('SELECT 1')
 
 
-class LiveDelaysCacheTests(unittest.TestCase):
+class LiveDelaysTests(unittest.TestCase):
 
     def setUp(self):
         self._orig_urlopen = urllib.request.urlopen
-        pinot._delays_cache = pinot.TTLCache(pinot.DELAYS_TTL_S)
 
     def tearDown(self):
         urllib.request.urlopen = self._orig_urlopen
@@ -70,19 +69,13 @@ class LiveDelaysCacheTests(unittest.TestCase):
         data, _ = pinot.live_delays()
         self.assertEqual(data, {('8', '12'): 45})
 
-    def test_live_delays_degrades_to_stale_cache_on_failure(self):
-        urllib.request.urlopen = lambda req, timeout=None: _FakeResponse(
-            _pinot_result(['routeShortName', 'tripId', 'delay'], [['8', 12, 45]]))
-        first, _ = pinot.live_delays()
-        self.assertEqual(first, {('8', '12'): 45})
-
-        # force a fresh fetch attempt (bypass TTL) that fails outright
-        pinot._delays_cache._at = 0
+    def test_live_delays_degrades_to_empty_on_failure(self):
         def boom(req, timeout=None):
             raise OSError('network down')
         urllib.request.urlopen = boom
-        second, _ = pinot.live_delays()
-        self.assertEqual(second, {('8', '12'): 45})  # stale data, not a crash
+        data, ms = pinot.live_delays()
+        self.assertEqual(data, {})  # schedule-only fallback, not a crash
+        self.assertEqual(ms, 0)
 
 
 class RouteHourlyDelayTests(unittest.TestCase):
@@ -93,10 +86,10 @@ class RouteHourlyDelayTests(unittest.TestCase):
     def tearDown(self):
         urllib.request.urlopen = self._orig_urlopen
 
-    def test_route_hourly_delay_returns_rows_and_time(self):
+    def test_route_hourly_delay_labels_int_hour_buckets(self):
         urllib.request.urlopen = lambda req, timeout=None: _FakeResponse(
-            _pinot_result(['hour', 'avgDelaySec', 'snapshots'],
-                          [['08:00', 42, 100]], time_used_ms=7))
+            _pinot_result(['hourOfDay', 'avgDelaySec', 'snapshots'],
+                          [[8, 42, 100]], time_used_ms=7))
         rows, ms = pinot.route_hourly_delay('8')
         self.assertEqual(rows, [{'hour': '08:00', 'avgDelaySec': 42, 'snapshots': 100}])
         self.assertEqual(ms, 7)
@@ -113,30 +106,29 @@ class NetworkHourlyTests(unittest.TestCase):
 
     def setUp(self):
         self._orig_urlopen = urllib.request.urlopen
-        pinot._network_hourly_cache = pinot.TTLCache(pinot.NETWORK_HOURLY_TTL_S)
 
     def tearDown(self):
         urllib.request.urlopen = self._orig_urlopen
 
-    def test_network_hourly_returns_rows_and_time(self):
+    def test_network_hourly_labels_int_hour_buckets(self):
         urllib.request.urlopen = lambda req, timeout=None: _FakeResponse(
-            _pinot_result(['hour', 'activeVehicles'],
-                          [['07:00', 350], ['08:00', 412]], time_used_ms=19))
+            _pinot_result(['hourOfDay', 'activeVehicles'],
+                          [[7, 350], [8, 412]], time_used_ms=19))
         rows, ms = pinot.network_hourly()
         self.assertEqual(rows, [{'hour': '07:00', 'activeVehicles': 350},
                                 {'hour': '08:00', 'activeVehicles': 412}])
         self.assertEqual(ms, 19)
 
-    def test_network_hourly_is_cached(self):
-        urllib.request.urlopen = lambda req, timeout=None: _FakeResponse(
-            _pinot_result(['hour', 'activeVehicles'], [['07:00', 350]]))
-        first, _ = pinot.network_hourly()
-
-        def boom(req, timeout=None):
-            raise AssertionError('cached call must not hit the broker')
-        urllib.request.urlopen = boom
-        second, _ = pinot.network_hourly()
-        self.assertEqual(second, first)
+    def test_network_hourly_queries_broker_every_call(self):
+        calls = []
+        def counting(req, timeout=None):
+            calls.append(req)
+            return _FakeResponse(
+                _pinot_result(['hourOfDay', 'activeVehicles'], [[7, 350]]))
+        urllib.request.urlopen = counting
+        pinot.network_hourly()
+        pinot.network_hourly()
+        self.assertEqual(len(calls), 2)  # uncached: every call is live
 
 
 if __name__ == '__main__':
