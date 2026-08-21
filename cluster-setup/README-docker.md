@@ -364,14 +364,20 @@ To add or update a dashboard:
 The dashboards directory is volume-mounted into `superset-init`, so YAML changes need no image rebuild — just re-run the one-shot init container (swap `env.dev` → `env.prod` for prod):
 
 ```bash
-docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml --profile init up superset-init
+docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml --profile init run --rm -e SUPERSET_IMPORT_OVERWRITE=1 superset-init
 ```
 
-`superset-init.sh` skips the import when the dashboard UUID already exists in Superset, 
-so on an already-initialized deployment first delete the dashboard in the Superset UI 
-(Dashboards → trash icon). The container output should show `Importing dashboard.zip 
-... Imported successfully`; `Skipping — dashboards already exist` means the old 
-copy is still in place.
+`superset-init.sh` skips the import when the dashboard UUID already exists in Superset, so
+an already-initialized deployment needs `SUPERSET_IMPORT_OVERWRITE=1` to re-import over it.
+The variable is not declared in `container-compose.yml`'s `environment:` block, which is why
+the command above uses `run --rm -e` rather than `up` — a shell-exported variable would not
+reach the container. (Deleting the dashboard in the Superset UI first, then running plain
+`up superset-init`, works too, but discards anything else attached to it.)
+
+The container output should show `Importing dashboard.zip ... Imported successfully`;
+`Skipping — dashboards already exist` means the old copy is still in place. Re-registering
+for embedding is idempotent — the embedded UUID survives a re-import, so the web-app's
+cached `_embedded_uuid` (`web-app/app/superset.py`) stays valid and needs no restart.
 
 ## Web App (port 3001)
 

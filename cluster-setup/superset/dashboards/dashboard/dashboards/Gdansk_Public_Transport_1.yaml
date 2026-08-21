@@ -437,7 +437,7 @@ metadata:
     - 12
   map_label_colors: {}
   color_scheme: ''
-  refresh_frequency: 10
+  refresh_frequency: 0
   color_scheme_domain: []
   expanded_slices: {}
   label_colors:
