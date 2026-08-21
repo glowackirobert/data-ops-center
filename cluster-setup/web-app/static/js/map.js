@@ -109,7 +109,7 @@ export async function initMap() {
       }
       hideStopBox();
       if (info.layer?.id === 'vehicles' && info.object) selectVehicle(info.object);
-      else clearTripPath(); // empty-map click clears the drawn route
+      else clearTripPath({ restore: true }); // empty-map click clears the drawn route
     },
   });
   map.addControl(overlay);
@@ -219,7 +219,7 @@ export async function initMap() {
   // same vehicle again, another vehicle, or empty map clears/replaces it.
   async function selectVehicle(d) {
     if (state.selectedTrip?.vehicleId === d.vehicleId) {
-      clearTripPath();
+      clearTripPath({ restore: true });
       return;
     }
     if (d.inService === false) {
@@ -258,11 +258,23 @@ export async function initMap() {
     }
   }
 
-  function clearTripPath() {
+  // `restore` marks the deliberate deselects — re-clicking the tracked vehicle,
+  // or clicking empty map. Selecting a vehicle is an excursion inside whatever
+  // scope the dropdown defines, so ending it should hand the camera back to
+  // that scope; otherwise the user is stranded wherever the follow drifted to.
+  // Only when the follow was still on, though: once they have panned or zoomed
+  // themselves the camera is theirs, the same rule `movestart` already applies.
+  // Re-fitting beats restoring a saved viewport — after a few minutes the
+  // vehicles have moved, and a stale centre/zoom can frame empty road.
+  // The error paths (no trip shape, failed fetch) and the heatmap toggle pass
+  // nothing: those are not the user asking to look somewhere else.
+  function clearTripPath({ restore = false } = {}) {
     if (!state.selectedTrip) return;
+    const wasFollowing = state.followSelected;
     state.selectedTrip = null;
     state.followSelected = false;
     render();
+    if (restore && wasFollowing) fitToSelection();
   }
 
   // The split is recomputed from the fresh position on every render, so each
@@ -726,7 +738,13 @@ export async function initMap() {
       }
     }
     render();
-    if (!state.selectedTrip) fitToSelection(); // a tracked vehicle keeps the camera instead
+    // Picking a line is an explicit "show me this line", so it always fits —
+    // including when the tracked vehicle happens to be on that very line,
+    // which used to be the one case that silently did nothing. The selection
+    // survives (its trajectory is still worth seeing) but the follow does not,
+    // or the next refresh would pan straight back and undo the fit.
+    state.followSelected = false;
+    fitToSelection();
     loadRouteHistogram(routeSelect.value);
     if (state.stopBox) pollStopBox(); // its note is about the line just changed
   };
