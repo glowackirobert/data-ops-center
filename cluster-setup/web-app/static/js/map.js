@@ -13,6 +13,7 @@ const state = {
   map: null,
   overlay: null,
   selectedTrip: null, // when set, has fields vehicleId, routeId, tripId, path, progress
+  followSelected: false, // camera tracks selectedTrip until the user moves the map
   lastRows: [],
   lastUpdated: 0,
   positionsMs: null, // Pinot's timeUsedMs for the last /api/positions fetch
@@ -219,6 +220,7 @@ export async function initMap() {
     }
     state.selectedTrip = { vehicleId: d.vehicleId, routeId: d.routeId,
                            tripId: d.tripId, path: null };
+    state.followSelected = true;
     centerOnVehicle(d);
     await loadTripPath(d);
   }
@@ -249,6 +251,7 @@ export async function initMap() {
   function clearTripPath() {
     if (!state.selectedTrip) return;
     state.selectedTrip = null;
+    state.followSelected = false;
     render();
   }
 
@@ -545,6 +548,15 @@ export async function initMap() {
     map.panTo([d.lon, d.lat]);
   }
 
+  // The user's own pan/zoom ends the follow for good (until the next
+  // selection): moving the map is a deliberate "I want to look here", and
+  // silently undoing it on the next refresh is worse than losing the
+  // vehicle off-frame — panning ahead along the light-blue segment to see
+  // where the trip goes is exactly what the drawn trajectory invites.
+  // Mapbox marks user gestures with originalEvent; our own panTo has none,
+  // so the follow never cancels itself.
+  map.on('movestart', e => { if (e.originalEvent) state.followSelected = false; });
+
   // Camera fit for the moment a line is picked in the dropdown — called from
   // routeSelect.onchange only, never from refresh(): once the user has the
   // line in view they may pan/zoom freely, and a 10 s re-fit would keep
@@ -572,7 +584,10 @@ export async function initMap() {
     // the drawn path belongs to one vehicle; drop it if the filter hides it
     if (state.selectedTrip && routeSelect.value) {
       const v = state.lastRows.find(d => d.vehicleId === state.selectedTrip.vehicleId);
-      if (!v || String(v.route || '?') !== routeSelect.value) state.selectedTrip = null;
+      if (!v || String(v.route || '?') !== routeSelect.value) {
+        state.selectedTrip = null;
+        state.followSelected = false;
+      }
     }
     render();
     if (!state.selectedTrip) fitToSelection(); // a tracked vehicle keeps the camera instead
@@ -601,9 +616,10 @@ export async function initMap() {
                                    tripId: v.tripId, path: null };
             loadTripPath(v);
           }
-          centerOnVehicle(v);
+          if (state.followSelected) centerOnVehicle(v);
         } else {
           state.selectedTrip = null; // vehicle left the feed
+          state.followSelected = false;
         }
       }
       updateRouteActivity(state.lastRows);

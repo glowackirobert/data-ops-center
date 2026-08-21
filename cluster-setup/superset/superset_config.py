@@ -5,6 +5,15 @@ SECRET_KEY = open('/run/secrets/superset_secret_key').read().strip()
 FEATURE_FLAGS = {
     "ENABLE_JAVASCRIPT_CONTROLS": True,
     "EMBEDDED_SUPERSET": True,
+    # Only fetch data for charts the viewer can actually see. Without this,
+    # DASHBOARD_VIRTUALIZATION (on by default) skips *rendering* off-screen
+    # charts but still runs their queries: Chart.runQuery() checks
+    # isInView only when this flag is set. Both native filters are scoped to
+    # all ten charts across all four tabs, so changing the Route filter fired
+    # ten Pinot queries once every tab had been opened - eight of them for
+    # charts nobody was looking at. With no result cache (see
+    # DATA_CACHE_CONFIG below) each one was a live broker query.
+    "DASHBOARD_VIRTUALIZATION_DEFER_DATA": True,
 }
 
 # Embedded dashboards (web-app on port 3001 iframes the dashboard via the
