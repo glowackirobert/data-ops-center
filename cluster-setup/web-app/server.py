@@ -162,37 +162,40 @@ class Handler(BaseHTTPRequestHandler):
 
     def _serve_departures(self):
         stop_id = self.query.get('stopId', [''])[0]
+        # The line selected in the map's route filter, if any. Compared
+        # against GTFS route names held in memory — never interpolated into
+        # SQL — so it needs no pattern validation of its own.
+        route_filter = self.query.get('route', [''])[0]
         if not stop_id:
             self._send_json(400, {'error': 'stopId query parameter required'})
             return
         if not gtfs.is_loaded():
             self._send_json(503, GTFS_NOT_LOADED)
             return
-        deps = gtfs.get_departures(stop_id)
         now = int(time.time() * 1000)
         delays, ms = pinot.live_delays()
-        upcoming = []
-        for t, route, headsign, trip_no in (deps or []):
-            # Only trips around "now" can match a live vehicle — tomorrow's
-            # course reuses the same number and must stay schedule-only.
-            delay_s = (delays.get((route, trip_no))
-                       if trip_no and abs(t - now) < 3 * 3_600_000 else None)
-            est = t + (delay_s or 0) * 1000
-            if est < now:  # departed (per estimate, when live; else schedule)
-                continue
-            upcoming.append({
-                'time': t, 'estimated': est, 'route': route,
-                'headsign': headsign,
-                'delayMin': None if delay_s is None else round(delay_s / 60),
-            })
-        upcoming.sort(key=lambda d: d['estimated'])  # delays can reorder
+        upcoming = gtfs.upcoming_departures(
+            gtfs.get_departures(stop_id), delays, now)
         within_hour = [d for d in upcoming if d['estimated'] <= now + 3_600_000]
         mode = 'hour' if within_hour else 'next'
-        self._send_json(200, {
+        shown = within_hour[:30] if within_hour else upcoming[:3]
+        payload = {
             'stopId': stop_id,
             'mode': mode,  # 'hour' = next 60 min; 'next' = next 3 fallback
-            'departures': within_hour[:30] if within_hour else upcoming[:3],
-        }, time_used_ms=ms)
+            'departures': shown,
+        }
+        # A stop can be served by a line only at rare hours — tram 2 calls at
+        # "Wczasy 01" four times a day, all between 04:08 and 05:48 — so with
+        # that line picked in the route filter the pole is marked as served
+        # while its 60-minute window is filled entirely by other routes.
+        # Answer the question the marking raises instead of leaving it: when
+        # the selected line is absent from what we're about to show, say when
+        # it does next depart. `routeNext: null` distinguishes "nothing left
+        # in the loaded schedule" (today+tomorrow) from "not asked".
+        if route_filter and not any(d['route'] == route_filter for d in shown):
+            payload['routeNext'] = next(
+                (d for d in upcoming if d['route'] == route_filter), None)
+        self._send_json(200, payload, time_used_ms=ms)
 
     def log_message(self, fmt, *args):
         pass  # silence per-request noise

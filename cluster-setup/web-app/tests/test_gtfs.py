@@ -82,7 +82,13 @@ class GtfsLoadTests(unittest.TestCase):
     def test_stops_loaded_with_route_membership(self):
         stops = {s['stopId']: s for s in gtfs.get_stops()}
         self.assertEqual(stops['S1']['routes'], ['8'])
-        self.assertEqual(stops['S2']['routes'], ['8'])
+
+    def test_dropoff_only_stop_advertises_no_route(self):
+        # S2 is pickup_type=1 for every trip calling there — a depot pole.
+        # Listing the line would mark it as served on the map and then leave
+        # the departures popup with nothing to show.
+        stops = {s['stopId']: s for s in gtfs.get_stops()}
+        self.assertEqual(stops['S2']['routes'], [])
 
     def test_departures_exclude_dropoff_only_final_stop(self):
         # S1 has pickup_type 0 -> a real departure; S2 is pickup_type 1 ->

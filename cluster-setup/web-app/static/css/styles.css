@@ -105,6 +105,12 @@ nav button.active { background: #374151; color: #fff; }
 /* The schedule a delayed service is no longer keeping — struck through so
    it reads as the superseded value, not a second departure. */
 #stop-box .sched { color: #6b7280; text-decoration: line-through; }
+/* Answer to "why is this pole marked for the line I filtered to?" — set off
+   from the departure table above it, since it is about a different window. */
+#stop-box .route-next {
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb;
+  color: #374151; font-size: 13px;
+}
 #stop-box .delay.late { color: #b91c1c; }
 #stop-box .delay.early { color: #047857; }
 .latency-badge {

@@ -379,8 +379,12 @@ export async function initMap() {
     const box = state.stopBox;
     if (!box) return;
     try {
+      // The active line rides along: the server answers why this pole is
+      // marked as served when none of the next 60 minutes belongs to it.
+      const route = routeSelect.value;
       const resp = await fetch(
-        `/api/departures?stopId=${encodeURIComponent(box.stopId)}`);
+        `/api/departures?stopId=${encodeURIComponent(box.stopId)}`
+        + (route ? `&route=${encodeURIComponent(route)}` : ''));
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const dep = await resp.json();
       if (state.stopBox !== box) return; // another stop clicked mid-flight
@@ -403,15 +407,20 @@ export async function initMap() {
     if (!box?.data) return;
     const now = Date.now();
     const today = new Date(now).toDateString();
+    // "Sat " in front of anything that is not today — a 04:08 with no day on
+    // it reads as four in the morning that has already been and gone.
+    const dayPrefix = ts => {
+      const t = new Date(ts);
+      return t.toDateString() === today ? ''
+        : t.toLocaleDateString([], { weekday: 'short' }) + ' ';
+    };
     // The server filters departed services against its own clock at fetch
     // time, so between polls this is the only thing keeping a run that has
     // already left off the top of the list.
     const live = box.data.departures.filter(d => (d.estimated ?? d.time) >= now);
     const rows = live.map(d => {
       const eta = d.estimated ?? d.time;
-      const t = new Date(eta);
-      const day = t.toDateString() === today ? ''
-        : t.toLocaleDateString([], { weekday: 'short' }) + ' ';
+      const day = dayPrefix(eta);
       const mins = Math.max(0, Math.round((eta - now) / 60000));
       // Expected time leads, schedule is the footnote: a rider wants to know
       // when the tram is actually there, and heading the row with 11:55 for a
@@ -443,11 +452,24 @@ export async function initMap() {
     } else {
       label = 'No departures within an hour — next scheduled';
     }
+    // Present only when a line is filtered and none of the rows above is
+    // that line — a pole served four times a day looks identical on the map
+    // to one served every six minutes, so the popup says which it is.
+    let note = '';
+    if ('routeNext' in box.data) {
+      const n = box.data.routeNext;
+      note = n
+        ? `<div class="route-next">Line <span class="route-badge">${esc(routeSelect.value)}</span>
+             next departs ${esc(dayPrefix(n.estimated))}${timeHM(n.estimated)}</div>`
+        : `<div class="route-next">No further line
+             <span class="route-badge">${esc(routeSelect.value)}</span>
+             departures today or tomorrow</div>`;
+    }
     stopBox.innerHTML = `
       <button class="close" aria-label="Close">✕</button>
       <h3>${esc(box.name)}</h3>
       <div class="mode">${label}${latencyBadgeHtml(box.ms)}</div>
-      <table>${rows}</table>`;
+      <table>${rows}</table>${note}`;
     stopBox.querySelector('.close').onclick = hideStopBox;
     positionStopBox(); // re-measure: the row count just changed
   }
@@ -706,6 +728,7 @@ export async function initMap() {
     render();
     if (!state.selectedTrip) fitToSelection(); // a tracked vehicle keeps the camera instead
     loadRouteHistogram(routeSelect.value);
+    if (state.stopBox) pollStopBox(); // its note is about the line just changed
   };
 
   async function refresh() {

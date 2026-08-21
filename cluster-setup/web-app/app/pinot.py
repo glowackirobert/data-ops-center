@@ -64,15 +64,22 @@ LIMIT 2000
 # of 2 so the hotspots read at street level. Bounding box = Gdansk metro area,
 # same as the original query.
 HEATMAP_SQL = """
-SELECT ROUNDDECIMAL(lat, 3)        AS latCell,
-       ROUNDDECIMAL(lon, 3)        AS lonCell,
+-- Grouped on a 0.001-degree lattice (~111 m N/S, ~65 m E/W at this latitude),
+-- but plotted at the *centroid* of the pings in each cell, not at the lattice
+-- point. Emitting the rounded value put every blob on a regular grid up to
+-- ~55 m N/S and ~32 m E/W from any vehicle -- measured 13-48 m on the busiest
+-- cells -- which parked hotspots on blocks of flats beside the road instead of
+-- on it. Pings in a cell lie along the same road, so their centroid lands on
+-- the road. Grouping is unchanged, so cell count, LIMIT and payload are too.
+SELECT ROUNDDECIMAL(AVG(lat), 5)   AS latCell,
+       ROUNDDECIMAL(AVG(lon), 5)   AS lonCell,
        COUNT(*)                    AS pings,
        ROUNDDECIMAL(AVG(speed), 1) AS avgSpeed
 FROM gdansk_public_transport_REALTIME
 WHERE generatedTransformed > ago('P1D')
   AND lat BETWEEN 54.27 AND 54.50
   AND lon BETWEEN 18.45 AND 18.80
-GROUP BY latCell, lonCell
+GROUP BY ROUNDDECIMAL(lat, 3), ROUNDDECIMAL(lon, 3)
 ORDER BY pings DESC
 LIMIT 20000
 """

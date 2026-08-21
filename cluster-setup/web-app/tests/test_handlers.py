@@ -241,6 +241,47 @@ class HandlerTests(unittest.TestCase):
         self.assertEqual(body['mode'], 'next')
         self.assertEqual(len(body['departures']), 1)
 
+    def test_departures_route_filter_reports_that_lines_next_departure(self):
+        # The reported case: a pole whose next 60 minutes belong to other
+        # lines entirely, while the filtered line calls there at dawn.
+        gtfs.is_loaded = lambda: True
+        now_ms = int(__import__('time').time() * 1000)
+        gtfs.get_departures = lambda stop_id: [
+            (now_ms + 60_000, '5', 'Oliwa', None),
+            (now_ms + 9 * 3_600_000, '2', 'Lawendowe Wzgorze', None),
+        ]
+        pinot.live_delays = lambda: ({}, 0)
+        _, body = self._get('/api/departures?stopId=S1&route=2')
+        self.assertEqual([d['route'] for d in body['departures']], ['5'])
+        self.assertEqual(body['routeNext']['route'], '2')
+        self.assertEqual(body['routeNext']['estimated'], now_ms + 9 * 3_600_000)
+
+    def test_departures_route_filter_silent_when_that_line_is_already_shown(self):
+        gtfs.is_loaded = lambda: True
+        now_ms = int(__import__('time').time() * 1000)
+        gtfs.get_departures = lambda stop_id: [(now_ms + 60_000, '2', 'X', None)]
+        pinot.live_delays = lambda: ({}, 0)
+        _, body = self._get('/api/departures?stopId=S1&route=2')
+        self.assertNotIn('routeNext', body)
+
+    def test_departures_route_filter_null_when_that_line_has_nothing_left(self):
+        # Distinguishable from "not asked": the key is present, the value null.
+        gtfs.is_loaded = lambda: True
+        now_ms = int(__import__('time').time() * 1000)
+        gtfs.get_departures = lambda stop_id: [(now_ms + 60_000, '5', 'X', None)]
+        pinot.live_delays = lambda: ({}, 0)
+        _, body = self._get('/api/departures?stopId=S1&route=2')
+        self.assertIn('routeNext', body)
+        self.assertIsNone(body['routeNext'])
+
+    def test_departures_without_route_filter_omits_the_note(self):
+        gtfs.is_loaded = lambda: True
+        now_ms = int(__import__('time').time() * 1000)
+        gtfs.get_departures = lambda stop_id: [(now_ms + 60_000, '5', 'X', None)]
+        pinot.live_delays = lambda: ({}, 0)
+        _, body = self._get('/api/departures?stopId=S1')
+        self.assertNotIn('routeNext', body)
+
     def test_unknown_route_is_404(self):
         status, _ = self._get_raw('/nope')
         self.assertEqual(status, 404)

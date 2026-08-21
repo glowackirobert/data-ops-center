@@ -132,11 +132,17 @@ def _load_stop_times(zf, trips, noon):
         if not trip:
             continue
         d, _route_id, route, headsign = trip
-        stop_routes.setdefault(r['stop_id'], set()).add(route)
         _update_trip_span(trip_span, r['trip_id'], int(r['stop_sequence']),
                            r['stop_id'])
         if r['pickup_type'] == '1':  # 1 = no passenger pickup
             continue
+        # Recorded *after* the pickup skip: a pole where a line only ever
+        # drops off — a depot such as "Zajezdnia NOWY PORT T1", every row
+        # pickup_type=1 — must not advertise lines that can never be boarded
+        # there, or the map marks it as served and the popup then has nothing
+        # to show. A normal terminus keeps its route from the return trip's
+        # boardable row at the same pole.
+        stop_routes.setdefault(r['stop_id'], set()).add(route)
         h, m, s = map(int, r['departure_time'].split(':'))
         dep = noon[d] + datetime.timedelta(seconds=(h - 12) * 3600 + m * 60 + s)
         # GTFS trip_id = <route+start datetime>_<course no>_<task>; the course
@@ -149,6 +155,34 @@ def _load_stop_times(zf, trips, noon):
     for lst in departures.values():
         lst.sort()
     return departures, stop_routes, trip_span
+
+
+# Beyond this, a course number is ambiguous: tomorrow's run reuses it, so a
+# schedule row that far from now must stay schedule-only.
+DELAY_MATCH_WINDOW_MS = 3 * 3_600_000
+
+
+def upcoming_departures(deps, delays, now):
+    """Schedule rows + live delays -> future departures, earliest first.
+
+    `deps` is get_departures() output, `delays` is keyed (route, course no)
+    as pinot.live_delays() returns it. Kept free of any Pinot import so the
+    merge stays a pure function of its arguments.
+    """
+    upcoming = []
+    for t, route, headsign, trip_no in deps or ():
+        delay_s = (delays.get((route, trip_no))
+                   if trip_no and abs(t - now) < DELAY_MATCH_WINDOW_MS else None)
+        est = t + (delay_s or 0) * 1000
+        if est < now:  # departed (per estimate, when live; else schedule)
+            continue
+        upcoming.append({
+            'time': t, 'estimated': est, 'route': route,
+            'headsign': headsign,
+            'delayMin': None if delay_s is None else round(delay_s / 60),
+        })
+    upcoming.sort(key=lambda d: d['estimated'])  # delays can reorder
+    return upcoming
 
 
 def _load_stops(zf, stop_routes):
