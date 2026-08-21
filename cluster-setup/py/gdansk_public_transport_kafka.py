@@ -8,7 +8,13 @@ from confluent_kafka import Producer
 
 TOPIC = 'gdansk-public-transport'
 API_URL = 'https://ckan2.multimediagdansk.pl/gpsPositions?v=2'
-POLL_INTERVAL_SECONDS = 2
+# The Gdansk API recomputes vehicle positions roughly every 20 s, but on a
+# phase we neither know nor control, so polling at half that interval halves
+# the worst-case age of a position by the time it reaches Kafka. The cost is
+# re-reading an unchanged payload about every other poll — harmless here,
+# since every vehicle is republished unconditionally anyway to keep
+# gdansk_public_transport_latest's per-vehicle heartbeat going.
+POLL_INTERVAL_SECONDS = 10
 
 def fetch_vehicles():
     response = requests.get(API_URL, timeout=10)

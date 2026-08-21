@@ -21,7 +21,7 @@ Docker Compose based setup for the Data Ops Center cluster.
 | Loki                  | 3100 | Log storage/query backend (LogQL).                                                                           |
 | Alloy                 | 12345 | Tails every container's stdout/stderr via the Docker socket and ships it to Loki; `12345` serves its debug UI (component graph, live pipeline state). |
 | Superset              | 8088 | BI and data exploration UI connected to Pinot via `pinotdb`.                                                 |
-| Web app               | 3001 | Live vehicle map (flicker-free 2 s refresh) + Analytics tab embedding the Superset dashboard                |
+| Web app               | 3001 | Live vehicle map (flicker-free 10 s refresh) + Analytics tab embedding the Superset dashboard                |
 
 ### Init containers (run once, `--profile init`)
 
@@ -30,7 +30,7 @@ Docker Compose based setup for the Data Ops Center cluster.
 | `kafka-topic-init`                       | Creates Kafka topics.                                                                                                                                                                                                 |
 | `kafka-producer`                         | Publishes Avro-serialized `trade` events to Kafka.                                                                                                                                                                    |
 | `pinot-table-registrar`                   | Registers schemas and tables with the Pinot Controller.                                                                                                                                                               |
-| `gdansk-public-transport-kafka-producer` | Fetches current GPS positions from the Gdansk public transport API every <br/>10 s and publishes changed vehicle positions as JSON to the `gdansk-public-transport` topic. Keeps running (`restart: unless-stopped`). |
+| `gdansk-public-transport-kafka-producer` | Fetches current GPS positions from the Gdansk public transport API every <br/>10 s (twice as often as the API's own ~20 s refresh, whose phase is unknown) and publishes every vehicle position as JSON to the `gdansk-public-transport` topic. Keeps running (`restart: unless-stopped`). |
 | `pinot-ingestion-runner`                 | Runs a batch ingestion job that reads from S3 and pushes segments to Pinot.                                                                                                                                           |
 | `superset-init`                          | Runs DB migrations, creates the admin user, initialises Superset roles, registers the Apache Pinot database connection, imports dashboards, creates the `EmbeddedGuest` role and registers dashboards for embedding   |
 
@@ -378,7 +378,7 @@ copy is still in place.
 The `web-app` service serves a single-page UI with two tabs:
 
 - **Live Map** — Mapbox GL base map with a deck.gl scatter layer of current
-  vehicle positions. The map is created once; every 2 s only the dot layer is
+  vehicle positions. The map is created once; every 10 s only the dot layer is
   refreshed from Pinot (latest position per vehicle over a 10-minute window),
   so the base map never re-renders and pan/zoom is preserved. This is the
   reason the map lives here rather than in a Superset chart — Superset remounts

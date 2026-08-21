@@ -1,7 +1,7 @@
 import { colorForRoute, time24, timeHM, esc, isTram, isNightBus, latencyMs, latencyBadgeHtml } from './utils.js';
 import { OFF_ROUTE_M, projectOnPath, nearestRouteStop } from './geo.js';
 
-const REFRESH_MS = 2000;
+const REFRESH_MS = 10000;
 const INITIAL_VIEW = { center: [18.6466, 54.352], zoom: 15 }; // Gdansk Old Town
 const HALO_PERIOD_MS = 2200;
 
@@ -155,7 +155,7 @@ export async function initMap() {
   // Interactive drill-down: selecting a route queries its whole-history,
   // per-hour average delay in one shot (see app/pinot.py route_hourly_delay —
   // deliberately uncached, so the badge shows Pinot's real query time, not a
-  // cache hit) and renders it as a small bar chart. Not fetched on every 2 s
+  // cache hit) and renders it as a small bar chart. Not fetched on every 10 s
   // refresh: the underlying data barely moves within a session, only the
   // selection does.
   async function loadRouteHistogram(route) {
@@ -253,7 +253,7 @@ export async function initMap() {
   }
 
   // The split is recomputed from the fresh position on every render, so each
-  // 2 s refresh advances the grey portion without re-fetching the geometry.
+  // 10 s refresh advances the grey portion without re-fetching the geometry.
   // The projected point closes both halves, so the colour changes exactly at
   // the vehicle dot.
   function tripPathLayers(rows) {
@@ -304,7 +304,7 @@ export async function initMap() {
   // A pulsing ring under the selected vehicle's badge, so it stays
   // identifiable a few minutes after picking it out of a cluster of nearby
   // vehicles. Pixel-sized (not geo-sized) so it reads the same at any zoom.
-  // Driven by a dedicated fast interval (below), separate from the 2 s data
+  // Driven by a dedicated fast interval (below), separate from the 10 s data
   // refresh, so the pulse is smooth without touching the "only the dot layer
   // redraws on refresh" perf design.
   function selectedVehicleHaloLayer(rows) {
@@ -558,7 +558,7 @@ export async function initMap() {
 
   // Camera fit for the moment a line is picked in the dropdown — called from
   // routeSelect.onchange only, never from refresh(): once the user has the
-  // line in view they may pan/zoom freely, and a 2 s re-fit would keep
+  // line in view they may pan/zoom freely, and a 10 s re-fit would keep
   // snapping the camera back. "All vehicles" flies home to the initial view.
   function fitToSelection() {
     const route = routeSelect.value;

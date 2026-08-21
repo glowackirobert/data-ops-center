@@ -19,7 +19,7 @@ mismatch, except where the "Known Issues" section at the bottom already explains
 |-----|-------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 1.1 | Load the page fresh                             | "Live Map" tab is active by default. Mapbox base map (light, near-monochrome style) renders centered on Gdansk Old Town. Header shows "Gdansk Public Transport" and two tabs.                  |
 | 1.2 | Wait for initial load                           | Colored vehicle badges appear on the map, each showing a route number. Panel (top-left) shows "`N` vehicles · updated `HH:MM`" — latency badge should appear once the first refresh completes. |
-| 1.3 | Watch for a few seconds without touching anything | Vehicle positions update roughly every 2 s. The "updated `HH:MM`" time and the vehicle count in the panel advance. Map pan/zoom is untouched by the refresh (camera doesn't jump/reset).      |
+| 1.3 | Watch for a minute without touching anything | The panel re-queries Pinot every 10 s, so the "updated `HH:MM`" time and the vehicle count advance on that cycle; individual vehicles visibly move only about every 20 s, the rate at which the Gdansk API itself recomputes positions. Map pan/zoom is untouched by the refresh (camera doesn't jump/reset).      |
 | 1.4 | Pan and zoom the map, then wait for a refresh   | Your pan/zoom position is preserved — only the vehicle dots move/update, the camera does not snap back.                                                                                        |
 | 1.5 | Zoom out below street level                     | Stop poles (small circular dots) disappear below a threshold zoom, unless a route is selected (see §2). Zooming back in brings them back.                                                      |
 
@@ -43,7 +43,7 @@ mismatch, except where the "Known Issues" section at the bottom already explains
 | 3.2 | Hover a bar                                                                             | Tooltip shows `HH:00 — avg <N>s over <M> snapshots`, or `HH:00 — no data` for hours with no historical data for that route.                                                              |
 | 3.3 | Switch to "All vehicles"                                                                | Histogram panel disappears entirely.                                                                                                                                                     |
 | 3.4 | Switch directly from one route to another                                               | Histogram updates to the new route (title, bars, badge all replaced) rather than stacking or showing stale data.                                                                         |
-| 3.5 | Select a route, then wait through several 2 s refreshes without changing the selection | Histogram does **not** re-fetch/re-flicker on every refresh — it's whole-history data, loaded once per selection change, not on the live-position polling cycle.                         |
+| 3.5 | Select a route, then wait through several 10 s refreshes without changing the selection | Histogram does **not** re-fetch/re-flicker on every refresh — it's whole-history data, loaded once per selection change, not on the live-position polling cycle.                         |
 | 3.6 | Force a failure (e.g. stop the Pinot broker container briefly, then select a route)     | Panel shows "Failed to load: `<error>`" instead of silently staying blank or crashing the page.                                                                                          |
 
 ## 4. Clicking a vehicle — trip trajectory
@@ -106,7 +106,7 @@ mismatch, except where the "Known Issues" section at the bottom already explains
 | #   | Steps                                                                      | Expected result                                                                                                 |
 |-----|----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
 | 9.1 | Stop the `pinot-broker` container, then wait for a live-map refresh        | Panel status shows a "Refresh failed: ..." message instead of crashing or silently freezing on stale data.      |
-| 9.2 | Restart `pinot-broker`                                                     | Next 2 s refresh recovers automatically, panel status returns to normal.                                       |
+| 9.2 | Restart `pinot-broker`                                                     | Next 10 s refresh recovers automatically, panel status returns to normal.                                       |
 | 9.3 | With the broker down, try selecting a route (histogram) or clicking a stop | Each surface shows its own inline failure message (not a blank screen or an unhandled JS error in the console). |
 | 9.4 | Open browser dev tools console throughout testing                          | No uncaught exceptions; only the app's own intentional `console`/status messages.                               |
 
