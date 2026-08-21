@@ -1,5 +1,6 @@
 import { colorForRoute, time24, timeHM, esc, isTram, isNightBus, latencyMs, latencyBadgeHtml } from './utils.js';
-import { OFF_ROUTE_M, projectOnPath, nearestRouteStop, needsRecentre, placeBox } from './geo.js';
+import { OFF_ROUTE_M, projectOnPath, nearestRouteStop, needsRecentre, placeBox,
+         thinOverlapping } from './geo.js';
 
 const REFRESH_MS = 10000;
 // Departures popup keeps itself alive while open, on two cadences. The tick
@@ -93,7 +94,9 @@ export async function initMap() {
     projection: 'mercator',
     ...INITIAL_VIEW,
   });
-  map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+  // showCompass: false drops the "reset bearing to north" button. Nothing
+  // in this app rotates the map, so it was a no-op control taking up room.
+  map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
   state.map = map;
 
   const overlay = new deck.MapboxOverlay({
@@ -518,6 +521,28 @@ export async function initMap() {
     }
   }
 
+  // Zoomed out to the whole city ~300 badges pile into unreadable mush, so
+  // drop the ones that would overlap. Recomputed only when the data, camera or
+  // selection actually changes: render() also runs every 100 ms to animate the
+  // halo, and reprojecting every vehicle on each of those frames would be pure
+  // waste. thinOverlapping is in geo.js, unit-tested there.
+  let thinCache = { key: null, rows: null };
+  function thinVehicles(rows) {
+    const c = map.getCenter();
+    const sel = state.selectedTrip?.vehicleId ?? '';
+    const key = `${state.lastUpdated}|${rows.length}|${map.getZoom().toFixed(3)}`
+              + `|${c.lng.toFixed(5)},${c.lat.toFixed(5)}|${sel}`;
+    if (thinCache.key === key) return thinCache.rows;
+    const pts = rows.map(d => {
+      const p = map.project([d.lon, d.lat]);
+      return { x: p.x, y: p.y, priority: d.vehicleId === sel ? 1 : 0 };
+    });
+    const keep = thinOverlapping(pts);
+    const out = rows.filter((_, i) => keep.has(i));
+    thinCache = { key, rows: out };
+    return out;
+  }
+
   function render() {
     const route = routeSelect.value;
     const rows = route
@@ -527,6 +552,9 @@ export async function initMap() {
     // combined view — showing both at once buried the badges (and stop poles)
     // under the busiest hot spots, which are usually the same clusters.
     const heatOn = heatmapToggle.checked;
+    // One decision, both vehicle layers: a badge and its arrow are one visual
+    // unit and must appear or disappear together.
+    const shown = heatOn ? rows : thinVehicles(rows);
     // Markers jump to the newly scraped position on each refresh — no
     // interpolated movement between API polls.
     // Only the vehicle layers are replaced; deck.gl diffs them on the GPU
@@ -569,7 +597,7 @@ export async function initMap() {
         // extra left padding reserving room for the heading arrow.
         new deck.TextLayer({
           id: 'vehicles',
-          data: heatOn ? [] : rows,
+          data: heatOn ? [] : shown,
           characterSet: 'auto',
           getText: d => String(d.route || '?'),
           getPosition: d => [d.lon, d.lat],
@@ -591,7 +619,7 @@ export async function initMap() {
         // ordinary speed-0 stop at lights or a stop keeps the last heading.
         new deck.TextLayer({
           id: 'vehicle-arrows',
-          data: heatOn ? [] : rows.filter(d => d.speed > 0 || !d.atTerminus),
+          data: heatOn ? [] : shown.filter(d => d.speed > 0 || !d.atTerminus),
           characterSet: ['↑'],
           getText: () => '↑',
           getPosition: d => [d.lon, d.lat],

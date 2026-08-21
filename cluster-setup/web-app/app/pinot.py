@@ -34,7 +34,12 @@ SELECT vehicleId,
        delay,
        speed,
        direction,
-       generatedTransformed    AS lastSeen
+       -- Epoch millis, not the bare TIMESTAMP. Pinot renders a TIMESTAMP
+       -- column on the wire as "2026-08-21 16:54:36.0" — a UTC wall clock
+       -- with no zone marker — and new Date() in the browser parses that
+       -- as *local* time, so the tooltip read 2 h behind in CEST (1 h in
+       -- CET). Millis also travel smaller and skip a per-row string parse.
+       CAST(generatedTransformed AS LONG) AS lastSeen
 FROM gdansk_public_transport_latest
 WHERE generatedTransformed > ago('PT10M')
 LIMIT 2000

@@ -38,6 +38,50 @@ export const BOX_GAP_PX = 12;
 // map. Preferred corner is after the click on both axes; when that overflows,
 // flip to before it (which leaves the click point visible rather than covered),
 // and clamp only when neither side fits.
+// A route badge's on-screen box: TextLayer size 14 plus backgroundPadding
+// [18, 3, 6, 3] — the 18 px left slot is where the heading arrow sits.
+export const BADGE_W_PX = 54;
+export const BADGE_H_PX = 20;
+
+// Thin a set of screen points so no two kept boxes overlap. Highest priority
+// wins, so a tracked vehicle never loses its badge to a neighbour. Returns the
+// Set of surviving indices.
+//
+// Done on the CPU rather than with deck.gl's CollisionFilterExtension because
+// that extension filters each layer independently: the arrow layer culled on
+// its own glyph box and arrows vanished even where their badge survived.
+// Deciding once here and feeding both layers the same rows keeps a badge and
+// its arrow together by construction.
+//
+// Bucketed into a grid of one box per cell, checking only the 3x3
+// neighbourhood — O(n) rather than the O(n^2) of comparing every pair.
+export function thinOverlapping(points, cellW = BADGE_W_PX, cellH = BADGE_H_PX) {
+  const grid = new Map();
+  const keep = new Set();
+  const order = points.map((_, i) => i)
+    .sort((a, b) => (points[b].priority || 0) - (points[a].priority || 0));
+  for (const i of order) {
+    const p = points[i];
+    const cx = Math.floor(p.x / cellW);
+    const cy = Math.floor(p.y / cellH);
+    let blocked = false;
+    for (let dx = -1; dx <= 1 && !blocked; dx++) {
+      for (let dy = -1; dy <= 1 && !blocked; dy++) {
+        for (const j of grid.get(`${cx + dx},${cy + dy}`) || []) {
+          if (Math.abs(points[j].x - p.x) < cellW &&
+              Math.abs(points[j].y - p.y) < cellH) { blocked = true; break; }
+        }
+      }
+    }
+    if (blocked) continue;
+    keep.add(i);
+    const k = `${cx},${cy}`;
+    if (!grid.has(k)) grid.set(k, []);
+    grid.get(k).push(i);
+  }
+  return keep;
+}
+
 export function placeBox(anchor, box, view, gap = BOX_GAP_PX) {
   const axis = (at, size, extent) => {
     if (at + gap + size <= extent) return at + gap;   // after the click
