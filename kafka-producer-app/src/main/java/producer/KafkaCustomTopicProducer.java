@@ -22,14 +22,33 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
     private static final String PROPERTIES_FILE = "kafka-producer.properties";
 
     /**
-     * Total messages per iteration, shared across all threads.
+     * Env var setting the total messages per iteration, across all threads.
      * <p>
-     * Sized against disk rather than time: a trade row measures ~34 bytes in
-     * Pinot, so 500M is ~17 GB there, on top of the trade topic's own 10 GB
-     * retention cap in Kafka. Check free space before raising it - the whole
-     * run has to fit alongside the gdansk tables and Pinot's deep store.
+     * Deliberately an env var rather than an entry in the properties file: that
+     * file is handed wholesale to the KafkaProducer constructor, which warns
+     * about every key it does not recognise, and it is baked into the JAR so it
+     * could not vary per environment anyway. Set from
+     * {@code cluster-setup/env/env.dev} and {@code env.prod} via
+     * container-compose.yml.
      */
-    private static final long NUMBER_OF_MESSAGES = 500_000_000L;
+    private static final String MESSAGE_COUNT_ENV = "TRADE_MESSAGE_COUNT";
+
+    /**
+     * Fallback when the env var is unset or unparseable.
+     * <p>
+     * Sizing this is a <em>disk</em> decision, not a time one. Measured on real
+     * data: a trade message costs ~31.4 bytes in Kafka's log dir and ~34.2
+     * bytes in Pinot, so budget ~66 bytes per message across the two - and both
+     * land on the same volume under cluster-setup/volumes/. 300M is the
+     * laptop-sized default (~20 GB); prod overrides it upward.
+     * <p>
+     * Note this default is dev-sized, unlike the JVM heap variables in
+     * container-compose.yml which fall back to prod sizes. An oversized heap on
+     * a laptop just fails to start one container; an oversized message count
+     * fills the disk out from under Kafka, Pinot and Docker at once.
+     */
+    private static final long DEFAULT_NUMBER_OF_MESSAGES = 300_000_000L;
+
     private static final int NUMBER_OF_THREADS = 2;
     private static final int ITERATIONS = 1;
     /** How often the main thread reports progress while the workers run. */
@@ -37,17 +56,19 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
 
     private final KafkaProducer<String, Trade> producer;
     private final AtomicLong sendErrors = new AtomicLong();
+    private final long numberOfMessages;
 
     public KafkaCustomTopicProducer() {
         Properties properties = loadProperties(PROPERTIES_FILE);
         this.producer = new KafkaProducer<>(Objects.requireNonNull(properties));
+        this.numberOfMessages = resolveMessageCount();
     }
 
     @Override
     public void produce() {
         for (int iteration = 0; iteration < ITERATIONS; iteration++) {
             log.info("Starting iteration {}/{}: {} messages across {} threads",
-                    iteration + 1, ITERATIONS, NUMBER_OF_MESSAGES, NUMBER_OF_THREADS);
+                    iteration + 1, ITERATIONS, numberOfMessages, NUMBER_OF_THREADS);
             AtomicLong messageCounter = new AtomicLong(0);
             ExecutorService executorService = Executors.newFixedThreadPool(NUMBER_OF_THREADS);
             long startNanos = System.nanoTime();
@@ -77,13 +98,35 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
         }
     }
 
+    /** Reads the env var, falling back to the dev-sized default. */
+    private static long resolveMessageCount() {
+        String raw = System.getenv(MESSAGE_COUNT_ENV);
+        if (raw == null || raw.isBlank()) {
+            log.info("{} unset, using default of {} messages",
+                    MESSAGE_COUNT_ENV, DEFAULT_NUMBER_OF_MESSAGES);
+            return DEFAULT_NUMBER_OF_MESSAGES;
+        }
+        try {
+            long parsed = Long.parseLong(raw.trim());
+            if (parsed <= 0) {
+                throw new NumberFormatException("not a positive count");
+            }
+            log.info("{}={} messages", MESSAGE_COUNT_ENV, parsed);
+            return parsed;
+        } catch (NumberFormatException e) {
+            log.warn("Ignoring invalid {}='{}' ({}), using default of {} messages",
+                    MESSAGE_COUNT_ENV, raw, e.getMessage(), DEFAULT_NUMBER_OF_MESSAGES);
+            return DEFAULT_NUMBER_OF_MESSAGES;
+        }
+    }
+
     private void produceMessages(AtomicLong messageCounter) {
         // The interrupt check is what makes shutdownNow() able to stop this loop:
         // without it the workers ran on until the Kafka client happened to throw
         // InterruptException out of send(), discarding whatever was in flight.
         while (!Thread.currentThread().isInterrupted()) {
             long currentMsgIndex = messageCounter.getAndIncrement();
-            if (currentMsgIndex >= NUMBER_OF_MESSAGES) {
+            if (currentMsgIndex >= numberOfMessages) {
                 break;
             }
             Trade trade = createAvroMessage(currentMsgIndex);
@@ -145,7 +188,7 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
         executorService.shutdown();
         try {
             while (!executorService.awaitTermination(PROGRESS_INTERVAL_SECONDS, TimeUnit.SECONDS)) {
-                log.info("Producing: {}/{} messages", produced(messageCounter), NUMBER_OF_MESSAGES);
+                log.info("Producing: {}/{} messages", produced(messageCounter), numberOfMessages);
             }
         } catch (InterruptedException e) {
             log.warn("Interrupted while producing, stopping workers");
@@ -156,6 +199,6 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
 
     /** The counter overshoots by up to one claim per thread; clamp for reporting. */
     private long produced(AtomicLong messageCounter) {
-        return Math.min(messageCounter.get(), NUMBER_OF_MESSAGES);
+        return Math.min(messageCounter.get(), numberOfMessages);
     }
 }
