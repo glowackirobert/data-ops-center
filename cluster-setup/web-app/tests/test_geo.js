@@ -2,7 +2,8 @@
 // this runs directly under Node's built-in test runner: node --test tests/
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { projectOnPath, bearingDiff, nearestRouteStop, OFF_ROUTE_M }
+import { projectOnPath, bearingDiff, nearestRouteStop, needsRecentre,
+         OFF_ROUTE_M, FOLLOW_DEADZONE }
   from '../static/js/geo.js';
 
 test('bearingDiff: opposite headings are 180 apart', () => {
@@ -53,4 +54,43 @@ test('nearestRouteStop: returns null when no stop serves the route', () => {
   const stops = [{ lat: 0, lon: 0, routes: ['100'] }];
   const v = { lat: 0, lon: 0, route: '8' };
   assert.equal(nearestRouteStop(stops, v), null);
+});
+
+// needsRecentre — the follow-camera deadzone. Boundaries are computed from
+// FOLLOW_DEADZONE rather than hardcoded, so widening the deadzone doesn't
+// silently invert what these assert.
+const SIZE = { width: 1000, height: 500 };
+const edgeX = SIZE.width * (1 - FOLLOW_DEADZONE) / 2;  // 200 at 0.6
+
+test('needsRecentre: a centred vehicle never moves the camera', () => {
+  assert.equal(needsRecentre({ x: 500, y: 250 }, SIZE), false);
+});
+
+test('needsRecentre: inside the deadzone stays put, outside pulls back', () => {
+  assert.equal(needsRecentre({ x: edgeX + 10, y: 250 }, SIZE), false);
+  assert.equal(needsRecentre({ x: edgeX - 10, y: 250 }, SIZE), true);
+});
+
+test('needsRecentre: the vertical edge is checked too, not just horizontal', () => {
+  const edgeY = SIZE.height * (1 - FOLLOW_DEADZONE) / 2;
+  assert.equal(needsRecentre({ x: 500, y: edgeY + 5 }, SIZE), false);
+  assert.equal(needsRecentre({ x: 500, y: edgeY - 5 }, SIZE), true);
+});
+
+test('needsRecentre: a vehicle off-screen entirely is always pulled back', () => {
+  assert.equal(needsRecentre({ x: -50, y: 250 }, SIZE), true);
+  assert.equal(needsRecentre({ x: 500, y: SIZE.height + 200 }, SIZE), true);
+});
+
+test('needsRecentre: a wider deadzone tolerates more drift', () => {
+  // Same point, two deadzones: 0.6 pulls it back, 0.98 leaves it alone.
+  const p = { x: edgeX - 10, y: 250 };
+  assert.equal(needsRecentre(p, SIZE, 0.6), true);
+  assert.equal(needsRecentre(p, SIZE, 0.98), false);
+});
+
+test('needsRecentre: an unlaid-out container recentres rather than never firing', () => {
+  // clientWidth/Height are 0 before the map is laid out; failing open means a
+  // missed frame, failing closed would silently disable follow for the session.
+  assert.equal(needsRecentre({ x: 0, y: 0 }, { width: 0, height: 0 }), true);
 });

@@ -11,6 +11,24 @@ export const AMBIGUITY_M2 = (30 / 111320) ** 2;
 // typically standing at a depot beside the terminus.
 export const OFF_ROUTE_M = 150;
 
+// Fraction of the viewport, centred, in which a followed vehicle is left
+// alone. Anything inside is "comfortably framed"; only a vehicle that drifts
+// out earns a camera move.
+export const FOLLOW_DEADZONE = 0.6;
+
+// Should the camera recentre on a followed vehicle at this screen position?
+// Without a deadzone the follow panTo's on every 10 s poll, so a bus that
+// crept 8 m slides the whole map out from under whoever is reading the
+// trajectory it drew. Both arguments are CSS pixels: `point` as returned by
+// map.project(), `size` as the map container's clientWidth/clientHeight —
+// never the canvas's width/height, which are device pixels and would scale
+// the deadzone by devicePixelRatio on a HiDPI screen.
+export function needsRecentre(point, size, deadzone = FOLLOW_DEADZONE) {
+  const half = deadzone / 2;
+  const outside = (v, extent) => !(extent > 0) || Math.abs(v / extent - 0.5) > half;
+  return outside(point.x, size.width) || outside(point.y, size.height);
+}
+
 // Angular difference between two compass bearings, 0–180.
 export function bearingDiff(a, b) {
   const d = Math.abs(a - b) % 360;

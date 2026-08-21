@@ -1,5 +1,5 @@
 import { colorForRoute, time24, timeHM, esc, isTram, isNightBus, latencyMs, latencyBadgeHtml } from './utils.js';
-import { OFF_ROUTE_M, projectOnPath, nearestRouteStop } from './geo.js';
+import { OFF_ROUTE_M, projectOnPath, nearestRouteStop, needsRecentre } from './geo.js';
 
 const REFRESH_MS = 10000;
 const INITIAL_VIEW = { center: [18.6466, 54.352], zoom: 15 }; // Gdansk Old Town
@@ -221,7 +221,7 @@ export async function initMap() {
     state.selectedTrip = { vehicleId: d.vehicleId, routeId: d.routeId,
                            tripId: d.tripId, path: null };
     state.followSelected = true;
-    centerOnVehicle(d);
+    centerOnVehicle(d, { force: true });
     await loadTripPath(d);
   }
 
@@ -544,7 +544,20 @@ export async function initMap() {
   // to re-frame the map, and a zoomed-out view is often exactly the context
   // the user wants the trajectory drawn in. Contrast fitToSelection below,
   // which does set zoom — but only for an explicit dropdown pick.
-  function centerOnVehicle(d) {
+  // `force` marks the camera moves the user actually asked for — the click
+  // that selects a vehicle. Refresh ticks come through without it and go via
+  // the deadzone, so a vehicle creeping across the middle of the screen costs
+  // no camera movement at all; only one that drifts out of the middle 60%
+  // pulls the map back. Before this, every poll panned, and a bus that moved
+  // 8 m slid the whole map out from under whoever was reading its trajectory.
+  function centerOnVehicle(d, { force = false } = {}) {
+    if (!force) {
+      const c = map.getContainer();
+      // clientWidth/clientHeight, not the canvas's width/height: map.project
+      // returns CSS pixels and the canvas is sized in device pixels.
+      const size = { width: c.clientWidth, height: c.clientHeight };
+      if (!needsRecentre(map.project([d.lon, d.lat]), size)) return;
+    }
     map.panTo([d.lon, d.lat]);
   }
 
