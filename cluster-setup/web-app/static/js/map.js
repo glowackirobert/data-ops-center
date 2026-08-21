@@ -219,7 +219,7 @@ export async function initMap() {
     }
     state.selectedTrip = { vehicleId: d.vehicleId, routeId: d.routeId,
                            tripId: d.tripId, path: null };
-    focusVehicle(d);
+    centerOnVehicle(d);
     await loadTripPath(d);
   }
 
@@ -535,24 +535,13 @@ export async function initMap() {
       + latencyBadgeHtml(ms);
   }
 
-  // First centering on a newly-selected vehicle: zoom in if the current
-  // view is too far out for the vehicle to be usefully visible/readable.
-  // VEHICLE_FOCUS_MIN_ZOOM matches the maxZoom used by fitToSelection below,
-  // so a single vehicle never ends up more zoomed-in than a fitted line.
-  const VEHICLE_FOCUS_MIN_ZOOM = 15;
-  function focusVehicle(d) {
-    if (map.getZoom() < VEHICLE_FOCUS_MIN_ZOOM) {
-      map.flyTo({ center: [d.lon, d.lat], zoom: VEHICLE_FOCUS_MIN_ZOOM });
-    } else {
-      map.panTo([d.lon, d.lat]);
-    }
-  }
-
-  // While a single vehicle is tracked (clicked), the camera keeps it
-  // centered on every refresh without changing zoom — panTo (not
-  // flyTo/fitBounds) leaves the user's chosen zoom level alone, unlike the
-  // whole-line fitToSelection below. Only the initial focusVehicle() zooms in.
-  function followVehicle(d) {
+  // Centering on a tracked vehicle — both on the click that selects it and
+  // on every refresh while it stays selected. panTo (not flyTo/fitBounds)
+  // never touches zoom: clicking a badge to read its trip is not a request
+  // to re-frame the map, and a zoomed-out view is often exactly the context
+  // the user wants the trajectory drawn in. Contrast fitToSelection below,
+  // which does set zoom — but only for an explicit dropdown pick.
+  function centerOnVehicle(d) {
     map.panTo([d.lon, d.lat]);
   }
 
@@ -612,7 +601,7 @@ export async function initMap() {
                                    tripId: v.tripId, path: null };
             loadTripPath(v);
           }
-          followVehicle(v);
+          centerOnVehicle(v);
         } else {
           state.selectedTrip = null; // vehicle left the feed
         }
