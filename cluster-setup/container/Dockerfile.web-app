@@ -4,6 +4,11 @@
 ARG PYTHON_VERSION
 FROM python:${PYTHON_VERSION}
 WORKDIR /app
+# Unbuffered stdout: the server prints only a startup banner and the
+# occasional WARN (per-request logging is deliberately silenced), which is
+# far too little to ever fill the block buffer - without this, nothing at
+# all reaches "docker logs" or Alloy -> Loki.
+ENV PYTHONUNBUFFERED=1
 COPY cluster-setup/web-app/server.py ./
 COPY cluster-setup/web-app/app/ ./app/
 COPY cluster-setup/web-app/static/ ./static/

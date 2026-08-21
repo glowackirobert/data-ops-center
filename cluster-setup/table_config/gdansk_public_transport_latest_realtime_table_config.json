@@ -29,7 +29,7 @@
   },
   "upsertConfig": {
     "mode": "FULL",
-    "comparisonColumn": "generatedTransformed"
+    "comparisonColumns": ["generatedTransformed"]
   },
   "routing": {
     "instanceSelectorType": "strictReplicaGroup"
