@@ -2,8 +2,8 @@
 // this runs directly under Node's built-in test runner: node --test tests/
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { projectOnPath, bearingDiff, nearestRouteStop, needsRecentre,
-         OFF_ROUTE_M, FOLLOW_DEADZONE }
+import { projectOnPath, bearingDiff, nearestRouteStop, needsRecentre, placeBox,
+         OFF_ROUTE_M, FOLLOW_DEADZONE, BOX_GAP_PX }
   from '../static/js/geo.js';
 
 test('bearingDiff: opposite headings are 180 apart', () => {
@@ -93,4 +93,43 @@ test('needsRecentre: an unlaid-out container recentres rather than never firing'
   // clientWidth/Height are 0 before the map is laid out; failing open means a
   // missed frame, failing closed would silently disable follow for the session.
   assert.equal(needsRecentre({ x: 0, y: 0 }, { width: 0, height: 0 }), true);
+});
+
+// placeBox — popup placement against a measured box, not an assumed size.
+const VIEW = { width: 1000, height: 800 };
+const SMALL = { width: 200, height: 100 };
+
+test('placeBox: room on both axes puts the box after the click', () => {
+  const p = placeBox({ x: 100, y: 100 }, SMALL, VIEW);
+  assert.deepEqual(p, { left: 100 + BOX_GAP_PX, top: 100 + BOX_GAP_PX });
+});
+
+test('placeBox: no room below flips the box above the click', () => {
+  // 760 + gap + 100 overflows 800, but 760 - gap - 100 fits above.
+  const p = placeBox({ x: 100, y: 760 }, SMALL, VIEW);
+  assert.equal(p.top, 760 - BOX_GAP_PX - SMALL.height);
+  assert.equal(p.left, 100 + BOX_GAP_PX, 'the x axis is unaffected');
+});
+
+test('placeBox: no room right flips the box left of the click', () => {
+  const p = placeBox({ x: 950, y: 100 }, SMALL, VIEW);
+  assert.equal(p.left, 950 - BOX_GAP_PX - SMALL.width);
+});
+
+test('placeBox: a box taller than the view clamps instead of going negative', () => {
+  // Thirty departures: taller than the map itself, so neither side fits.
+  const tall = { width: 200, height: 900 };
+  const p = placeBox({ x: 100, y: 400 }, tall, VIEW);
+  assert.equal(p.top, 0, 'clamped to the top edge, never off-screen');
+});
+
+test('placeBox: a click near the top-left still fits after it', () => {
+  const p = placeBox({ x: 0, y: 0 }, SMALL, VIEW);
+  assert.deepEqual(p, { left: BOX_GAP_PX, top: BOX_GAP_PX });
+});
+
+test('placeBox: the flipped box never overlaps the click point', () => {
+  const p = placeBox({ x: 950, y: 760 }, SMALL, VIEW);
+  assert.ok(p.left + SMALL.width <= 950, 'stays left of the click');
+  assert.ok(p.top + SMALL.height <= 760, 'stays above the click');
 });

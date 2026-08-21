@@ -29,6 +29,25 @@ export function needsRecentre(point, size, deadzone = FOLLOW_DEADZONE) {
   return outside(point.x, size.width) || outside(point.y, size.height);
 }
 
+// Pixels between a click point and a popup anchored to it.
+export const BOX_GAP_PX = 12;
+
+// Place a popup near a click without letting it fall out of the map view.
+// Measured size in, position out — the departures box runs from three rows to
+// thirty, so a fixed size guess pushed most of a busy stop's list below the
+// map. Preferred corner is after the click on both axes; when that overflows,
+// flip to before it (which leaves the click point visible rather than covered),
+// and clamp only when neither side fits.
+export function placeBox(anchor, box, view, gap = BOX_GAP_PX) {
+  const axis = (at, size, extent) => {
+    if (at + gap + size <= extent) return at + gap;   // after the click
+    if (at - gap - size >= 0) return at - gap - size; // flipped before it
+    return Math.max(0, extent - size);                // neither side fits
+  };
+  return { left: axis(anchor.x, box.width, view.width),
+           top: axis(anchor.y, box.height, view.height) };
+}
+
 // Angular difference between two compass bearings, 0–180.
 export function bearingDiff(a, b) {
   const d = Math.abs(a - b) % 360;

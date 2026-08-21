@@ -102,6 +102,9 @@ nav button.active { background: #374151; color: #fff; }
   padding: 0 4px; font-weight: 600;
 }
 #stop-box .delay { font-weight: 600; }
+/* The schedule a delayed service is no longer keeping — struck through so
+   it reads as the superseded value, not a second departure. */
+#stop-box .sched { color: #6b7280; text-decoration: line-through; }
 #stop-box .delay.late { color: #b91c1c; }
 #stop-box .delay.early { color: #047857; }
 .latency-badge {

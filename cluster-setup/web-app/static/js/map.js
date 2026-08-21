@@ -1,7 +1,13 @@
 import { colorForRoute, time24, timeHM, esc, isTram, isNightBus, latencyMs, latencyBadgeHtml } from './utils.js';
-import { OFF_ROUTE_M, projectOnPath, nearestRouteStop, needsRecentre } from './geo.js';
+import { OFF_ROUTE_M, projectOnPath, nearestRouteStop, needsRecentre, placeBox } from './geo.js';
 
 const REFRESH_MS = 10000;
+// Departures popup keeps itself alive while open, on two cadences. The tick
+// re-renders from data already in hand, so the countdown keeps counting even
+// when the backend is unreachable; the poll re-fetches, and is the slower of
+// the two because each one costs a Pinot query (DELAYS_SQL).
+const STOP_TICK_MS = 20000;
+const STOP_POLL_MS = 60000;
 const INITIAL_VIEW = { center: [18.6466, 54.352], zoom: 15 }; // Gdansk Old Town
 const HALO_PERIOD_MS = 2200;
 
@@ -14,6 +20,7 @@ const state = {
   overlay: null,
   selectedTrip: null, // when set, has fields vehicleId, routeId, tripId, path, progress
   followSelected: false, // camera tracks selectedTrip until the user moves the map
+  stopBox: null, // when open: { stopId, name, x, y, routes, data, ms, tick, poll }
   lastRows: [],
   lastUpdated: 0,
   positionsMs: null, // Pinot's timeUsedMs for the last /api/positions fetch
@@ -345,57 +352,123 @@ export async function initMap() {
     }
   }
 
+  // Departures popup. Fetched on click, then kept alive while open: a
+  // countdown that never ticks is worse than none, because it still reads as
+  // live data — "2 min" stayed "2 min" a minute later and a departed service
+  // stayed at the top of the list. The tick recomputes locally, the poll
+  // refreshes delays from the server (see STOP_TICK_MS / STOP_POLL_MS).
   async function showStopBox(info) {
-    const { stopId, name } = info.object;
+    const { stopId, name, routes } = info.object;
+    hideStopBox(); // stop the timers of a box already open on another stop
+    state.stopBox = { stopId, name, routes, x: info.x, y: info.y,
+                      data: null, ms: null, tick: null, poll: null };
     stopBox.classList.remove('hidden');
     stopBox.innerHTML = `<h3>${esc(name)}</h3>Loading…`;
-    // anchor near the click, clamped into the map view
-    const view = document.getElementById('map-view');
-    stopBox.style.left = Math.min(info.x + 12, view.clientWidth - 300) + 'px';
-    stopBox.style.top = Math.min(info.y + 12, view.clientHeight - 200) + 'px';
+    positionStopBox();
+    const box = state.stopBox;
+    await pollStopBox();
+    if (state.stopBox !== box) return; // closed or replaced during the fetch
+    box.tick = setInterval(renderStopBox, STOP_TICK_MS);
+    box.poll = setInterval(pollStopBox, STOP_POLL_MS);
+  }
+
+  async function pollStopBox() {
+    const box = state.stopBox;
+    if (!box) return;
     try {
-      const resp = await fetch(`/api/departures?stopId=${encodeURIComponent(stopId)}`);
+      const resp = await fetch(
+        `/api/departures?stopId=${encodeURIComponent(box.stopId)}`);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const dep = await resp.json();
-      const today = new Date().toDateString();
-      const rows = dep.departures.map(d => {
-        const t = new Date(d.time);
-        const day = t.toDateString() === today ? ''
-          : t.toLocaleDateString([], { weekday: 'short' }) + ' ';
-        // countdown runs on the live estimate when a vehicle reports a delay
-        const eta = d.estimated ?? d.time;
-        const mins = Math.max(0, Math.round((eta - Date.now()) / 60000));
-        let delay = '';
-        if (d.delayMin) {
-          delay = d.delayMin > 0
-            ? ` <span class="delay late">+${d.delayMin}</span>`
-            : ` <span class="delay early">${d.delayMin}</span>`;
-        }
-        return `<tr><td>${day}${timeHM(d.time)}${delay}</td>
-                    <td><span class="route-badge">${esc(d.route)}</span></td>
-                    <td class="headsign">${esc(d.headsign)}</td>
-                    <td>${mins} min</td></tr>`;
-      }).join('');
-      let label = info.object.routes.length
-        ? 'No scheduled departures'
-        : 'Stop not in use — no scheduled departures';
-      if (dep.mode === 'hour') {
-        label = 'Next 60 minutes';
-      } else if (dep.departures.length) {
-        label = 'No departures within an hour — next scheduled';
-      }
-      stopBox.innerHTML = `
-        <button class="close" aria-label="Close">✕</button>
-        <h3>${esc(name)}</h3>
-        <div class="mode">${label}${latencyBadgeHtml(latencyMs(resp))}</div>
-        <table>${rows}</table>`;
-      stopBox.querySelector('.close').onclick = hideStopBox;
+      if (state.stopBox !== box) return; // another stop clicked mid-flight
+      box.data = dep;
+      box.ms = latencyMs(resp);
+      renderStopBox();
     } catch (err) {
-      stopBox.innerHTML = `<h3>${esc(name)}</h3>Failed to load departures: ${esc(err.message)}`;
+      // A failed *re*-poll keeps the departures already on screen: the
+      // countdown is still meaningful from the timestamps in hand, only the
+      // delays are ageing. Only the first fetch has nothing to fall back to.
+      if (state.stopBox === box && !box.data) {
+        stopBox.innerHTML =
+          `<h3>${esc(box.name)}</h3>Failed to load departures: ${esc(err.message)}`;
+      }
     }
   }
 
+  function renderStopBox() {
+    const box = state.stopBox;
+    if (!box?.data) return;
+    const now = Date.now();
+    const today = new Date(now).toDateString();
+    // The server filters departed services against its own clock at fetch
+    // time, so between polls this is the only thing keeping a run that has
+    // already left off the top of the list.
+    const live = box.data.departures.filter(d => (d.estimated ?? d.time) >= now);
+    const rows = live.map(d => {
+      const eta = d.estimated ?? d.time;
+      const t = new Date(eta);
+      const day = t.toDateString() === today ? ''
+        : t.toLocaleDateString([], { weekday: 'short' }) + ' ';
+      const mins = Math.max(0, Math.round((eta - now) / 60000));
+      // Expected time leads, schedule is the footnote: a rider wants to know
+      // when the tram is actually there, and heading the row with 11:55 for a
+      // service that will not arrive until 11:59 buries the delay in a chip.
+      // The struck-through scheduled time appears only when the delay is big
+      // enough to move the displayed minute, so an on-time run stays one value.
+      const sched = (d.delayMin != null && timeHM(d.time) !== timeHM(eta))
+        ? ` <span class="sched">${timeHM(d.time)}</span>` : '';
+      let delay = '';
+      if (d.delayMin) {
+        delay = d.delayMin > 0
+          ? ` <span class="delay late">+${d.delayMin}</span>`
+          : ` <span class="delay early">${d.delayMin}</span>`;
+      }
+      return `<tr><td>${day}${timeHM(eta)}${delay}${sched}</td>
+                  <td><span class="route-badge">${esc(d.route)}</span></td>
+                  <td class="headsign">${esc(d.headsign)}</td>
+                  <td>${mins} min</td></tr>`;
+    }).join('');
+    let label;
+    if (!live.length) {
+      // "no further" vs "none scheduled" — the local filter can empty a list
+      // the server sent full, and those are different facts to a waiting rider.
+      if (!box.routes.length) label = 'Stop not in use — no scheduled departures';
+      else if (box.data.departures.length) label = 'No further departures';
+      else label = 'No scheduled departures';
+    } else if (box.data.mode === 'hour') {
+      label = 'Next 60 minutes';
+    } else {
+      label = 'No departures within an hour — next scheduled';
+    }
+    stopBox.innerHTML = `
+      <button class="close" aria-label="Close">✕</button>
+      <h3>${esc(box.name)}</h3>
+      <div class="mode">${label}${latencyBadgeHtml(box.ms)}</div>
+      <table>${rows}</table>`;
+    stopBox.querySelector('.close').onclick = hideStopBox;
+    positionStopBox(); // re-measure: the row count just changed
+  }
+
+  // Anchored to the click, but measured rather than assumed. The old fixed
+  // 300x200 guess put most of a busy stop's thirty rows below the map edge.
+  function positionStopBox() {
+    const box = state.stopBox;
+    if (!box) return;
+    const view = document.getElementById('map-view');
+    const { left, top } = placeBox(
+      { x: box.x, y: box.y },
+      { width: stopBox.offsetWidth, height: stopBox.offsetHeight },
+      { width: view.clientWidth, height: view.clientHeight });
+    stopBox.style.left = left + 'px';
+    stopBox.style.top = top + 'px';
+  }
+
   function hideStopBox() {
+    if (state.stopBox) {
+      clearInterval(state.stopBox.tick);
+      clearInterval(state.stopBox.poll);
+      state.stopBox = null;
+    }
     stopBox.classList.add('hidden');
   }
 
