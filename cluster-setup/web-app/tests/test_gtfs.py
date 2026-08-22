@@ -30,9 +30,14 @@ def _csv_bytes(fieldnames, rows):
 
 
 def build_fake_gtfs_zip():
-    """A minimal feed: one route, one trip (course "1"), two stops, with a
-    dropoff-only final stop (pickup_type=1) so it's excluded from departures
-    but still counts as the scheduled terminus."""
+    """A minimal feed: one route, two courses, four stops.
+
+    Course "1" carries passengers: a regular first stop, an on-request stop
+    (pickup_type=3) mid-route, and a dropoff-only final stop (pickup_type=1)
+    that is excluded from departures but still counts as the terminus.
+    Course "2" is a positioning run between courses — nowhere on it may a
+    passenger board or alight in the ordinary way (types 3 and 1 only), so
+    none of it is a departure."""
     zip_buf = io.BytesIO()
     with zipfile.ZipFile(zip_buf, 'w') as zf:
         zf.writestr('calendar_dates.txt', _csv_bytes(
@@ -46,17 +51,34 @@ def build_fake_gtfs_zip():
         zf.writestr('trips.txt', _csv_bytes(
             ['route_id', 'service_id', 'trip_id', 'trip_headsign'],
             [{'route_id': 'R1', 'service_id': 'SVC1', 'trip_id': 'T_1_A',
+              'trip_headsign': 'Jelitkowo'},
+             {'route_id': 'R1', 'service_id': 'SVC1', 'trip_id': 'T_2_B',
               'trip_headsign': 'Jelitkowo'}]))
         zf.writestr('stop_times.txt', _csv_bytes(
             ['trip_id', 'arrival_time', 'departure_time', 'stop_id',
-             'stop_sequence', 'pickup_type'],
+             'stop_sequence', 'pickup_type', 'drop_off_type'],
             [
                 {'trip_id': 'T_1_A', 'arrival_time': '08:00:00',
                  'departure_time': '08:00:00', 'stop_id': 'S1',
-                 'stop_sequence': '1', 'pickup_type': '0'},
+                 'stop_sequence': '1', 'pickup_type': '0',
+                 'drop_off_type': '1'},
+                {'trip_id': 'T_1_A', 'arrival_time': '08:05:00',
+                 'departure_time': '08:05:00', 'stop_id': 'S3',
+                 'stop_sequence': '2', 'pickup_type': '3',
+                 'drop_off_type': '3'},
                 {'trip_id': 'T_1_A', 'arrival_time': '08:10:00',
                  'departure_time': '08:10:00', 'stop_id': 'S2',
-                 'stop_sequence': '2', 'pickup_type': '1'},
+                 'stop_sequence': '3', 'pickup_type': '1',
+                 'drop_off_type': '0'},
+                # Positioning run: S4 -> S2, by arrangement at both ends.
+                {'trip_id': 'T_2_B', 'arrival_time': '09:00:00',
+                 'departure_time': '09:00:00', 'stop_id': 'S4',
+                 'stop_sequence': '1', 'pickup_type': '3',
+                 'drop_off_type': '1'},
+                {'trip_id': 'T_2_B', 'arrival_time': '09:10:00',
+                 'departure_time': '09:10:00', 'stop_id': 'S2',
+                 'stop_sequence': '2', 'pickup_type': '1',
+                 'drop_off_type': '3'},
             ]))
         zf.writestr('stops.txt', _csv_bytes(
             ['stop_id', 'stop_code', 'stop_name', 'stop_lat', 'stop_lon'],
@@ -65,6 +87,10 @@ def build_fake_gtfs_zip():
                  'stop_lat': '54.35000', 'stop_lon': '18.64000'},
                 {'stop_id': 'S2', 'stop_code': '02', 'stop_name': 'End',
                  'stop_lat': '54.36000', 'stop_lon': '18.65000'},
+                {'stop_id': 'S3', 'stop_code': '01', 'stop_name': 'On request',
+                 'stop_lat': '54.35500', 'stop_lon': '18.64500'},
+                {'stop_id': 'S4', 'stop_code': '02', 'stop_name': 'Alighting',
+                 'stop_lat': '54.37000', 'stop_lon': '18.66000'},
             ]))
     return zip_buf.getvalue()
 
@@ -102,6 +128,21 @@ class GtfsLoadTests(unittest.TestCase):
         self.assertEqual(route, '8')
         self.assertEqual(headsign, 'Jelitkowo')
         self.assertEqual(trip_no, '1')  # course number from trip_id "T_1_A"
+
+    def test_on_request_stop_is_boardable(self):
+        # pickup_type=3 is ZTM's "na żądanie" stop — a real boarding, the
+        # passenger just signals the driver — so it must survive the filter
+        # that drops non-passenger runs.
+        stops = {s['stopId']: s for s in gtfs.get_stops()}
+        self.assertEqual(stops['S3']['routes'], ['8'])
+        self.assertEqual(len(gtfs.get_departures('S3')), 1)
+
+    def test_positioning_run_is_not_a_departure(self):
+        # Course "2" lets nobody board and nobody alight in the ordinary way,
+        # so S4 is a pole with no timetable, not one line 8 departs from.
+        stops = {s['stopId']: s for s in gtfs.get_stops()}
+        self.assertEqual(stops['S4']['routes'], [])
+        self.assertIsNone(gtfs.get_departures('S4'))
 
     def test_trip_last_stop_is_the_dropoff_only_final_stop(self):
         # Keyed (GTFS route_id, course_no) — S2 is the last stop even though

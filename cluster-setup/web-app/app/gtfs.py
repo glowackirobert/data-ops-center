@@ -121,12 +121,41 @@ def _update_trip_span(trip_span, trip_id, seq, stop_id):
             span[2], span[3] = seq, stop_id
 
 
+# GTFS pickup/drop-off type values the ZTM feed uses. 3 is its "na żądanie"
+# (request) stop — a real boarding, the passenger just has to signal the
+# driver — and matches the onDemand flag in ZTM's own stops.json, so it must
+# not be filtered out the way 1 is.
+REGULAR = '0'
+NO_PICKUP = '1'
+
+
+def _carries_passengers(flags):
+    """A trip where nobody may board *and* nobody may alight in the ordinary
+    way is not in passenger service — it is a positioning run between two
+    courses, and its stop times are not departures.
+
+    ZTM encodes those as pickup/drop-off type 3 ("arrange with the driver")
+    at both ends rather than 1, which is why the plain no-pickup filter lets
+    them through: bus 115's 06:11 Saturday run out of "Niedźwiednik 02" — a
+    pole ZTM's own stops.json describes as *dla wysiadających* and publishes
+    no timetable for — surfaced in the popup as a real departure. Type 3 on
+    its own must stay boardable: the ~430 genuine request stops in the feed
+    use it for every call. Requiring a regular pickup *or* a regular drop-off
+    somewhere on the trip separates the two: measured against the full
+    15-day feed this drops 3 trips, all of them that same 115 run.
+    """
+    return flags[0] or flags[1]
+
+
 def _load_stop_times(zf, trips, noon):
     """Per-stop sorted departures, stop_id -> serving routes, and per-trip
     [min seq, stop, max seq, stop] span."""
-    departures = {}
-    stop_routes = {}  # stop_id -> set of route short names serving it
+    # stop_id -> [(ts, route, headsign, course no, trip_id)] — trip_id rides
+    # along only until the non-passenger trips below have been filtered out,
+    # which needs the whole file read first.
+    by_stop = {}
     trip_span = {}  # trip_id -> [min seq, its stop, max seq, its stop]
+    service = {}  # trip_id -> [regular pickup seen, regular drop-off seen]
     for r in _gtfs_rows(zf, 'stop_times.txt'):
         trip = trips.get(r['trip_id'])
         if not trip:
@@ -134,15 +163,14 @@ def _load_stop_times(zf, trips, noon):
         d, _route_id, route, headsign = trip
         _update_trip_span(trip_span, r['trip_id'], int(r['stop_sequence']),
                            r['stop_id'])
-        if r['pickup_type'] == '1':  # 1 = no passenger pickup
+        # Both columns are optional in GTFS and default to regular service.
+        pickup = r.get('pickup_type') or REGULAR
+        drop_off = r.get('drop_off_type') or REGULAR
+        flags = service.setdefault(r['trip_id'], [False, False])
+        flags[0] = flags[0] or pickup == REGULAR
+        flags[1] = flags[1] or drop_off == REGULAR
+        if pickup == NO_PICKUP:
             continue
-        # Recorded *after* the pickup skip: a pole where a line only ever
-        # drops off — a depot such as "Zajezdnia NOWY PORT T1", every row
-        # pickup_type=1 — must not advertise lines that can never be boarded
-        # there, or the map marks it as served and the popup then has nothing
-        # to show. A normal terminus keeps its route from the return trip's
-        # boardable row at the same pole.
-        stop_routes.setdefault(r['stop_id'], set()).add(route)
         h, m, s = map(int, r['departure_time'].split(':'))
         dep = noon[d] + datetime.timedelta(seconds=(h - 12) * 3600 + m * 60 + s)
         # GTFS trip_id = <route+start datetime>_<course no>_<task>; the course
@@ -150,10 +178,25 @@ def _load_stop_times(zf, trips, noon):
         # attaching live delays to scheduled departures.
         parts = r['trip_id'].split('_')
         trip_no = parts[1] if len(parts) == 3 else None
-        departures.setdefault(r['stop_id'], []).append(
-            (int(dep.timestamp() * 1000), route, headsign, trip_no))
-    for lst in departures.values():
-        lst.sort()
+        by_stop.setdefault(r['stop_id'], []).append(
+            (int(dep.timestamp() * 1000), route, headsign, trip_no,
+             r['trip_id']))
+
+    departures = {}
+    stop_routes = {}  # stop_id -> set of route short names serving it
+    for stop_id, lst in by_stop.items():
+        kept = [e for e in lst if _carries_passengers(service[e[4]])]
+        if not kept:
+            continue
+        kept.sort()
+        departures[stop_id] = [e[:4] for e in kept]
+        # Derived from what survived, so a pole where a line only ever drops
+        # off — a depot such as "Zajezdnia NOWY PORT T1", every row
+        # pickup_type=1 — advertises no line that can't be boarded there. The
+        # map would otherwise mark it as served and the popup then have
+        # nothing to show. A normal terminus keeps its route from the return
+        # trip's boardable row at the same pole.
+        stop_routes[stop_id] = {e[1] for e in kept}
     return departures, stop_routes, trip_span
 
 
