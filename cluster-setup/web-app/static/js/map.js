@@ -746,7 +746,11 @@ export async function initMap() {
     state.followSelected = false;
     fitToSelection();
     loadRouteHistogram(routeSelect.value);
-    if (state.stopBox) pollStopBox(); // its note is about the line just changed
+    // The popup is anchored to where the stop was on screen when it was
+    // clicked, and fitToSelection has just moved the camera out from under
+    // it — leaving it open would park a stop's departures over an unrelated
+    // part of the map. Picking a line is a new question; close the old answer.
+    hideStopBox();
   };
 
   async function refresh() {
