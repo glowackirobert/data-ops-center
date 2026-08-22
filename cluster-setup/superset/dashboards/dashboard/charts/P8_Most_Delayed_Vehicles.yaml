@@ -1,7 +1,5 @@
-# Stale-delay snapshots are filtered out: a vehicle standing at a depot or terminus keeps
-# reporting its last delay, which would otherwise top the ranking. Only the stationary +
-# implausible-delay test is used - matching the headsign against 'zajezdnia' missed the
-# terminus case entirely and only caught depot-bound runs.
+# Unfiltered: every delay snapshot counts, including a vehicle standing at a depot or
+# terminus still reporting its last delay.
 # Groups by vehicleCode, which the star-tree does not cover, so this one scans.
 slice_name: Most delayed vehicles
 description: Vehicles running late most consistently over the selected window, by line and fleet number.
@@ -36,13 +34,7 @@ params:
     label: observations
   all_columns: []
   percent_metrics: []
-  adhoc_filters:
-  - clause: WHERE
-    expressionType: SQL
-    sqlExpression: NOT (speed = 0 AND delay > 1200)
-    comparator: null
-    operator: null
-    subject: null
+  adhoc_filters: []
   timeseries_limit_metric:
     expressionType: SQL
     sqlExpression: AVG(delay)
