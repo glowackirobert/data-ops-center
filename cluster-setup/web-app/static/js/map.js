@@ -705,16 +705,21 @@ export async function initMap() {
   // so the follow never cancels itself.
   map.on('movestart', e => { if (e.originalEvent) state.followSelected = false; });
 
-  // Camera fit for the moment a line is picked in the dropdown — called from
-  // routeSelect.onchange only, never from refresh(): once the user has the
-  // line in view they may pan/zoom freely, and a 10 s re-fit would keep
-  // snapping the camera back. "All vehicles" flies home to the initial view.
+  // Camera fit for the moment a line is picked in the dropdown, and for
+  // handing the camera back when a selection ends (clearTripPath). Never
+  // called from refresh(): once the user has the line in view they may
+  // pan/zoom freely, and a 10 s re-fit would keep snapping the camera back.
+  //
+  // "All vehicles" deliberately moves nothing. Picking a line names a place
+  // to look; "All vehicles" only widens the filter — every vehicle on screen
+  // stays put and more appear around it, so there is nothing to bring into
+  // view. Flying to INITIAL_VIEW here was the one camera move in this app
+  // that answered no question the user had asked: it teleported someone
+  // watching Osowa back to the Old Town, mid-track if a vehicle was selected.
+  // That viewport belongs to page load, not to a filter.
   function fitToSelection() {
     const route = routeSelect.value;
-    if (!route) {
-      map.flyTo(INITIAL_VIEW);
-      return;
-    }
+    if (!route) return;
     const rows = state.lastRows.filter(d => String(d.route || '?') === route);
     const stops = state.stopsData.filter(s => s.routes.includes(route));
     if (!rows.length && !stops.length) return;
@@ -729,10 +734,11 @@ export async function initMap() {
   }
 
   routeSelect.onchange = () => {
+    const route = routeSelect.value;
     // the drawn path belongs to one vehicle; drop it if the filter hides it
-    if (state.selectedTrip && routeSelect.value) {
+    if (state.selectedTrip && route) {
       const v = state.lastRows.find(d => d.vehicleId === state.selectedTrip.vehicleId);
-      if (!v || String(v.route || '?') !== routeSelect.value) {
+      if (!v || String(v.route || '?') !== route) {
         state.selectedTrip = null;
         state.followSelected = false;
       }
@@ -742,14 +748,19 @@ export async function initMap() {
     // including when the tracked vehicle happens to be on that very line,
     // which used to be the one case that silently did nothing. The selection
     // survives (its trajectory is still worth seeing) but the follow does not,
-    // or the next refresh would pan straight back and undo the fit.
-    state.followSelected = false;
-    fitToSelection();
-    loadRouteHistogram(routeSelect.value);
+    // or the next refresh would pan straight back and undo the fit. That fit
+    // still holds the tracked vehicle: it is one of the points fitted.
+    // "All vehicles" names no place to look, so it commands no camera and
+    // ends no follow — see fitToSelection.
+    if (route) {
+      state.followSelected = false;
+      fitToSelection();
+    }
+    loadRouteHistogram(route);
     // The popup is anchored to where the stop was on screen when it was
-    // clicked, and fitToSelection has just moved the camera out from under
-    // it — leaving it open would park a stop's departures over an unrelated
-    // part of the map. Picking a line is a new question; close the old answer.
+    // clicked, and the camera has usually just moved out from under it —
+    // leaving it open would park a stop's departures over an unrelated part
+    // of the map. Picking a line is a new question; close the old answer.
     hideStopBox();
   };
 
