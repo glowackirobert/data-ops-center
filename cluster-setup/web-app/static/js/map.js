@@ -1,6 +1,7 @@
-import { colorForRoute, time24, timeHM, esc, isTram, isNightBus, latencyMs, latencyBadgeHtml } from './utils.js';
-import { OFF_ROUTE_M, projectOnPath, nearestRouteStop, needsRecentre, placeBox,
-         thinOverlapping } from './geo.js';
+import { colorForRoute, time24, timeHM, esc, isTram, isNightBus, latencyMs, latencyBadgeHtml,
+         toDisplayedMinute, displayedShiftMin, minutesUntil } from './utils.js';
+import { OFF_ROUTE_M, projectOnPath, nearestRouteStop, needsRecentre, onScreen,
+         placeBox, thinOverlapping } from './geo.js';
 
 const REFRESH_MS = 10000;
 // Departures popup keeps itself alive while open, on two cadences. The tick
@@ -9,6 +10,9 @@ const REFRESH_MS = 10000;
 // the two because each one costs a Pinot query (DELAYS_SQL).
 const STOP_TICK_MS = 20000;
 const STOP_POLL_MS = 60000;
+// Below this the stop poles are hidden as clutter (unless a line is selected,
+// which shows its own stops at any zoom) — and with them any open popup.
+const STOP_MIN_ZOOM = 13;
 const INITIAL_VIEW = { center: [18.6466, 54.352], zoom: 15 }; // Gdansk Old Town
 const HALO_PERIOD_MS = 2200;
 
@@ -21,7 +25,8 @@ const state = {
   overlay: null,
   selectedTrip: null, // when set, has fields vehicleId, routeId, tripId, path, progress
   followSelected: false, // camera tracks selectedTrip until the user moves the map
-  stopBox: null, // when open: { stopId, name, x, y, routes, data, ms, tick, poll }
+  // when open: { stopId, name, lon, lat, routes, data, ms, w, h, tick, poll }
+  stopBox: null,
   lastRows: [],
   lastUpdated: 0,
   positionsMs: null, // Pinot's timeUsedMs for the last /api/positions fetch
@@ -373,13 +378,13 @@ export async function initMap() {
   // stayed at the top of the list. The tick recomputes locally, the poll
   // refreshes delays from the server (see STOP_TICK_MS / STOP_POLL_MS).
   async function showStopBox(info) {
-    const { stopId, name, routes } = info.object;
+    const { stopId, name, routes, lon, lat } = info.object;
     hideStopBox(); // stop the timers of a box already open on another stop
-    state.stopBox = { stopId, name, routes, x: info.x, y: info.y,
-                      data: null, ms: null, tick: null, poll: null };
+    state.stopBox = { stopId, name, routes, lon, lat,
+                      data: null, ms: null, w: 0, h: 0, tick: null, poll: null };
     stopBox.classList.remove('hidden');
     stopBox.innerHTML = `<h3>${esc(name)}</h3>Loading…`;
-    positionStopBox();
+    positionStopBox(true);
     const box = state.stopBox;
     await pollStopBox();
     if (state.stopBox !== box) return; // closed or replaced during the fetch
@@ -432,22 +437,26 @@ export async function initMap() {
     const live = box.data.departures.filter(d => (d.estimated ?? d.time) >= now);
     const rows = live.map(d => {
       const eta = d.estimated ?? d.time;
-      const day = dayPrefix(eta);
-      const mins = Math.max(0, Math.round((eta - now) / 60000));
+      const shown = toDisplayedMinute(eta);
+      const day = dayPrefix(shown);
+      const mins = minutesUntil(shown, now);
       // Expected time leads, schedule is the footnote: a rider wants to know
       // when the tram is actually there, and heading the row with 11:55 for a
       // service that will not arrive until 11:59 buries the delay in a chip.
-      // The struck-through scheduled time appears only when the delay is big
-      // enough to move the displayed minute, so an on-time run stays one value.
-      const sched = (d.delayMin != null && timeHM(d.time) !== timeHM(eta))
-        ? ` <span class="sched">${timeHM(d.time)}</span>` : '';
-      let delay = '';
-      if (d.delayMin) {
-        delay = d.delayMin > 0
-          ? ` <span class="delay late">+${d.delayMin}</span>`
-          : ` <span class="delay early">${d.delayMin}</span>`;
-      }
-      return `<tr><td>${day}${timeHM(eta)}${delay}${sched}</td>
+      // Chip and struck-through schedule are one decision (displayedShiftMin,
+      // unit-tested in utils.js): both appear together or neither does, and the
+      // chip is the gap between the two times the row is showing. Deriving them
+      // separately is what let a slightly-early tram print "22:17 22:18" with
+      // no chip to explain it. A departure with no live vehicle matched
+      // (delayMin null) is schedule-only: one value, nothing struck out.
+      const shift = d.delayMin == null ? 0 : displayedShiftMin(d.time, eta);
+      const sched = shift
+        ? ` <span class="sched">${timeHM(toDisplayedMinute(d.time))}</span>` : '';
+      const lateness = shift > 0 ? 'late' : 'early';
+      const sign = shift > 0 ? '+' : '';
+      const delay = shift
+        ? ` <span class="delay ${lateness}">${sign}${shift}</span>` : '';
+      return `<tr><td>${day}${timeHM(shown)}${delay}${sched}</td>
                   <td><span class="route-badge">${esc(d.route)}</span></td>
                   <td class="headsign">${esc(d.headsign)}</td>
                   <td>${mins} min</td></tr>`;
@@ -472,7 +481,8 @@ export async function initMap() {
       const n = box.data.routeNext;
       note = n
         ? `<div class="route-next">Line <span class="route-badge">${esc(routeSelect.value)}</span>
-             next departs ${esc(dayPrefix(n.estimated))}${timeHM(n.estimated)}</div>`
+             next departs ${esc(dayPrefix(toDisplayedMinute(n.estimated)))}` +
+             `${timeHM(toDisplayedMinute(n.estimated))}</div>`
         : `<div class="route-next">No further line
              <span class="route-badge">${esc(routeSelect.value)}</span>
              departures today or tomorrow</div>`;
@@ -483,22 +493,53 @@ export async function initMap() {
       <div class="mode">${label}${latencyBadgeHtml(box.ms)}</div>
       <table>${rows}</table>${note}`;
     stopBox.querySelector('.close').onclick = hideStopBox;
-    positionStopBox(); // re-measure: the row count just changed
+    positionStopBox(true); // re-measure: the row count just changed
   }
 
-  // Anchored to the click, but measured rather than assumed. The old fixed
-  // 300x200 guess put most of a busy stop's thirty rows below the map edge.
-  function positionStopBox() {
+  // Are stop poles on screen at all right now? A popup outlives the dot it
+  // points at in two ways that have nothing to do with panning: zooming out
+  // past the clutter threshold, and switching to the heatmap. Both hide the
+  // layer, so both close the popup — same rule as panning the stop away.
+  const stopsVisible = () =>
+    !heatmapToggle.checked
+    && (Boolean(routeSelect.value) || map.getZoom() >= STOP_MIN_ZOOM);
+
+  // Anchored to the stop's *coordinates*, not to the pixel that was clicked:
+  // re-projected on every camera frame, the popup rides along with its pole
+  // through pan and zoom instead of hanging over whatever the map slid under
+  // it. Size is measured rather than assumed — the old fixed 300x200 guess put
+  // most of a busy stop's thirty rows below the map edge — but only when the
+  // content changed (`measure`), since a camera frame cannot resize the box
+  // and reading offsetWidth after writing left/top forces a reflow each time.
+  function positionStopBox(measure) {
     const box = state.stopBox;
     if (!box) return;
     const view = document.getElementById('map-view');
+    const canvas = document.getElementById('map');
+    const p = map.project([box.lon, box.lat]);
+    if (!stopsVisible()
+        || !onScreen(p, { width: canvas.clientWidth, height: canvas.clientHeight })) {
+      hideStopBox();
+      return;
+    }
+    if (measure || !box.w) {
+      box.w = stopBox.offsetWidth;
+      box.h = stopBox.offsetHeight;
+    }
+    // project() is relative to the map canvas, which is inset inside #map-view
+    // (the popup's offset parent) — add that gutter back.
     const { left, top } = placeBox(
-      { x: box.x, y: box.y },
-      { width: stopBox.offsetWidth, height: stopBox.offsetHeight },
+      { x: p.x + canvas.offsetLeft, y: p.y + canvas.offsetTop },
+      { width: box.w, height: box.h },
       { width: view.clientWidth, height: view.clientHeight });
     stopBox.style.left = left + 'px';
     stopBox.style.top = top + 'px';
   }
+
+  // Every camera frame, not just moveend: the popup has to travel with the
+  // drag, not teleport when it ends. The listener takes no argument — the
+  // move event must not arrive as a truthy `measure`.
+  map.on('move', () => positionStopBox());
 
   function hideStopBox() {
     if (state.stopBox) {
@@ -611,7 +652,7 @@ export async function initMap() {
           data: route
             ? state.stopsData.filter(s => s.routes.includes(route))
             : state.stopsData,
-          visible: !heatOn && (route ? true : map.getZoom() >= 13),
+          visible: !heatOn && (route ? true : map.getZoom() >= STOP_MIN_ZOOM),
           getPosition: d => [d.lon, d.lat],
           getRadius: 14,
           radiusMinPixels: 3,
@@ -757,10 +798,10 @@ export async function initMap() {
       fitToSelection();
     }
     loadRouteHistogram(route);
-    // The popup is anchored to where the stop was on screen when it was
-    // clicked, and the camera has usually just moved out from under it —
-    // leaving it open would park a stop's departures over an unrelated part
-    // of the map. Picking a line is a new question; close the old answer.
+    // Not a placement problem any more — the popup tracks its stop's
+    // coordinates and would ride the fit out, closing itself if the stop
+    // leaves the screen. It closes here because picking a line is a new
+    // question, and one stop's departures are the answer to the old one.
     hideStopBox();
   };
 

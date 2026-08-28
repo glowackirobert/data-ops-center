@@ -23,6 +23,39 @@ export function timeHM(ms) {
     [], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 }
 
+// A departure row shows two facts that must never disagree: the expected time
+// leading the row, and — when a live delay moved it — the scheduled time struck
+// through beside it with a +N/-N chip. They disagreed because they came from
+// two different numbers: the chip from the raw delay rounded to whole minutes
+// (0 for anything under 30 s), the strike-through from the *displayed* minute,
+// which truncates. GTFS departure times sit on whole minutes, so a tram one
+// second early already renders a minute earlier — and printed "22:17 22:18"
+// with nothing saying why. The mirror case, late by 30-59 s, printed a "+1"
+// chip beside two identical times.
+//
+// So both now come from one number: the gap between the two times once each is
+// rounded to the minute it is displayed as. Zero means the row shows a single
+// value and no chip; non-zero means it shows both, and the chip is exactly the
+// gap the reader can see between them.
+export function toDisplayedMinute(ms) {
+  return Math.round(ms / 60000) * 60000;
+}
+
+export function displayedShiftMin(scheduledMs, estimatedMs) {
+  return (toDisplayedMinute(estimatedMs) - toDisplayedMinute(scheduledMs)) / 60000;
+}
+
+// The countdown is the third number in a departure row and has to survive the
+// same test: printed departure time minus the reader's clock must equal it.
+// Rounding the raw millisecond gap fails that half the time, because a clock
+// truncates and this rounded — at 20:55:35 a departure shown as 20:57 printed
+// "1 min" while the two printed numbers subtract to 2. Anchoring both ends to
+// the minute each is *displayed* as makes the row read consistently, at the
+// cost of calling a bus 20 s away "1 min" instead of "0".
+export function minutesUntil(displayedMs, nowMs) {
+  return Math.max(0, (displayedMs - Math.floor(nowMs / 60000) * 60000) / 60000);
+}
+
 export function esc(s) {
   return String(s ?? '').replace(/[&<>"]/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

@@ -108,7 +108,6 @@ SELECT HOUR(generatedTransformed, 'Europe/Warsaw') AS hourOfDay,
        COUNT(*)                    AS snapshots
 FROM gdansk_public_transport
 WHERE routeShortName = '{route}'
-  AND NOT (speed = 0 AND delay > 1200)
 GROUP BY hourOfDay
 ORDER BY hourOfDay
 LIMIT 24

@@ -139,21 +139,6 @@ position:
     - TAB-nightBuses00000000000
     - ROW-nightSpeed0000000000
     type: CHART
-  CHART-p5HourlyProfile000000:
-    children: []
-    id: CHART-p5HourlyProfile000000
-    meta:
-      chartId: 6
-      height: 50
-      sliceName: Route hourly profile (last 24 h)
-      uuid: 5f45ddd1-e684-42e0-a4c3-1a299061e097
-      width: 12
-    parents:
-    - ROOT_ID
-    - TABS-mainTabs00000000000
-    - TAB-byRoute0000000000000
-    - ROW-byRouteB200000000000
-    type: CHART
   CHART-p8DelayedVehicles000:
     children: []
     id: CHART-p8DelayedVehicles000
@@ -220,7 +205,6 @@ position:
   TAB-byRoute0000000000000:
     children:
     - ROW-byRouteB100000000000
-    - ROW-byRouteB200000000000
     - ROW-byRouteB300000000000
     id: TAB-byRoute0000000000000
     meta:
@@ -318,17 +302,6 @@ position:
     - TABS-mainTabs00000000000
     - TAB-byRoute0000000000000
     type: ROW
-  ROW-byRouteB200000000000:
-    children:
-    - CHART-p5HourlyProfile000000
-    id: ROW-byRouteB200000000000
-    meta:
-      background: BACKGROUND_TRANSPARENT
-    parents:
-    - ROOT_ID
-    - TABS-mainTabs00000000000
-    - TAB-byRoute0000000000000
-    type: ROW
   ROW-byRouteB300000000000:
     children:
     - CHART-p8DelayedVehicles000
@@ -362,7 +335,6 @@ metadata:
     - 2
     - 4
     - 5
-    - 6
     - 9
     - 11
     - 12
@@ -402,7 +374,6 @@ metadata:
     - 2
     - 4
     - 5
-    - 6
     - 9
     - 11
     - 12
@@ -431,7 +402,6 @@ metadata:
     - 15
     - 4
     - 5
-    - 6
     - 9
     - 11
     - 12

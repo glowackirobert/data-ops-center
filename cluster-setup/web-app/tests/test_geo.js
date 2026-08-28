@@ -2,8 +2,8 @@
 // this runs directly under Node's built-in test runner: node --test tests/
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { projectOnPath, bearingDiff, nearestRouteStop, needsRecentre, placeBox,
-         thinOverlapping, OFF_ROUTE_M, FOLLOW_DEADZONE, BOX_GAP_PX,
+import { projectOnPath, bearingDiff, nearestRouteStop, needsRecentre, onScreen,
+         placeBox, thinOverlapping, OFF_ROUTE_M, FOLLOW_DEADZONE, BOX_GAP_PX,
          BADGE_W_PX, BADGE_H_PX }
   from '../static/js/geo.js';
 
@@ -94,6 +94,27 @@ test('needsRecentre: an unlaid-out container recentres rather than never firing'
   // clientWidth/Height are 0 before the map is laid out; failing open means a
   // missed frame, failing closed would silently disable follow for the session.
   assert.equal(needsRecentre({ x: 0, y: 0 }, { width: 0, height: 0 }), true);
+});
+
+// onScreen — the departures popup is anchored to its stop's coordinates, so
+// panning the stop off the map is what closes it.
+const MAP = { width: 1000, height: 800 };
+
+test('onScreen: a stop in the middle of the map is on screen', () => {
+  assert.equal(onScreen({ x: 500, y: 400 }, MAP), true);
+});
+
+test('onScreen: a stop panned past any edge is off screen', () => {
+  assert.equal(onScreen({ x: -1, y: 400 }, MAP), false, 'left');
+  assert.equal(onScreen({ x: 500, y: -1 }, MAP), false, 'top');
+  assert.equal(onScreen({ x: 1001, y: 400 }, MAP), false, 'right');
+  assert.equal(onScreen({ x: 500, y: 801 }, MAP), false, 'bottom');
+});
+
+test('onScreen: a stop exactly on the edge still counts as visible', () => {
+  // Its dot is half-drawn at the border — the popup stays until it is past.
+  assert.equal(onScreen({ x: 0, y: 0 }, MAP), true);
+  assert.equal(onScreen({ x: 1000, y: 800 }, MAP), true);
 });
 
 // placeBox — popup placement against a measured box, not an assumed size.
