@@ -30,31 +30,23 @@ class Handler(BaseHTTPRequestHandler):
         send_json(self, code, payload, time_used_ms=time_used_ms)
 
     def do_GET(self):
-        routes = {
-            '/': self._serve_index,
-            '/index.html': self._serve_index,
-            '/api/config': self._serve_config,
-            '/api/guest-token': self._serve_guest_token,
-            '/api/positions': self._serve_positions,
-            '/api/stops': self._serve_stops,
-            '/api/routes': self._serve_routes,
-            '/api/departures': self._serve_departures,
-            '/api/route-shape': self._serve_route_shape,
-            '/api/stats': self._serve_stats,
-            '/api/network-hourly': self._serve_network_hourly,
-            '/api/heatmap': self._serve_heatmap,
-            '/api/route-delay-histogram': self._serve_route_delay_histogram,
-        }
         parsed = urllib.parse.urlparse(self.path)
         self.query = urllib.parse.parse_qs(parsed.query)
-        route = routes.get(parsed.path)
+        route = self.ROUTES.get(parsed.path)
         try:
             if route:
-                route()
+                route(self)
             elif parsed.path.startswith('/static/'):
                 self._serve_static(parsed.path)
             else:
                 self._send(404, 'not found', 'text/plain')
+        except pinot.PinotQueryError as e:
+            # Pinot answered and rejected the query (bad SQL, server-side
+            # timeout). Handled here rather than in each Pinot-backed route:
+            # the response is identical for all of them, and writing it out
+            # per endpoint meant /api/stats and /api/heatmap were left out
+            # and reported a query error as a generic 500.
+            self._send_json(502, {'error': e.exceptions})
         except pinot.PinotUnavailableError as e:
             # Pinot never answered — cluster down, or too busy to reply (an
             # S3 backfill building a segment on the same host is enough).
@@ -90,11 +82,7 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json(200, superset.get_guest_token())
 
     def _serve_positions(self):
-        try:
-            rows, ms = pinot.get_positions()
-        except pinot.PinotQueryError as e:
-            self._send_json(502, {'error': e.exceptions})
-            return
+        rows, ms = pinot.get_positions()
         trip_ends = gtfs.get_trip_ends()
         for row in rows:
             row['atTerminus'] = gtfs.at_terminus(row, trip_ends)
@@ -106,11 +94,7 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json(200, data, time_used_ms=ms)
 
     def _serve_network_hourly(self):
-        try:
-            rows, ms = pinot.network_hourly()
-        except pinot.PinotQueryError as e:
-            self._send_json(502, {'error': e.exceptions})
-            return
+        rows, ms = pinot.network_hourly()
         self._send_json(200, rows, time_used_ms=ms)
 
     def _serve_heatmap(self):
@@ -124,11 +108,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             rows, ms = pinot.route_hourly_delay(route)
-        except ValueError:
+        except ValueError:  # route failed the pattern check in pinot.py
             self._send_json(400, {'error': 'invalid route'})
-            return
-        except pinot.PinotQueryError as e:
-            self._send_json(502, {'error': e.exceptions})
             return
         self._send_json(200, rows, time_used_ms=ms)
 
@@ -148,15 +129,24 @@ class Handler(BaseHTTPRequestHandler):
             path = geo.truncate_path_at(path, last_stop)
         self._send_json(200, {'path': path})
 
+    def _require_gtfs(self):
+        """True if the feed is parsed; otherwise answers 503 and returns False.
+
+        The feed is downloaded by a background thread on startup, so every
+        schedule-backed route needs the same guard.
+        """
+        if gtfs.is_loaded():
+            return True
+        self._send_json(503, GTFS_NOT_LOADED)
+        return False
+
     def _serve_stops(self):
-        if not gtfs.is_loaded():
-            self._send_json(503, GTFS_NOT_LOADED)
+        if not self._require_gtfs():
             return
         self._send_json(200, gtfs.get_stops())
 
     def _serve_routes(self):
-        if not gtfs.is_loaded():
-            self._send_json(503, GTFS_NOT_LOADED)
+        if not self._require_gtfs():
             return
         self._send_json(200, gtfs.get_routes())
 
@@ -169,8 +159,7 @@ class Handler(BaseHTTPRequestHandler):
         if not stop_id:
             self._send_json(400, {'error': 'stopId query parameter required'})
             return
-        if not gtfs.is_loaded():
-            self._send_json(503, GTFS_NOT_LOADED)
+        if not self._require_gtfs():
             return
         now = int(time.time() * 1000)
         delays, ms = pinot.live_delays()
@@ -199,6 +188,26 @@ class Handler(BaseHTTPRequestHandler):
 
     def log_message(self, fmt, *args):
         pass  # silence per-request noise
+
+    # Built once at class-definition time, not per request. Sits at the foot
+    # of the class body because a class body only sees names already bound
+    # above it — the handlers have to exist first. do_GET calls the plain
+    # function with an explicit `self`.
+    ROUTES = {
+        '/': _serve_index,
+        '/index.html': _serve_index,
+        '/api/config': _serve_config,
+        '/api/guest-token': _serve_guest_token,
+        '/api/positions': _serve_positions,
+        '/api/stops': _serve_stops,
+        '/api/routes': _serve_routes,
+        '/api/departures': _serve_departures,
+        '/api/route-shape': _serve_route_shape,
+        '/api/stats': _serve_stats,
+        '/api/network-hourly': _serve_network_hourly,
+        '/api/heatmap': _serve_heatmap,
+        '/api/route-delay-histogram': _serve_route_delay_histogram,
+    }
 
 
 if __name__ == '__main__':

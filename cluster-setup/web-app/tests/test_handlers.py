@@ -98,6 +98,20 @@ class HandlerTests(unittest.TestCase):
             body = json.loads(resp.read())
         self.assertEqual(body, {'totalDocs': 5, 'segments': 2, 'sizeBytes': 1024})
 
+    def test_stats_502_on_pinot_query_error(self):
+        """Every Pinot-backed route reports a rejected query the same way.
+
+        /api/stats and /api/heatmap used to lack the local except clause the
+        other routes carried and answered 500 'internal error' instead; the
+        handling now lives once in do_GET, so there is nothing to leave out.
+        """
+        def boom():
+            raise pinot.PinotQueryError([{'message': 'bad query'}])
+        pinot.table_stats = boom
+        status, body = self._get('/api/stats')
+        self.assertEqual(status, 502)
+        self.assertIn('error', body)
+
     def test_positions_502_on_pinot_query_error(self):
         def boom():
             raise pinot.PinotQueryError([{'message': 'bad query'}])

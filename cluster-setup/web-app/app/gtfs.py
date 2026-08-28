@@ -11,6 +11,7 @@ import math
 import threading
 import time
 import zipfile
+from typing import NamedTuple
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.config import GTFS_URL, GTFS_REFRESH_S, TERMINUS_RADIUS_M
@@ -107,18 +108,29 @@ def _load_trips(zf, service_date, route_name):
     return trips
 
 
+class TripSpan(NamedTuple):
+    """A trip's scheduled extent: the stops at its lowest and highest
+    stop_sequence, i.e. where the course starts and where it ends."""
+    first_seq: int
+    first_stop: str
+    last_seq: int
+    last_stop: str
+
+
 def _update_trip_span(trip_span, trip_id, seq, stop_id):
-    """Track [min seq, its stop, max seq, its stop] per trip — first/last stop
-    of the trip, updated before the pickup_type skip since a trip's final stop
-    is usually dropoff-only."""
+    """Widen the trip's first/last stop pair with one stop_times row.
+
+    Called before the pickup_type skip, since a trip's final stop is usually
+    drop-off only and is exactly the stop wanted here."""
     span = trip_span.get(trip_id)
     if span is None:
-        trip_span[trip_id] = [seq, stop_id, seq, stop_id]
-    else:
-        if seq < span[0]:
-            span[0], span[1] = seq, stop_id
-        if seq > span[2]:
-            span[2], span[3] = seq, stop_id
+        trip_span[trip_id] = TripSpan(seq, stop_id, seq, stop_id)
+        return
+    if seq < span.first_seq:
+        span = span._replace(first_seq=seq, first_stop=stop_id)
+    if seq > span.last_seq:
+        span = span._replace(last_seq=seq, last_stop=stop_id)
+    trip_span[trip_id] = span
 
 
 # GTFS pickup/drop-off type values the ZTM feed uses. 3 is its "na żądanie"
@@ -129,8 +141,23 @@ REGULAR = '0'
 NO_PICKUP = '1'
 
 
-def _carries_passengers(flags):
-    """A trip where nobody may board *and* nobody may alight in the ordinary
+class StopTime(NamedTuple):
+    """One scheduled call at a stop, as the departures popup needs it.
+
+    `trip_no` is the course number the GPS feed publishes as tripId — the
+    join key for attaching a live delay to a scheduled departure — or None
+    for a trip_id that does not carry one.
+    """
+    time_ms: int
+    route: str
+    headsign: str
+    trip_no: str | None
+
+
+def _passenger_trips(regular_pickup, regular_drop_off):
+    """The trip ids in passenger service at all, as one set.
+
+    A trip where nobody may board *and* nobody may alight in the ordinary
     way is not in passenger service — it is a positioning run between two
     courses, and its stop times are not departures.
 
@@ -144,59 +171,86 @@ def _carries_passengers(flags):
     somewhere on the trip separates the two: measured against the full
     15-day feed this drops 3 trips, all of them that same 115 run.
     """
-    return flags[0] or flags[1]
+    return regular_pickup | regular_drop_off
 
 
-def _load_stop_times(zf, trips, noon):
-    """Per-stop sorted departures, stop_id -> serving routes, and per-trip
-    [min seq, stop, max seq, stop] span."""
-    # stop_id -> [(ts, route, headsign, course no, trip_id)] — trip_id rides
-    # along only until the non-passenger trips below have been filtered out,
-    # which needs the whole file read first.
-    by_stop = {}
-    trip_span = {}  # trip_id -> [min seq, its stop, max seq, its stop]
-    service = {}  # trip_id -> [regular pickup seen, regular drop-off seen]
-    for r in _gtfs_rows(zf, 'stop_times.txt'):
-        trip = trips.get(r['trip_id'])
-        if not trip:
-            continue
-        d, _route_id, route, headsign = trip
-        _update_trip_span(trip_span, r['trip_id'], int(r['stop_sequence']),
-                           r['stop_id'])
-        # Both columns are optional in GTFS and default to regular service.
-        pickup = r.get('pickup_type') or REGULAR
-        drop_off = r.get('drop_off_type') or REGULAR
-        flags = service.setdefault(r['trip_id'], [False, False])
-        flags[0] = flags[0] or pickup == REGULAR
-        flags[1] = flags[1] or drop_off == REGULAR
-        if pickup == NO_PICKUP:
-            continue
-        h, m, s = map(int, r['departure_time'].split(':'))
-        dep = noon[d] + datetime.timedelta(seconds=(h - 12) * 3600 + m * 60 + s)
-        # GTFS trip_id = <route+start datetime>_<course no>_<task>; the course
-        # number is what the GPS feed publishes as tripId — the join key for
-        # attaching live delays to scheduled departures.
-        parts = r['trip_id'].split('_')
-        trip_no = parts[1] if len(parts) == 3 else None
-        by_stop.setdefault(r['stop_id'], []).append(
-            (int(dep.timestamp() * 1000), route, headsign, trip_no,
-             r['trip_id']))
+def _stop_time(r, trip, noon):
+    """One boardable stop_times row as the StopTime the popup shows.
 
+    Times are offsets from the service day's noon (built in load_gtfs, which
+    says why) rather than its midnight, so a 25:10 after-midnight course
+    lands on the right day.
+    """
+    d, _route_id, route, headsign = trip
+    h, m, s = map(int, r['departure_time'].split(':'))
+    dep = noon[d] + datetime.timedelta(seconds=(h - 12) * 3600 + m * 60 + s)
+    # GTFS trip_id = <route+start datetime>_<course no>_<task>; the course
+    # number is what the GPS feed publishes as tripId — the join key for
+    # attaching live delays to scheduled departures.
+    parts = r['trip_id'].split('_')
+    trip_no = parts[1] if len(parts) == 3 else None
+    return StopTime(int(dep.timestamp() * 1000), route, headsign, trip_no)
+
+
+def _group_departures(by_stop, in_service):
+    """Sorted departure list and serving routes per stop, passenger trips only.
+
+    Drops the positioning runs (see _passenger_trips), which is why this waits
+    for the whole file: a trip is only known not to carry passengers once
+    every one of its stop times has been read.
+    """
     departures = {}
     stop_routes = {}  # stop_id -> set of route short names serving it
     for stop_id, lst in by_stop.items():
-        kept = [e for e in lst if _carries_passengers(service[e[4]])]
+        kept = [st for st, trip_id in lst if trip_id in in_service]
         if not kept:
             continue
-        kept.sort()
-        departures[stop_id] = [e[:4] for e in kept]
+        kept.sort()  # by departure time: StopTime's first field
+        departures[stop_id] = kept
         # Derived from what survived, so a pole where a line only ever drops
         # off — a depot such as "Zajezdnia NOWY PORT T1", every row
         # pickup_type=1 — advertises no line that can't be boarded there. The
         # map would otherwise mark it as served and the popup then have
         # nothing to show. A normal terminus keeps its route from the return
         # trip's boardable row at the same pole.
-        stop_routes[stop_id] = {e[1] for e in kept}
+        stop_routes[stop_id] = {st.route for st in kept}
+    return departures, stop_routes
+
+
+def _load_stop_times(zf, trips, noon):
+    """Read stop_times.txt into per-stop departures, serving routes and spans.
+
+    One pass over ~300k rows doing three things at once, which is why the two
+    halves that can stand alone are split out: this loop accumulates, and
+    _stop_time / _group_departures shape what it accumulated.
+    """
+    # stop_id -> [(StopTime, trip_id)] — the trip_id rides alongside only
+    # until the non-passenger trips below have been filtered out, which
+    # needs the whole file read first, and is then dropped.
+    by_stop = {}
+    trip_span = {}  # trip_id -> TripSpan
+    regular_pickup = set()    # trip_ids with an ordinary boarding somewhere
+    regular_drop_off = set()  # trip_ids with an ordinary alighting somewhere
+    for r in _gtfs_rows(zf, 'stop_times.txt'):
+        trip = trips.get(r['trip_id'])
+        if not trip:
+            continue
+        _update_trip_span(trip_span, r['trip_id'], int(r['stop_sequence']),
+                          r['stop_id'])
+        # Both columns are optional in GTFS and default to regular service.
+        pickup = r.get('pickup_type') or REGULAR
+        drop_off = r.get('drop_off_type') or REGULAR
+        if pickup == REGULAR:
+            regular_pickup.add(r['trip_id'])
+        if drop_off == REGULAR:
+            regular_drop_off.add(r['trip_id'])
+        if pickup == NO_PICKUP:
+            continue
+        by_stop.setdefault(r['stop_id'], []).append(
+            (_stop_time(r, trip, noon), r['trip_id']))
+
+    departures, stop_routes = _group_departures(
+        by_stop, _passenger_trips(regular_pickup, regular_drop_off))
     return departures, stop_routes, trip_span
 
 
@@ -208,8 +262,9 @@ DELAY_MATCH_WINDOW_MS = 3 * 3_600_000
 def upcoming_departures(deps, delays, now):
     """Schedule rows + live delays -> future departures, earliest first.
 
-    `deps` is get_departures() output, `delays` is keyed (route, course no)
-    as pinot.live_delays() returns it. Kept free of any Pinot import so the
+    `deps` is get_departures() output — StopTime rows, unpacked positionally
+    so any 4-sequence works. `delays` is keyed (route, course no) as
+    pinot.live_delays() returns it. Kept free of any Pinot import so the
     merge stays a pure function of its arguments.
     """
     upcoming = []
@@ -247,17 +302,17 @@ def _build_trip_ends(trip_span, trips, stop_coord):
     last passenger stop (loop-back curves, depot access roads)."""
     trip_ends = {}
     trip_last_stop = {}
-    for trip_id, (_, first, _, last) in trip_span.items():
+    for trip_id, span in trip_span.items():
         parts = trip_id.split('_')
         if len(parts) != 3:  # no course number to join on
             continue
         _d, route_id, route_short, _headsign = trips[trip_id]
         pts = trip_ends.setdefault((route_short, parts[1]), set())
-        for sid in (first, last):
+        for sid in (span.first_stop, span.last_stop):
             if sid in stop_coord:
                 pts.add(stop_coord[sid])
-        if last in stop_coord:
-            trip_last_stop[(route_id, parts[1])] = stop_coord[last]
+        if span.last_stop in stop_coord:
+            trip_last_stop[(route_id, parts[1])] = stop_coord[span.last_stop]
     return trip_ends, trip_last_stop
 
 

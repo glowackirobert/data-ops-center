@@ -1,4 +1,5 @@
-import { esc, fmtBytes, latencyMs, latencyBadgeHtml } from './utils.js';
+import { esc, fmtBytes, getJson, hourKey, latencyBadgeHtml, hourlyBarsHtml,
+         HOUR_TICKS_HTML } from './utils.js';
 
 let dashboardEmbedded = false;
 
@@ -54,16 +55,17 @@ function renderStorageStrip(s, ms) {
 export async function refreshOverview() {
   const el = document.getElementById('dash-overview');
   try {
-    const [statsResp, rushResp] = await Promise.all([
-      fetch('/api/stats'),
-      fetch('/api/network-hourly'),
+    // allSettled rather than all: the storage strip is worth painting even
+    // when the rush-hour query is the one that failed — and awaiting the
+    // first promise alone would leave the second's rejection unhandled.
+    const [stats, rush] = await Promise.allSettled([
+      getJson('/api/stats'),
+      getJson('/api/network-hourly'),
     ]);
-    const stats = await statsResp.json();
-    const rush = await rushResp.json();
-    if (stats.error) throw new Error(stats.error);
-    renderStorageStrip(stats, latencyMs(statsResp)); // before the rush check:
-    if (rush.error) throw new Error(rush.error);     // stats alone can still land
-    renderOverview(el, stats, rush, latencyMs(rushResp));
+    if (stats.status === 'rejected') throw stats.reason;
+    renderStorageStrip(stats.value.data, stats.value.ms);
+    if (rush.status === 'rejected') throw rush.reason;
+    renderOverview(el, stats.value.data, rush.value.data, rush.value.ms);
   } catch (err) {
     el.innerHTML =
       `<span class="ov-error">Overview failed to load: ${esc(err.message)}</span>`;
@@ -74,13 +76,8 @@ function renderOverview(el, stats, rows, ms) {
   const byHour = new Map(rows.map(r => [r.hour, r.activeVehicles]));
   // All 24 slots always drawn, same as the route-delay histogram: hours with
   // no data (feed gaps) read as an empty slot, not a squeezed axis.
-  const hours = Array.from({ length: 24 }, (_, h) =>
-    byHour.get(`${String(h).padStart(2, '0')}:00`) ?? 0);
-  const max = Math.max(...hours, 1);
-  const bars = hours.map((v, h) =>
-    `<div class="bar" style="height:${Math.max(Math.round((v / max) * 100), 2)}%" ` +
-    `title="${h}:00 — ${v} active vehicles"></div>`).join('');
-  const ticks = [0, 6, 12, 18].map(h => `<span>${h}:00</span>`).join('');
+  const hours = Array.from({ length: 24 }, (_, h) => byHour.get(hourKey(h)) ?? 0);
+  const bars = hourlyBarsHtml(hours, (v, h) => `${h}:00 — ${v} active vehicles`);
   el.innerHTML =
     `<div class="ov-panel" id="overview-total">` +
       `<h4>Total GPS snapshots</h4>` +
@@ -91,6 +88,6 @@ function renderOverview(el, stats, rows, ms) {
       `<h4>Network rush hour — active vehicles by hour (last 24 h)` +
       `${latencyBadgeHtml(ms)}</h4>` +
       `<div class="bars">${bars}</div>` +
-      `<div class="hours">${ticks}</div>` +
+      `<div class="hours">${HOUR_TICKS_HTML}</div>` +
     `</div>`;
 }

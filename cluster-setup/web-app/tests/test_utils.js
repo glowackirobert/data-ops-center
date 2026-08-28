@@ -2,7 +2,8 @@
 // so this runs directly under Node's built-in test runner: node --test tests/
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { latencyMs, latencyBadgeHtml, toDisplayedMinute, displayedShiftMin, minutesUntil }
+import { latencyMs, latencyBadgeHtml, toDisplayedMinute, displayedShiftMin, minutesUntil,
+         routeOf, getJson, hourlyBarsHtml, HOUR_TICKS_HTML }
   from '../static/js/utils.js';
 
 function fakeResponse(headerValue) {
@@ -113,4 +114,140 @@ test('minutesUntil: holds across the whole popup window', () => {
         `m=${m} sec=${sec}`);
     }
   }
+});
+
+// routeOf - the one spelling of "which line is this row on", shared by the
+// filter, the badges and the camera fit. They have to agree.
+
+test('routeOf: stringifies whatever the feed sent', () => {
+  assert.equal(routeOf({ route: 8 }), '8');
+  assert.equal(routeOf({ route: 'N1' }), 'N1');
+});
+
+test('routeOf: a missing route is the same placeholder everywhere', () => {
+  // '?' is what the badge draws, so it must also be what the filter matches -
+  // otherwise a vehicle is drawn that its own line filter cannot select.
+  assert.equal(routeOf({}), '?');
+  assert.equal(routeOf({ route: '' }), '?');
+  assert.equal(routeOf({ route: null }), '?');
+});
+
+// getJson - the one fetch wrapper. Every endpoint answers JSON plus, when
+// Pinot backed it, the latency header.
+
+function stubFetch(impl) {
+  globalThis.fetch = impl;
+}
+
+test('getJson: returns the parsed body and the Pinot latency', async () => {
+  stubFetch(async () => ({
+    ok: true, status: 200,
+    json: async () => ({ rows: 3 }),
+    headers: { get: n => (n === 'X-Pinot-Time-Ms' ? '17' : null) },
+  }));
+  assert.deepEqual(await getJson('/api/whatever'), { data: { rows: 3 }, ms: 17 });
+});
+
+test('getJson: ms is null for an endpoint that queried no Pinot', async () => {
+  stubFetch(async () => ({
+    ok: true, status: 200,
+    json: async () => ([]),
+    headers: { get: () => null },
+  }));
+  const { ms } = await getJson('/api/stops');
+  assert.equal(ms, null);
+});
+
+test('getJson: an error body beats the bare status code', async () => {
+  // A 502 from Pinot carries the broker's own message; surfacing "HTTP 502"
+  // instead would throw away the only useful half of the response.
+  stubFetch(async () => ({
+    ok: false, status: 502,
+    json: async () => ({ error: 'no such column: bogus' }),
+    headers: { get: () => null },
+  }));
+  await assert.rejects(getJson('/api/positions'), /no such column: bogus/);
+});
+
+test('getJson: a 200 whose body will not parse rejects, it does not yield null', async () => {
+  // A connection reset mid-body does exactly this. Returning { data: null }
+  // put null into state.lastRows and the next render died on it; rejecting
+  // leaves the caller's catch to keep the rows already on screen.
+  stubFetch(async () => ({
+    ok: true, status: 200,
+    json: async () => { throw new TypeError('network error'); },
+    headers: { get: () => null },
+  }));
+  await assert.rejects(getJson('/api/positions'), /network error/);
+});
+
+test('getJson: falls back to the status when the body has no message', async () => {
+  stubFetch(async () => ({
+    ok: false, status: 500,
+    json: async () => { throw new SyntaxError('not json'); },
+    headers: { get: () => null },
+  }));
+  await assert.rejects(getJson('/x'), /HTTP 500/);
+});
+
+test('getJson: the thrown error carries the status', async () => {
+  // /api/route-shape 404s for a vehicle between trips, which the map reports
+  // as a fact rather than a failure - it needs to tell the two apart.
+  stubFetch(async () => ({
+    ok: false, status: 404,
+    json: async () => ({ error: 'no shape for this trip today' }),
+    headers: { get: () => null },
+  }));
+  await assert.rejects(getJson('/api/route-shape'), err => err.status === 404);
+});
+
+// hourlyBarsHtml - shared by the route-delay histogram and the network
+// rush-hour strip, which differ only in what a bar means.
+
+test('hourlyBarsHtml: one bar per slot, titled by the caller', () => {
+  const html = hourlyBarsHtml([1, 2], (v, h) => `${h}h=${v}`);
+  assert.equal(html.match(/<div class="bar"/g).length, 2);
+  assert.match(html, /title="0h=1"/);
+  assert.match(html, /title="1h=2"/);
+});
+
+test('hourlyBarsHtml: the tallest bar is full height', () => {
+  assert.match(hourlyBarsHtml([5, 10], () => ''), /height:100%/);
+});
+
+test('hourlyBarsHtml: null draws an empty slot, not a gap in the axis', () => {
+  const html = hourlyBarsHtml([null, 10], () => '');
+  assert.equal(html.match(/<div class="bar"/g).length, 2);
+  assert.match(html, /height:0%/);
+});
+
+function heights(html) {
+  return [...html.matchAll(/height:(\d+)%/g)].map(m => Number(m[1]));
+}
+
+test('hourlyBarsHtml: the baseline is zero, not the smallest value', () => {
+  // Scaling from the smallest value exaggerates: two hours 10 s apart would
+  // draw as an empty bar beside a full one.
+  assert.deepEqual(heights(hourlyBarsHtml([100, 110], () => '')), [91, 100]);
+});
+
+test('hourlyBarsHtml: a negative average delay reads as below the zero line', () => {
+  // A line running early. The zero baseline puts 0 s halfway up when the
+  // day swings equally either side of it, so the sign stays visible.
+  assert.deepEqual(heights(hourlyBarsHtml([-60, 0, 60], () => '')), [2, 50, 100]);
+});
+
+test('hourlyBarsHtml: a present-but-zero value still draws a visible stub', () => {
+  // 2% minimum: an hour with data reads differently from an hour without.
+  assert.match(hourlyBarsHtml([0, 0], () => ''), /height:2%/);
+});
+
+test('hourlyBarsHtml: no data at all does not divide by zero', () => {
+  assert.equal(hourlyBarsHtml([], () => ''), '');
+  assert.match(hourlyBarsHtml([null], () => ''), /height:0%/);
+});
+
+test('HOUR_TICKS_HTML: quarter-day labels under both charts', () => {
+  assert.equal(HOUR_TICKS_HTML,
+    '<span>0:00</span><span>6:00</span><span>12:00</span><span>18:00</span>');
 });

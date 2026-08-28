@@ -1,4 +1,5 @@
-// Shared formatting helpers with no DOM/map/state dependency.
+// Shared helpers with no DOM, map, or app-state dependency — formatting,
+// route naming, small HTML fragments, and the one fetch wrapper.
 
 const PALETTE = [
   [31,119,180],[255,127,14],[44,160,44],[214,39,40],[148,103,189],
@@ -90,3 +91,62 @@ export function latencyMs(resp) {
 export function latencyBadgeHtml(ms) {
   return ms == null ? '' : ` <span class="latency-badge">${ms} ms</span>`;
 }
+
+// The route a position row is on, as the dropdown and the badges spell it.
+// One expression rather than six copies of the same `|| '?'` fallback, which
+// has to agree everywhere or a vehicle with no route silently stops matching
+// the filter that is drawing it.
+export function routeOf(d) {
+  return String(d.route || '?');
+}
+
+// Every endpoint in this app answers JSON and, when Pinot backed it, an
+// X-Pinot-Time-Ms header — so every caller was writing the same four lines.
+// Errors carry the server's own `error` text when it sent one (the Pinot
+// message beats a bare "HTTP 502") and the status code, which /api/route-shape
+// needs to tell "no shape today" apart from a real failure.
+export async function getJson(url) {
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    // Only an *error* body may fail to parse — a 404 from the static handler
+    // is plain text — and failing to parse it must not mask the status.
+    const data = await resp.json().catch(() => null);
+    const detail = typeof data?.error === 'string' ? data.error : null;
+    const err = new Error(detail || `HTTP ${resp.status}`);
+    err.status = resp.status;
+    throw err;
+  }
+  // A 200 whose body does not parse is a failure, so let it reject: callers
+  // assign the result straight into state, and handing them `null` there put
+  // `null` in state.lastRows on a connection reset mid-body — the next render
+  // then died on "Cannot read properties of null (reading 'filter')" instead
+  // of keeping the rows already on screen.
+  return { data: await resp.json(), ms: latencyMs(resp) };
+}
+
+// Both hour-of-day charts (route delay on the map, network rush hour on the
+// Analytics tab) are the same bar strip against the same CSS, differing only
+// in what a bar means — so they share the drawing and pass their own titles.
+// Bars are scaled from a zero baseline, not from the smallest value: average
+// delay goes negative (a line running early) and a bar chart that hides the
+// sign is worse than no chart. `null` is "no data for this hour" and draws an
+// empty slot, so a night line still reads as a full day.
+export function hourlyBarsHtml(values, title) {
+  const known = values.filter(v => v != null);
+  const min = Math.min(0, ...known);
+  const max = known.length ? Math.max(0, ...known) : 1;
+  const range = (max - min) || 1;
+  return values.map((v, hour) => {
+    const pct = v == null ? 0 : Math.max(Math.round(((v - min) / range) * 100), 2);
+    return `<div class="bar" style="height:${pct}%" title="${title(v, hour)}"></div>`;
+  }).join('');
+}
+
+// The 'HH:00' keys both hour-of-day endpoints label their rows with
+// (see _hour_labeled in app/pinot.py).
+export function hourKey(h) {
+  return `${String(h).padStart(2, '0')}:00`;
+}
+
+export const HOUR_TICKS_HTML =
+  [0, 6, 12, 18].map(h => `<span>${h}:00</span>`).join('');
