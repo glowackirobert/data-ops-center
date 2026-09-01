@@ -324,25 +324,6 @@ services:
     networks:
       - pinot-network
 
-  gdansk-public-transport-kafka-producer:
-    image: python:${PYTHON_VERSION}
-    container_name: gdansk-public-transport-kafka-producer
-    restart: unless-stopped
-    entrypoint: [ "/bin/sh", "-c" ]
-    command:
-      - |
-        pip install --quiet confluent-kafka requests &&
-        python /scripts/gdansk_public_transport_kafka.py
-    environment:
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    volumes:
-      - ../py:/scripts:ro
-    depends_on:
-      kafka:
-        condition: service_healthy
-    networks:
-      - pinot-network
-
   superset-init:
     profiles: ["init"]
     image: ${DOCKER_IMAGE_BASE_PATH}superset:${SUPERSET_VERSION}
@@ -392,6 +373,25 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+    networks:
+      - pinot-network
+
+  gdansk-public-transport-kafka-producer:
+    image: python:${PYTHON_VERSION}
+    container_name: gdansk-public-transport-kafka-producer
+    restart: unless-stopped
+    entrypoint: [ "/bin/sh", "-c" ]
+    command:
+      - |
+        pip install --quiet confluent-kafka requests &&
+        python /scripts/gdansk_public_transport_kafka.py
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    volumes:
+      - ../py:/scripts:ro
+    depends_on:
+      kafka:
+        condition: service_healthy
     networks:
       - pinot-network
 

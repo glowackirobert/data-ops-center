@@ -41,12 +41,11 @@ from the host when debugging.
 
 Init containers are one-shot — they exit after completing their task. Run them once on first setup, or whenever you need to re-seed the cluster.
 
-`gdansk-public-transport-kafka-producer` is **not** one of them, despite
-sitting next to them in the compose file: it has no `profiles:` key, so it is
-an ordinary core service. A plain `up` starts the GPS feed — the map has
-vehicles without ever running `--profile init` — and a plain `down` removes
-it. `restart: unless-stopped` keeps it polling across crashes and Docker
-daemon restarts.
+`gdansk-public-transport-kafka-producer` is **not** one of them: it has no
+`profiles:` key, so it is an ordinary core service. A plain `up` starts the
+GPS feed — the map has vehicles without ever running `--profile init` — and a
+plain `down` removes it. `restart: unless-stopped` keeps it polling across
+crashes and Docker daemon restarts.
 
 ### Logs (Loki + Alloy)
 
