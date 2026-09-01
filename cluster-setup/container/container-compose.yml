@@ -3,10 +3,8 @@ services:
     image: zookeeper:${ZOOKEEPER_VERSION}
     container_name: zookeeper
     restart: unless-stopped
-    ports:
-      - "${BIND}:2181:2181"
     environment:
-      ZOO_4LW_COMMANDS_WHITELIST: "ruok,stat,conf,isro"
+      ZOO_4LW_COMMANDS_WHITELIST: "ruok"
       ZK_SERVER_HEAP: ${ZOOKEEPER_HEAP_MB:-1000}
     volumes:
       - ../volumes/zoo-data:/data
@@ -24,8 +22,6 @@ services:
     image: apache/kafka:${KAFKA_VERSION}
     container_name: kafka
     restart: unless-stopped
-    ports:
-      - "${BIND}:9092:9092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: "controller,broker"
@@ -60,8 +56,6 @@ services:
     image: confluentinc/cp-schema-registry:${SCHEMA_REGISTRY_VERSION}
     container_name: schema-registry
     restart: unless-stopped
-    ports:
-      - "${BIND}:8081:8081"
     environment:
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "PLAINTEXT://kafka:9092"
       SCHEMA_REGISTRY_HOST_NAME: "schema-registry"
@@ -116,8 +110,6 @@ services:
     container_name: pinot-broker
     hostname: pinot-broker
     restart: unless-stopped
-    ports:
-      - "${BIND}:8099:8099"
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_BROKER_HEAP:--Xms256M -Xmx1G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-broker.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18099:/opt/pinot/etc/jmx_prometheus_javaagent/configs/broker.yml"
     depends_on:
@@ -138,9 +130,6 @@ services:
     container_name: pinot-server
     hostname: pinot-server
     restart: unless-stopped
-    ports:
-      - "${BIND}:8098:8098"
-      - "${BIND}:8097:8097"
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_SERVER_HEAP:--Xms512M -Xmx3G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-server.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18098:/opt/pinot/etc/jmx_prometheus_javaagent/configs/server.yml"
       AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
@@ -166,8 +155,6 @@ services:
     container_name: pinot-minion
     hostname: pinot-minion
     restart: unless-stopped
-    ports:
-      - "${BIND}:7500:7500"
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_MINION_HEAP:--Xms256M -Xmx2G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-minion.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=17500:/opt/pinot/etc/jmx_prometheus_javaagent/configs/minion.yml"
       AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
@@ -189,8 +176,6 @@ services:
     image: prom/prometheus:${PROMETHEUS_VERSION}
     container_name: prometheus
     restart: unless-stopped
-    ports:
-      - "${BIND}:9090:9090"
     volumes:
       - ../prometheus:/etc/prometheus
     healthcheck:
@@ -231,8 +216,6 @@ services:
     image: grafana/loki:${LOKI_VERSION}
     container_name: loki
     restart: unless-stopped
-    ports:
-      - "${BIND}:3100:3100"
     command: -config.file=/etc/loki/loki-config.yml
     volumes:
       - ../loki/loki-config.yml:/etc/loki/loki-config.yml:ro
@@ -246,8 +229,6 @@ services:
     image: grafana/alloy:${ALLOY_VERSION}
     container_name: alloy
     restart: unless-stopped
-    ports:
-      - "${BIND}:12345:12345"
     command:
       - run
       - --server.http.listen-addr=0.0.0.0:12345

@@ -6,22 +6,27 @@ Docker Compose based setup for the Data Ops Center cluster.
 
 ### Core services (always running)
 
-| Service               | Port | Description                                                                                                  |
-|-----------------------|------|--------------------------------------------------------------------------------------------------------------|
-| Zookeeper             | 2181 | Coordination service required by Apache Pinot.                                                               |
-| Kafka                 | 9092 | Message broker in KRaft mode.                                                                                |
-| Schema Registry       | 8081 | Confluent Schema Registry for Avro schema management.                                                        |
-| Pinot Controller /UI/ | 9000 | Manages cluster metadata, table configs and segment assignment.                                              |
-| Pinot Broker          | 8099 | Accepts SQL queries and routes them to the appropriate servers.                                              |
-| Pinot Server /API/    | 8097 | REST admin API for health checks and segment management, called by the Controller.                           |
-| Pinot Server /query/  | 8098 | Internal netty port the Broker uses to send queries to and read results from the server.                     |
-| Pinot Minion          | 7500 | Background task executor, driven by Controller-scheduled jobs, responsible for segment lifecycle operations. |
-| Prometheus            | 9090 | Scrapes JMX metrics from Kafka and all Pinot components.                                                     |
-| Grafana               | 3000 | Dashboards over Prometheus metrics and Loki logs.                                                            |
-| Loki                  | 3100 | Log storage/query backend (LogQL).                                                                           |
-| Alloy                 | 12345 | Tails every container's stdout/stderr via the Docker socket and ships it to Loki; `12345` serves its debug UI (component graph, live pipeline state). |
-| Superset              | 8088 | BI and data exploration UI connected to Pinot via `pinotdb`.                                                 |
-| Web app               | 3001 | Live vehicle map (flicker-free 10 s refresh) + Analytics tab embedding the Superset dashboard                |
+Only the four rows marked **host** publish a port; the rest are reachable only
+from inside the `pinot-network` bridge, by container name. See
+[Port binding](#port-binding) for why, and for how to reach an internal port
+from the host when debugging.
+
+| Service               | Port | Reachable from   | Description                                                                                                  |
+|-----------------------|------|------------------|--------------------------------------------------------------------------------------------------------------|
+| Zookeeper             | 2181 | internal         | Coordination service required by Apache Pinot.                                                               |
+| Kafka                 | 9092 | internal         | Message broker in KRaft mode.                                                                                |
+| Schema Registry       | 8081 | internal         | Confluent Schema Registry for Avro schema management.                                                        |
+| Pinot Controller /UI/ | 9000 | **host**         | Manages cluster metadata, table configs and segment assignment.                                              |
+| Pinot Broker          | 8099 | internal         | Accepts SQL queries and routes them to the appropriate servers.                                              |
+| Pinot Server /API/    | 8097 | internal         | REST admin API for health checks and segment management, called by the Controller.                           |
+| Pinot Server /query/  | 8098 | internal         | Internal netty port the Broker uses to send queries to and read results from the server.                     |
+| Pinot Minion          | 7500 | internal         | Background task executor, driven by Controller-scheduled jobs, responsible for segment lifecycle operations. |
+| Prometheus            | 9090 | internal         | Scrapes JMX metrics from Kafka and all Pinot components.                                                     |
+| Grafana               | 3000 | **host**         | Dashboards over Prometheus metrics and Loki logs.                                                            |
+| Loki                  | 3100 | internal         | Log storage/query backend (LogQL).                                                                           |
+| Alloy                 | 12345 | internal         | Tails every container's stdout/stderr via the Docker socket and ships it to Loki; `12345` serves its debug UI (component graph, live pipeline state). |
+| Superset              | 8088 | **host**         | BI and data exploration UI connected to Pinot via `pinotdb`.                                                 |
+| Web app               | 3001 | **host**         | Live vehicle map (flicker-free 10 s refresh) + Analytics tab embedding the Superset dashboard                |
 
 ### Init containers (run once, `--profile init`)
 
@@ -65,9 +70,10 @@ filtering by container/stream, use Grafana → Explore → Loki datasource, e.g.
 {container=~"pinot-.*"} |= "ERROR"
 ```
 
-Alloy's own debug UI (component graph, live pipeline state) is at
-`http://localhost:12345`. Log retention in Loki is 168h (7 days), matching
-Kafka's `KAFKA_LOG_RETENTION_HOURS`.
+Alloy's own debug UI (component graph, live pipeline state) listens on 12345
+but is not published — bring it up on `http://localhost:12345` with the debug
+override in [Port binding](#port-binding). Log retention in Loki is 168h
+(7 days), matching Kafka's `KAFKA_LOG_RETENTION_HOURS`.
 
 
 
@@ -346,7 +352,9 @@ Watch Grafana's "Table Query Latency" panel
 (`pinot_broker_queryExecution_{50,75,95,99,999}thPercentile`, already
 provisioned) while it runs for the server-side view of the same thing.
 `--broker` overrides the base URL (default `http://localhost:8099`); run with
-`-h` for the full flag list.
+`-h` for the full flag list. The broker port is not published by default —
+bring it up on `127.0.0.1` first with the debug override in
+[Port binding](#port-binding).
 
 ## Superset Dashboards
 
@@ -458,9 +466,43 @@ node --test cluster-setup/web-app/tests/test_geo.js
 
 ### Port binding
 
-Controlled by the `BIND` variable in the env files:
+Only four services publish a port to the host — the ones a browser has to
+reach. Everything else is called exclusively from inside the `pinot-network`
+bridge, by container name (`zookeeper:2181`, `kafka:9092`,
+`pinot-broker:8099`, ...), and has **no host mapping at all**:
 
-| Env  | `BIND`      | Effect                                                         |
-|------|-------------|----------------------------------------------------------------|
-| dev  | `0.0.0.0`   | All ports reachable from any machine on the network            |
-| prod | `127.0.0.1` | All ports bound to localhost only (sit behind a reverse proxy) |
+| Published (see `BIND` below) | Not published                                     |
+|------------------------------|---------------------------------------------------|
+| Web app 3001                 | ZooKeeper 2181, Kafka 9092, Schema Registry 8081  |
+| Superset 8088                | Pinot Broker 8099, Server 8097/8098, Minion 7500  |
+| Grafana 3000                 | Prometheus 9090, Loki 3100, Alloy 12345           |
+| Pinot Controller 9000        | JMX exporters 19092, 19000, 18099, 18098, 17500   |
+
+None of the unpublished services has any authentication, which is exactly why
+they stay inside the network. The JMX exporter ports have never been published
+— Prometheus scrapes them over the bridge.
+
+Where the four published ports listen is controlled by the `BIND` variable in
+the env files:
+
+| Env  | `BIND`      | Effect                                                             |
+|------|-------------|--------------------------------------------------------------------|
+| dev  | `0.0.0.0`   | Reachable from any machine on the network                          |
+| prod | `127.0.0.1` | Bound to localhost only (SSH tunnel, or sit behind a reverse proxy) |
+
+#### Reaching an unpublished port from the host
+
+For Prometheus' own UI, Alloy's debug UI, or running
+`scripts/load_test_broker.py` against the broker, add the debug override —
+it re-publishes the internal ports on `127.0.0.1` only:
+
+```bash
+docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml -f cluster-setup/container/container-compose.debug-ports.yml up -d
+```
+
+Never use it on a shared or internet-facing host.
+
+Kafka is deliberately absent from that override: `KAFKA_ADVERTISED_LISTENERS`
+is `INTERNAL://kafka:9092`, so a host client is handed an address it cannot
+resolve — publishing 9092 never gave working external access. Use
+`docker exec kafka ...` instead (see [Verifying Kafka messages](#verifying-kafka-messages)).
