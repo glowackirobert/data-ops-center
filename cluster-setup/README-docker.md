@@ -11,22 +11,23 @@ from inside the `pinot-network` bridge, by container name. See
 [Port binding](#port-binding) for why, and for how to reach an internal port
 from the host when debugging.
 
-| Service               | Port | Reachable from   | Description                                                                                                  |
-|-----------------------|------|------------------|--------------------------------------------------------------------------------------------------------------|
-| Zookeeper             | 2181 | internal         | Coordination service required by Apache Pinot.                                                               |
-| Kafka                 | 9092 | internal         | Message broker in KRaft mode.                                                                                |
-| Schema Registry       | 8081 | internal         | Confluent Schema Registry for Avro schema management.                                                        |
-| Pinot Controller /UI/ | 9000 | **host**         | Manages cluster metadata, table configs and segment assignment.                                              |
-| Pinot Broker          | 8099 | internal         | Accepts SQL queries and routes them to the appropriate servers.                                              |
-| Pinot Server /API/    | 8097 | internal         | REST admin API for health checks and segment management, called by the Controller.                           |
-| Pinot Server /query/  | 8098 | internal         | Internal netty port the Broker uses to send queries to and read results from the server.                     |
-| Pinot Minion          | 7500 | internal         | Background task executor, driven by Controller-scheduled jobs, responsible for segment lifecycle operations. |
-| Prometheus            | 9090 | internal         | Scrapes JMX metrics from Kafka and all Pinot components.                                                     |
-| Grafana               | 3000 | **host**         | Dashboards over Prometheus metrics and Loki logs.                                                            |
-| Loki                  | 3100 | internal         | Log storage/query backend (LogQL).                                                                           |
-| Alloy                 | 12345 | internal         | Tails every container's stdout/stderr via the Docker socket and ships it to Loki; `12345` serves its debug UI (component graph, live pipeline state). |
-| Superset              | 8088 | **host**         | BI and data exploration UI connected to Pinot via `pinotdb`.                                                 |
-| Web app               | 3001 | **host**         | Live vehicle map (flicker-free 10 s refresh) + Analytics tab embedding the Superset dashboard                |
+| Service               | Port | Reachable from   | Description                                                                                                                                                                                                                        |
+|-----------------------|------|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Zookeeper             | 2181 | internal         | Coordination service required by Apache Pinot.                                                                                                                                                                                     |
+| Kafka                 | 9092 | internal         | Message broker in KRaft mode.                                                                                                                                                                                                      |
+| Schema Registry       | 8081 | internal         | Confluent Schema Registry for Avro schema management.                                                                                                                                                                              |
+| Pinot Controller /UI/ | 9000 | **host**         | Manages cluster metadata, table configs and segment assignment.                                                                                                                                                                    |
+| Pinot Broker          | 8099 | internal         | Accepts SQL queries and routes them to the appropriate servers.                                                                                                                                                                    |
+| Pinot Server /API/    | 8097 | internal         | REST admin API for health checks and segment management, called by the Controller.                                                                                                                                                 |
+| Pinot Server /query/  | 8098 | internal         | Internal netty port the Broker uses to send queries to and read results from the server.                                                                                                                                           |
+| Pinot Minion          | 7500 | internal         | Background task executor, driven by Controller-scheduled jobs, responsible for segment lifecycle operations.                                                                                                                       |
+| Prometheus            | 9090 | internal         | Scrapes JMX metrics from Kafka and all Pinot components.                                                                                                                                                                           |
+| Grafana               | 3000 | **host**         | Dashboards over Prometheus metrics and Loki logs.                                                                                                                                                                                  |
+| Loki                  | 3100 | internal         | Log storage/query backend (LogQL).                                                                                                                                                                                                 |
+| Alloy                 | 12345 | internal         | Tails every container's stdout/stderr via the Docker socket and ships it to Loki; `12345` serves its debug UI (component graph, live pipeline state).                                                                             |
+| Superset              | 8088 | **host**         | BI and data exploration UI connected to Pinot via `pinotdb`.                                                                                                                                                                       |
+| Web app               | 3001 | **host**         | Live vehicle map (flicker-free 10 s refresh) + Analytics tab embedding the Superset dashboard                                                                                                                                      |
+| Gdansk GPS producer   | -    | n/a              | Polls the Gdansk public transport API every 10 s (twice as often as the API's own ~20 s refresh, whose phase is unknown) and publishes every vehicle position as JSON to the `gdansk-public-transport` topic. Listens on nothing.  |
 
 ### Init containers (run once, `--profile init`)
 
@@ -34,21 +35,18 @@ from the host when debugging.
 |------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `kafka-topic-init`                       | Creates Kafka topics.                                                                                                                                                                                                 |
 | `kafka-producer`                         | Publishes Avro-serialized `trade` events to Kafka.                                                                                                                                                                    |
-| `pinot-table-registrar`                   | Registers schemas and tables with the Pinot Controller.                                                                                                                                                               |
-| `gdansk-public-transport-kafka-producer` | Fetches current GPS positions from the Gdansk public transport API every <br/>10 s (twice as often as the API's own ~20 s refresh, whose phase is unknown) and publishes every vehicle position as JSON to the `gdansk-public-transport` topic. Keeps running (`restart: unless-stopped`). |
+| `pinot-table-registrar`                   | Registers schemas and tables with the Pinot Controller.                                                                                                                                                              |
 | `pinot-ingestion-runner`                 | Runs a batch ingestion job that reads from S3 and pushes segments to Pinot.                                                                                                                                           |
 | `superset-init`                          | Runs DB migrations, creates the admin user, initialises Superset roles, registers the Apache Pinot database connection, imports dashboards, creates the `EmbeddedGuest` role and registers dashboards for embedding   |
 
 Init containers are one-shot — they exit after completing their task. Run them once on first setup, or whenever you need to re-seed the cluster.
 
-The exception is `gdansk-public-transport-kafka-producer`: it starts with the
-init profile but then polls forever, and `restart: unless-stopped` keeps the
-container alive across daemon restarts — even when compose is later run
-without the profile. Consequences: a plain `up` on a fresh machine will not
-start the GPS feed (the map shows no vehicles until `--profile init up` has
-run once), and a plain `down` will not remove it — stop it with
-`docker stop gdansk-public-transport-kafka-producer` or run `down` with
-`--profile init`.
+`gdansk-public-transport-kafka-producer` is **not** one of them, despite
+sitting next to them in the compose file: it has no `profiles:` key, so it is
+an ordinary core service. A plain `up` starts the GPS feed — the map has
+vehicles without ever running `--profile init` — and a plain `down` removes
+it. `restart: unless-stopped` keeps it polling across crashes and Docker
+daemon restarts.
 
 ### Logs (Loki + Alloy)
 
