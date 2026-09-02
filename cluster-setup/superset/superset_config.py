@@ -22,6 +22,14 @@ FEATURE_FLAGS = {
 GUEST_ROLE_NAME = "EmbeddedGuest"
 GUEST_TOKEN_JWT_SECRET = SECRET_KEY + "-guest-token"
 
+# Superset sits behind Caddy, which terminates TLS and forwards over plain HTTP
+# on the Docker network. Without this, Superset builds redirects and validates
+# CSRF referers against the internal http://superset:8088 it sees on the socket,
+# so logging in through https://bi.<domain> bounces back to an http URL and the
+# embedded dashboard's CSRF check rejects its own referer. ProxyFix makes it
+# read X-Forwarded-Proto/Host instead, which Caddy sets on every request.
+ENABLE_PROXY_FIX = True
+
 # Single-instance deployment: in-memory rate-limit storage is sufficient.
 # Set explicitly to silence the Flask-Limiter default-storage warning.
 # Switch to redis:// if Superset is ever scaled to multiple containers.
@@ -67,8 +75,15 @@ TALISMAN_CONFIG = {
         # be the browser-visible web-app origin (e.g. http://<ec2-host>:3001).
         "frame-ancestors": [_SELF, os.environ.get("WEBAPP_ORIGIN", "http://localhost:3001")],
     },
+    # Left False deliberately even though the stack now serves HTTPS: Caddy
+    # already redirects HTTP->HTTPS at the edge, and Talisman redirecting as
+    # well would also catch the web-app's internal http://superset:8088 calls
+    # (guest-token minting), which have no X-Forwarded-Proto to exempt them.
     "force_https": False,
-    # Stack runs over plain HTTP; a Secure-flagged session cookie would never
-    # be sent back by non-browser clients (breaks the web-app guest-token flow).
+    # Stays False for the same reason: the web-app mints guest tokens over
+    # plain http://superset:8088 inside the Docker network, and a Secure-flagged
+    # cookie would never be sent back on that hop. Browser traffic is protected
+    # by TLS at Caddy, which is where the session cookie actually crosses a
+    # network. Revisit only if that internal hop is moved to HTTPS too.
     "session_cookie_secure": False,
 }

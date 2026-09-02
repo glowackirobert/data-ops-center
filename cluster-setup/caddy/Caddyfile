@@ -1,0 +1,51 @@
+# Single TLS entrypoint for the cluster. Everything else reaches its upstream
+# by container name over pinot-network, so only this container publishes a port.
+#
+# Two variables (set in env/env.dev and env/env.prod) are the whole difference
+# between a laptop and EC2:
+#
+#   BASE_DOMAIN=localhost    CADDY_TLS=internal
+#     Caddy signs certificates with its own local CA. Browsers resolve any
+#     *.localhost name to 127.0.0.1 with no hosts-file entry, so this works
+#     offline with no domain and no DNS.
+#
+#   BASE_DOMAIN=example.com  CADDY_TLS=you@example.com
+#     An email address switches the same `tls` directive to Let's Encrypt.
+#     Requires a domain you own with DNS pointing here and port 80 reachable
+#     for the HTTP-01 challenge. Let's Encrypt refuses to issue for EC2's own
+#     *.compute.amazonaws.com hostname, so the domain is not optional there.
+
+# Public: the live vehicle map.
+map.{$BASE_DOMAIN} {
+	tls {$CADDY_TLS}
+	encode zstd gzip
+	reverse_proxy web-app:3001
+}
+
+# Superset. Also loaded in an iframe by the map's Analytics tab, which is why
+# it needs a real (or locally trusted) certificate: browsers refuse to render
+# an iframe whose certificate they do not trust.
+bi.{$BASE_DOMAIN} {
+	tls {$CADDY_TLS}
+	encode zstd gzip
+	reverse_proxy superset:8088
+}
+
+# Grafana. Has its own login; GF_SERVER_ROOT_URL must match this hostname.
+ops.{$BASE_DOMAIN} {
+	tls {$CADDY_TLS}
+	encode zstd gzip
+	reverse_proxy grafana:3000
+}
+
+# Pinot controller. The only upstream with no authentication of its own, and
+# its API can delete tables and segments - so basic auth is enforced here.
+# The bcrypt hash comes from the pinot_basic_auth_hash secret, exported into
+# the environment by the container's entrypoint (see container-compose.yml).
+pinot.{$BASE_DOMAIN} {
+	tls {$CADDY_TLS}
+	basic_auth {
+		{$PINOT_AUTH_USER} {$PINOT_AUTH_HASH}
+	}
+	reverse_proxy pinot-controller:9000
+}

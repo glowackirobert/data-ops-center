@@ -199,6 +199,9 @@ services:
       LOKI_URL: ${LOKI_URL}
       GF_PLUGINS_PREINSTALL_DISABLED: "true"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/logs_dashboard.json
+      GF_SERVER_ROOT_URL: https://ops.${BASE_DOMAIN:-localhost}
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
     secrets:
       - grafana_admin_password
     volumes:
@@ -424,6 +427,38 @@ services:
     networks:
       - pinot-network
 
+  caddy:
+    image: caddy:${CADDY_VERSION}
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        export PINOT_AUTH_HASH="$$(cat /run/secrets/pinot_basic_auth_hash)" &&
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+    environment:
+      BASE_DOMAIN: ${BASE_DOMAIN:-localhost}
+      CADDY_TLS: ${CADDY_TLS:-internal}
+      PINOT_AUTH_USER: ${PINOT_AUTH_USER:-admin}
+    secrets:
+      - pinot_basic_auth_hash
+    volumes:
+      - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../volumes/caddy/data:/data
+      - ../volumes/caddy/config:/config
+    depends_on:
+      web-app:
+        condition: service_healthy
+      superset:
+        condition: service_healthy
+      pinot-controller:
+        condition: service_healthy
+    networks:
+      - pinot-network
+
 networks:
   pinot-network:
     name: pinot-network
@@ -444,3 +479,5 @@ secrets:
     file: ./secrets/superset_admin_email
   superset_mapbox_api_key:
     file: ./secrets/superset_mapbox_api_key
+  pinot_basic_auth_hash:
+    file: ./secrets/pinot_basic_auth_hash

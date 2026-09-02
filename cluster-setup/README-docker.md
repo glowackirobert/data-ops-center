@@ -11,23 +11,24 @@ from inside the `pinot-network` bridge, by container name. See
 [Port binding](#port-binding) for why, and for how to reach an internal port
 from the host when debugging.
 
-| Service               | Port | Reachable from   | Description                                                                                                                                                                                                                        |
-|-----------------------|------|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Zookeeper             | 2181 | internal         | Coordination service required by Apache Pinot.                                                                                                                                                                                     |
-| Kafka                 | 9092 | internal         | Message broker in KRaft mode.                                                                                                                                                                                                      |
-| Schema Registry       | 8081 | internal         | Confluent Schema Registry for Avro schema management.                                                                                                                                                                              |
-| Pinot Controller /UI/ | 9000 | **host**         | Manages cluster metadata, table configs and segment assignment.                                                                                                                                                                    |
-| Pinot Broker          | 8099 | internal         | Accepts SQL queries and routes them to the appropriate servers.                                                                                                                                                                    |
-| Pinot Server /API/    | 8097 | internal         | REST admin API for health checks and segment management, called by the Controller.                                                                                                                                                 |
-| Pinot Server /query/  | 8098 | internal         | Internal netty port the Broker uses to send queries to and read results from the server.                                                                                                                                           |
-| Pinot Minion          | 7500 | internal         | Background task executor, driven by Controller-scheduled jobs, responsible for segment lifecycle operations.                                                                                                                       |
-| Prometheus            | 9090 | internal         | Scrapes JMX metrics from Kafka and all Pinot components.                                                                                                                                                                           |
-| Grafana               | 3000 | **host**         | Dashboards over Prometheus metrics and Loki logs.                                                                                                                                                                                  |
-| Loki                  | 3100 | internal         | Log storage/query backend (LogQL).                                                                                                                                                                                                 |
-| Alloy                 | 12345 | internal         | Tails every container's stdout/stderr via the Docker socket and ships it to Loki; `12345` serves its debug UI (component graph, live pipeline state).                                                                             |
-| Superset              | 8088 | **host**         | BI and data exploration UI connected to Pinot via `pinotdb`.                                                                                                                                                                       |
-| Web app               | 3001 | **host**         | Live vehicle map (flicker-free 10 s refresh) + Analytics tab embedding the Superset dashboard                                                                                                                                      |
-| Gdansk GPS producer   | -    | n/a              | Polls the Gdansk public transport API every 10 s (twice as often as the API's own ~20 s refresh, whose phase is unknown) and publishes every vehicle position as JSON to the `gdansk-public-transport` topic. Listens on nothing.  |
+| Service               | Port    | Reachable from  | Description                                                                                                                                                                                                                        |
+|-----------------------|---------|-----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Zookeeper             | 2181    | internal        | Coordination service required by Apache Pinot.                                                                                                                                                                                     |
+| Kafka                 | 9092    | internal        | Message broker in KRaft mode.                                                                                                                                                                                                      |
+| Schema Registry       | 8081    | internal        | Confluent Schema Registry for Avro schema management.                                                                                                                                                                              |
+| Pinot Controller /UI/ | 9000    | **host**        | Manages cluster metadata, table configs and segment assignment.                                                                                                                                                                    |
+| Pinot Broker          | 8099    | internal        | Accepts SQL queries and routes them to the appropriate servers.                                                                                                                                                                    |
+| Pinot Server /API/    | 8097    | internal        | REST admin API for health checks and segment management, called by the Controller.                                                                                                                                                 |
+| Pinot Server /query/  | 8098    | internal        | Internal netty port the Broker uses to send queries to and read results from the server.                                                                                                                                           |
+| Pinot Minion          | 7500    | internal        | Background task executor, driven by Controller-scheduled jobs, responsible for segment lifecycle operations.                                                                                                                       |
+| Prometheus            | 9090    | internal        | Scrapes JMX metrics from Kafka and all Pinot components.                                                                                                                                                                           |
+| Grafana               | 3000    | **host**        | Dashboards over Prometheus metrics and Loki logs.                                                                                                                                                                                  |
+| Loki                  | 3100    | internal        | Log storage/query backend (LogQL).                                                                                                                                                                                                 |
+| Alloy                 | 12345   | internal        | Tails every container's stdout/stderr via the Docker socket and ships it to Loki; `12345` serves its debug UI (component graph, live pipeline state).                                                                             |
+| Superset              | 8088    | **host**        | BI and data exploration UI connected to Pinot via `pinotdb`.                                                                                                                                                                       |
+| Caddy                 | 80, 443 | **host**        | TLS reverse proxy; the only public entrypoint. Serves the four browser-facing services on `map.` / `bi.` / `ops.` / `pinot.` subdomains. |
+| Web app               | 3001    | **host**        | Live vehicle map (flicker-free 10 s refresh) + Analytics tab embedding the Superset dashboard                                                                                                                                      |
+| Gdansk GPS producer   | -       | n/a             | Polls the Gdansk public transport API every 10 s (twice as often as the API's own ~20 s refresh, whose phase is unknown) and publishes every vehicle position as JSON to the `gdansk-public-transport` topic. Listens on nothing.  |
 
 ### Init containers (run once, `--profile init`)
 
@@ -92,9 +93,19 @@ cluster-setup/container/secrets/superset_admin_password    # Superset admin pass
 cluster-setup/container/secrets/superset_admin_username    # Superset admin username
 cluster-setup/container/secrets/superset_admin_email       # Superset admin email
 cluster-setup/container/secrets/superset_mapbox_api_key    # Mapbox API key for map visualisations
+cluster-setup/container/secrets/pinot_basic_auth_hash      # bcrypt hash guarding the Pinot controller UI (see below)
 ```
 
 The `secrets/` directory is gitignored — these files must be created manually on every machine.
+
+`pinot_basic_auth_hash` is the only one that is not typed by hand — it holds a
+bcrypt hash, not a password. Generate it from the password you want to use:
+
+```bash
+docker run --rm caddy:2.10-alpine caddy hash-password --plaintext 'your-password' > cluster-setup/container/secrets/pinot_basic_auth_hash
+```
+
+The username is `PINOT_AUTH_USER` in the env files (default `admin`).
 
 
 
@@ -461,12 +472,72 @@ no dependencies):
 node --test cluster-setup/web-app/tests/test_geo.js
 ```
 
+### HTTPS and the reverse proxy
+
+Caddy is the public entrypoint. It terminates TLS on 80/443 and forwards to the
+four browser-facing services over the Docker network, so they need no host port
+of their own:
+
+| URL                          | Service          | Login |
+|------------------------------|------------------|-------|
+| `https://map.<domain>`       | web app          | none (public) |
+| `https://bi.<domain>`        | Superset         | Superset's own |
+| `https://ops.<domain>`       | Grafana          | Grafana's own |
+| `https://pinot.<domain>`     | Pinot controller | HTTP basic auth at the proxy |
+
+Two variables in the env files are the entire difference between a laptop and a
+public host:
+
+| Variable      | Local                 | EC2 / public                       |
+|---------------|-----------------------|------------------------------------|
+| `BASE_DOMAIN` | `localhost`           | a domain you own, e.g. `example.com` |
+| `CADDY_TLS`   | `internal`            | your email, e.g. `you@example.com`  |
+
+`internal` makes Caddy sign certificates with its own local certificate
+authority; an email address switches the same `tls` directive to Let's Encrypt.
+`SUPERSET_DOMAIN` and `WEBAPP_ORIGIN` must be changed to match — they are the
+iframe `src` and the CSP `frame-ancestors` allowlist, and the browser has to be
+able to reach both.
+
+#### Local: no DNS, no hosts file
+
+Browsers resolve any `*.localhost` name to 127.0.0.1 themselves, so
+`https://map.localhost` works with no setup. The certificates are real but
+signed by Caddy's local CA, which your browser does not know yet — so it shows
+a warning, and, more importantly, **the Analytics tab stays blank**, because a
+browser refuses to render an iframe whose certificate it does not trust.
+
+Import the CA once to fix both (PowerShell as Administrator):
+
+```powershell
+Import-Certificate -FilePath cluster-setup\volumes\caddy\data\caddy\pki\authorities\local\root.crt -CertStoreLocation Cert:\LocalMachine\Root
+oot.crt -CertStoreLocation Cert:\LocalMachine\Root
+```
+
+Then restart the browser. The CA lives in the `caddy-data` volume and survives
+restarts, so this is a one-time step per machine — unless you delete that
+volume, which regenerates the CA and requires re-importing.
+
+#### EC2
+
+1. Point an A record for `map`, `bi`, `ops` and `pinot` at the instance.
+2. Set `BASE_DOMAIN`, `CADDY_TLS`, `SUPERSET_DOMAIN` and `WEBAPP_ORIGIN` in
+   `env/env.prod`.
+3. Security group: allow 80 and 443 only. Port 80 must stay open — Let's
+   Encrypt's HTTP-01 challenge uses it, and Caddy redirects HTTP to HTTPS on it.
+
+Let's Encrypt refuses to issue certificates for EC2's own
+`*.compute.amazonaws.com` hostname, so a domain you own is not optional.
+
 ### Port binding
 
-Only four services publish a port to the host — the ones a browser has to
-reach. Everything else is called exclusively from inside the `pinot-network`
-bridge, by container name (`zookeeper:2181`, `kafka:9092`,
-`pinot-broker:8099`, ...), and has **no host mapping at all**:
+Caddy publishes 80 and 443 and is the only port that needs to be open to the
+outside (see [HTTPS and the reverse proxy](#https-and-the-reverse-proxy)).
+Four more services keep a `${BIND}` mapping for SSH tunnelling and debugging —
+Caddy itself reaches them over the Docker network, not through those ports.
+Everything else is called exclusively from inside the `pinot-network` bridge,
+by container name (`zookeeper:2181`, `kafka:9092`, `pinot-broker:8099`, ...),
+and has **no host mapping at all**:
 
 | Published (see `BIND` below) | Not published                                     |
 |------------------------------|---------------------------------------------------|
