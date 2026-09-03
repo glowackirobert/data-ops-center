@@ -36,18 +36,26 @@ public class KafkaCustomTopicProducer implements KafkaTopicProducer, AutoCloseab
     /**
      * Fallback when the env var is unset or unparseable.
      * <p>
-     * Sizing this is a <em>disk</em> decision, not a time one. Measured on real
-     * data: a trade message costs ~31.4 bytes in Kafka's log dir and ~34.2
-     * bytes in Pinot, so budget ~66 bytes per message across the two - and both
-     * land on the same volume under cluster-setup/volumes/. 300M is the
-     * laptop-sized default (~20 GB); prod overrides it upward.
+     * Row count is not what this pipeline is for. Nothing queries {@code trade},
+     * and the Gdansk tables carry two orders of magnitude more rows. What it
+     * uniquely exercises is Avro with Schema Registry - no other topic in the
+     * stack does, and it feeds the only Pinot table decoded by
+     * {@code KafkaConfluentSchemaRegistryAvroMessageDecoder}.
      * <p>
-     * Note this default is dev-sized, unlike the JVM heap variables in
-     * container-compose.yml which fall back to prod sizes. An oversized heap on
-     * a laptop just fails to start one container; an oversized message count
-     * fills the disk out from under Kafka, Pinot and Docker at once.
+     * So the count is sized to be large enough to measure producer throughput
+     * against (see the flush note in the send loop below: ~69k msg/sec, against
+     * ~4k with a periodic flush) and small enough to be disposable. The disk
+     * cost is measured and still holds - ~31.4 bytes per message in Kafka's log
+     * dir and ~34.2 bytes per row in Pinot, so ~66 bytes across the two, both
+     * landing on the same volume under cluster-setup/volumes/ - which puts 5M
+     * at ~330 MB. Weigh that figure before raising the count again: 300M would
+     * be ~20 GB.
+     * <p>
+     * {@code env.dev} and {@code env.prod} both set TRADE_MESSAGE_COUNT to this
+     * same value. A run this size is trivial on a laptop and on EC2 alike, so
+     * unlike the JVM heap variables there is no dev/prod split to make here.
      */
-    private static final long DEFAULT_NUMBER_OF_MESSAGES = 300_000_000L;
+    private static final long DEFAULT_NUMBER_OF_MESSAGES = 5_000_000L;
 
     private static final int NUMBER_OF_THREADS = 2;
     private static final int ITERATIONS = 1;

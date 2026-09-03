@@ -9,7 +9,10 @@ You are a Docker Compose stack reviewer for the data-ops-center project. The sta
 ## Files in scope
 
 - `cluster-setup/container/container-compose.yml` — the stack
-- `cluster-setup/env/env.dev`, `cluster-setup/env/env.prod` — the two `--env-file` variants
+- `cluster-setup/container/container-compose.debug-ports.yml` — opt-in override re-publishing 3 internal ports on `127.0.0.1`
+- `cluster-setup/env/versions.env` — image versions, always the **first** `--env-file`
+- `cluster-setup/env/env.dev`, `cluster-setup/env/env.prod` — the two `--env-file` variants layered on top
+- `cluster-setup/caddy/Caddyfile` — the public TLS entrypoint's upstreams
 - `cluster-setup/container/Dockerfile.*` — custom images (apache-pinot, superset, web-app, kafka-producer-app)
 - `cluster-setup/prometheus/prometheus.yml` — scrape targets
 - `.github/workflows/docker-ci.yml` — builds/pushes the custom images for prod mode
@@ -18,9 +21,10 @@ You are a Docker Compose stack reviewer for the data-ops-center project. The sta
 ## Verification checklist
 
 **Variable interpolation**
-- Every `${VAR}` used in the compose file is defined in **both** `env.dev` and `env.prod`, or has an inline default (`${VAR:-...}`). A var defined in only one env file is a prod-only (or dev-only) startup failure.
+- Every `${VAR}` used in the compose file resolves from one of the three env files, or has an inline default (`${VAR:-...}`). The split matters: **image version vars (`*_VERSION`) live only in `versions.env`** and are absent from both `env.dev` and `env.prod` — that is correct, not a finding. Everything else must be in **both** `env.dev` and `env.prod`; a var defined in only one is a prod-only (or dev-only) startup failure.
 - `DOCKER_IMAGE_BASE_PATH` semantics: empty in dev (locally built images), `robertglowacki83/` in prod. Any new custom image must use the prefix; third-party images must not.
-- `BIND` is used on every published port — a hardcoded host binding bypasses the dev(0.0.0.0)/prod(127.0.0.1) distinction.
+- `BIND` is used on every published port in `container-compose.yml`, with one intentional exception: **`caddy` publishes `80:80` and `443:443` hardcoded**. It is the public TLS entrypoint, so BIND-gating it would bind it to `127.0.0.1` in prod and make the whole stack unreachable — do not flag it. Only four services publish at all (web-app 3001, Superset 8088, Grafana 3000, Pinot controller 9000); everything else is reached over the `pinot-network` bridge. A *newly* published port is itself the finding: new services should go behind Caddy, not onto the host.
+- `container-compose.debug-ports.yml` is the other exception — its three ports are deliberately hardcoded to `127.0.0.1` rather than `${BIND}`, since they have no authentication and must not follow dev's `0.0.0.0`. Check instead that its service names and ports still match `container-compose.yml`, and that nothing has been added to it beyond Prometheus 9090, Alloy 12345 and Pinot broker 8099.
 
 **Secrets**
 - Three lists must agree exactly: the top-level `secrets:` block, the union of per-service `secrets:` references, and the documented secrets list in `cluster-setup/README-docker.md`. Flag entries missing from any of the three.

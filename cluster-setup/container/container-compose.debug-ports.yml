@@ -1,0 +1,40 @@
+# Opt-in override that re-publishes three internal-only ports on the loopback
+# interface, for local debugging:
+#
+#   - Prometheus  9090  — /targets, the only view of whether a JMX scrape is up
+#   - Alloy      12345  — the only view of whether Docker log discovery is working
+#   - Pinot broker 8099 — scripts/load_test_broker.py defaults to localhost:8099
+#
+#   docker compose --env-file cluster-setup/env/versions.env \
+#     --env-file cluster-setup/env/env.dev \
+#     -f cluster-setup/container/container-compose.yml \
+#     -f cluster-setup/container/container-compose.debug-ports.yml up -d
+#
+# Deliberately hardcoded to 127.0.0.1 rather than ${BIND}: these ports have no
+# authentication of any kind, so they must never reach beyond this machine.
+# Never use this file on a shared or internet-facing host.
+#
+# Nothing else belongs here. Loki is already queryable through Grafana, which is
+# published; ZooKeeper, Schema Registry and the Pinot server/minion expose
+# CLI-shaped admin APIs reachable with `docker exec`, or from a throwaway
+# container on the bridge:
+#
+#   docker run --rm --network pinot-network curlimages/curl -s \
+#     http://pinot-server:8097/health
+#
+# Kafka is unpublishable by design — its advertised listener is
+# INTERNAL://kafka:9092, so a host client is handed an address it cannot
+# resolve. Use `docker exec kafka ...` instead.
+
+services:
+  pinot-broker:
+    ports:
+      - "127.0.0.1:8099:8099"
+
+  prometheus:
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  alloy:
+    ports:
+      - "127.0.0.1:12345:12345"

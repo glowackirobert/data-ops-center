@@ -285,11 +285,6 @@ services:
     container_name: kafka-producer-app
     restart: "no"
     environment:
-      # Total trade messages to produce. Budget ~66 bytes per message of local
-      # disk (~31 in Kafka's log dir, ~35 in Pinot, both under volumes/), so the
-      # dev value is sized for a laptop and prod for the EC2 volume. Unset falls
-      # back to the app's own dev-sized default rather than a prod-sized one -
-      # overshooting here fills the disk under Kafka, Pinot and Docker at once.
       TRADE_MESSAGE_COUNT: ${TRADE_MESSAGE_COUNT:-}
     depends_on:
       schema-registry:

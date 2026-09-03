@@ -32,13 +32,13 @@ from the host when debugging.
 
 ### Init containers (run once, `--profile init`)
 
-| Container                                | Description                                                                                                                                                                                                           |
-|------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `kafka-topic-init`                       | Creates Kafka topics.                                                                                                                                                                                                 |
-| `kafka-producer`                         | Publishes Avro-serialized `trade` events to Kafka.                                                                                                                                                                    |
-| `pinot-table-registrar`                   | Registers schemas and tables with the Pinot Controller.                                                                                                                                                              |
-| `pinot-ingestion-runner`                 | Runs a batch ingestion job that reads from S3 and pushes segments to Pinot.                                                                                                                                           |
-| `superset-init`                          | Runs DB migrations, creates the admin user, initialises Superset roles, registers the Apache Pinot database connection, imports dashboards, creates the `EmbeddedGuest` role and registers dashboards for embedding   |
+| Container                                | Description                                                                                                                                                                                                            |
+|------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `kafka-topic-init`                       | Creates Kafka topics.                                                                                                                                                                                                  |
+| `kafka-producer`                         | Publishes Avro-serialized `trade` events to Kafka.                                                                                                                                                                     |
+| `pinot-table-registrar`                  | Registers schemas and tables with the Pinot Controller.                                                                                                                                                                |
+| `pinot-ingestion-runner`                 | Runs a batch ingestion job that reads from S3 and pushes segments to Pinot.                                                                                                                                            |
+| `superset-init`                          | Runs DB migrations, creates the admin user, initialises Superset roles, registers the Apache Pinot database connection, imports dashboards, creates the `EmbeddedGuest` role and registers dashboards for embedding    |
 
 Init containers are one-shot — they exit after completing their task. Run them once on first setup, or whenever you need to re-seed the cluster.
 
@@ -560,15 +560,26 @@ the env files:
 
 #### Reaching an unpublished port from the host
 
-For Prometheus' own UI, Alloy's debug UI, or running
-`scripts/load_test_broker.py` against the broker, add the debug override —
-it re-publishes the internal ports on `127.0.0.1` only:
+Three ports are covered by the debug override, which re-publishes them on
+`127.0.0.1` only — Prometheus 9090 (its `/targets` page, the only view of
+whether a JMX scrape is up), Alloy 12345 (the only view of whether Docker log
+discovery is working) and the Pinot broker 8099 (what
+`scripts/load_test_broker.py` connects to by default):
 
 ```bash
 docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml -f cluster-setup/container/container-compose.debug-ports.yml up -d
 ```
 
 Never use it on a shared or internet-facing host.
+
+Nothing else is in the override by design. Loki is already queryable through
+Grafana, which is published; ZooKeeper, Schema Registry and the Pinot
+server/minion expose CLI-shaped admin APIs, reachable with `docker exec` or
+from a throwaway container on the bridge:
+
+```bash
+docker run --rm --network pinot-network curlimages/curl -s http://pinot-server:8097/health
+```
 
 Kafka is deliberately absent from that override: `KAFKA_ADVERTISED_LISTENERS`
 is `INTERNAL://kafka:9092`, so a host client is handed an address it cannot
