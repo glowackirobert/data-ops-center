@@ -1,38 +1,11 @@
 # Security Hardening Plan — Remaining Work
 
-Shipped so far, both on 2026-09-01 and documented in
-`cluster-setup/README-docker.md` rather than repeated here:
+Phases 0 (internal ports closed) and 1 (Caddy TLS entrypoint) shipped on
+2026-09-01 and are documented in `cluster-setup/README-docker.md`.
 
-- **Phase 0 — internal ports closed.** Ten host mappings removed, ZooKeeper's
-  4LW whitelist narrowed, Grafana's dev datasources moved onto container names,
-  plus the opt-in `container-compose.debug-ports.yml` escape hatch.
-  See **Port binding**.
-- **Phase 1 — TLS entrypoint.** Caddy on 80/443 fronting the four
-  browser-facing services on `map.` / `bi.` / `ops.` / `pinot.` subdomains,
-  with basic auth on the Pinot controller, `ENABLE_PROXY_FIX` in Superset, and
-  Grafana's root URL and secure cookie set. `BASE_DOMAIN` + `CADDY_TLS` switch
-  between the local CA and Let's Encrypt. See **HTTPS and the reverse proxy**.
-
-**Correction to what this plan previously said:** it called for flipping
-Superset's `force_https` and `session_cookie_secure` to `True` alongside the
-proxy. Both must stay `False`. Caddy already redirects HTTP to HTTPS at the
-edge, and the web-app mints guest tokens over plain `http://superset:8088`
-inside the Docker network — Talisman would redirect that internal call (it
-carries no `X-Forwarded-Proto` to exempt it) and a `Secure` cookie would never
-come back on that hop. TLS protects browser traffic at Caddy, which is the only
-place the session cookie crosses a network. The reasoning now sits in
-`superset_config.py` next to both settings.
-
-## Where that leaves us
-
-Caddy is the only entrypoint that needs to be open. The four `${BIND}` mappings
-that remain (web-app 3001, Superset 8088, Grafana 3000, Pinot controller 9000)
-are loopback-only in prod and exist for SSH tunnelling and debugging — Caddy
-reaches those containers over the Docker network instead.
-
-Still outstanding: the Pinot controller has no authentication *of its own* (only
-the proxy's), all internal traffic is still plaintext and unauthenticated, and
-the containers run without hardening.
+Outstanding: the Pinot controller has no authentication *of its own* (only the
+proxy's), all internal traffic is still plaintext and unauthenticated, and the
+containers run without hardening.
 
 ## Phase 2 — authentication and abuse limits (next)
 
@@ -71,16 +44,6 @@ the containers run without hardening.
 - Linux host note: Docker publishes ports through its own iptables chain, which
   **bypasses UFW rules**. Only the EC2 security group and the absence of a
   `ports:` mapping actually close a port.
-
-## Already sound — leave alone
-
-- The only SQL string interpolation in the web-app (`route`, in the delay
-  histogram) is validated against `^[A-Za-z0-9]{1,10}$` before use; every other
-  query is a constant. No injection surface found.
-- Secrets are file-based compose secrets, never env vars, and `secrets/` is
-  gitignored.
-- `app/http.py` never echoes exception text back to the client.
-- The Superset CSP is explicit and already env-driven for `frame-ancestors`.
 
 ## Order of work
 
