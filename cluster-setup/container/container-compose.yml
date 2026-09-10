@@ -80,8 +80,10 @@ services:
     container_name: pinot-controller
     hostname: pinot-controller
     restart: unless-stopped
-    ports:
-      - "${BIND}:9000:9000"
+    # No host mapping: the controller API can delete tables and segments and has
+    # no authentication of its own, so it is reached through Caddy
+    # (pinot.${BASE_DOMAIN}, basic auth) or, in dev, through
+    # container-compose.debug-ports.yml on 127.0.0.1:9000.
     environment:
       JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_CONTROLLER_HEAP:--Xms256M -Xmx1G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-controller.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=19000:/opt/pinot/etc/jmx_prometheus_javaagent/configs/controller.yml"
       AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials

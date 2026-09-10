@@ -6,7 +6,7 @@ Docker Compose based setup for the Data Ops Center cluster.
 
 ### Core services (always running)
 
-Only the four rows marked **host** publish a port; the rest are reachable only
+Only the rows marked **host** publish a port; the rest are reachable only
 from inside the `pinot-network` bridge, by container name. See
 [Port binding](#port-binding) for why, and for how to reach an internal port
 from the host when debugging.
@@ -16,7 +16,7 @@ from the host when debugging.
 | Zookeeper             | 2181    | internal        | Coordination service required by Apache Pinot.                                                                                                                                                                                     |
 | Kafka                 | 9092    | internal        | Message broker in KRaft mode.                                                                                                                                                                                                      |
 | Schema Registry       | 8081    | internal        | Confluent Schema Registry for Avro schema management.                                                                                                                                                                              |
-| Pinot Controller /UI/ | 9000    | **host**        | Manages cluster metadata, table configs and segment assignment.                                                                                                                                                                    |
+| Pinot Controller /UI/ | 9000    | internal        | Manages cluster metadata, table configs and segment assignment. Browser access goes through Caddy (`pinot.` subdomain, basic auth); the debug override re-publishes it on `127.0.0.1` in dev.                                                                                                                                                                    |
 | Pinot Broker          | 8099    | internal        | Accepts SQL queries and routes them to the appropriate servers.                                                                                                                                                                    |
 | Pinot Server /API/    | 8097    | internal        | REST admin API for health checks and segment management, called by the Controller.                                                                                                                                                 |
 | Pinot Server /query/  | 8098    | internal        | Internal netty port the Broker uses to send queries to and read results from the server.                                                                                                                                           |
@@ -178,6 +178,12 @@ docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setu
 # First-time setup — also run init containers
 docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml --profile init up
 
+# Start core services plus the debug-port override
+docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml -f cluster-setup/container/container-compose.debug-ports.yml up
+
+# First-time setup — also run init containers plus the debug-port override
+docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml -f cluster-setup/container/container-compose.debug-ports.yml --profile init up
+
 # Stop
 docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml down
 ```
@@ -207,7 +213,10 @@ Schemas and table configs live in `cluster-setup/table_config/` and are register
 automatically by the `pinot-table-registrar` init container (`add-tables.sh`). The script
 is idempotent: it POSTs missing schemas/tables and PUTs existing ones (schemas with
 `?reload=true`), so re-running init never drops ingested segments. To apply config/schema
-edits to a running controller directly, run the same script from the host:
+edits to a running controller directly, run the same script from the host — port 9000
+is only published with the debug override (see [Port binding](#port-binding)), so bring
+the stack up with it first, or point `PINOT_CONTROLLER_URL` at
+`https://pinot.<BASE_DOMAIN>` and pass the basic-auth credentials:
 
 ```bash
 PINOT_CONTROLLER_URL=http://localhost:9000 TABLE_CONFIG_DIR=cluster-setup/table_config bash cluster-setup/table_config/add-tables.sh
@@ -533,24 +542,24 @@ Let's Encrypt refuses to issue certificates for EC2's own
 
 Caddy publishes 80 and 443 and is the only port that needs to be open to the
 outside (see [HTTPS and the reverse proxy](#https-and-the-reverse-proxy)).
-Four more services keep a `${BIND}` mapping for SSH tunnelling and debugging —
+Three more services keep a `${BIND}` mapping for SSH tunnelling and debugging —
 Caddy itself reaches them over the Docker network, not through those ports.
 Everything else is called exclusively from inside the `pinot-network` bridge,
 by container name (`zookeeper:2181`, `kafka:9092`, `pinot-broker:8099`, ...),
 and has **no host mapping at all**:
 
-| Published (see `BIND` below) | Not published                                     |
-|------------------------------|---------------------------------------------------|
-| Web app 3001                 | ZooKeeper 2181, Kafka 9092, Schema Registry 8081  |
-| Superset 8088                | Pinot Broker 8099, Server 8097/8098, Minion 7500  |
-| Grafana 3000                 | Prometheus 9090, Loki 3100, Alloy 12345           |
-| Pinot Controller 9000        | JMX exporters 19092, 19000, 18099, 18098, 17500   |
+| Published (see `BIND` below) | Not published                                       |
+|------------------------------|-----------------------------------------------------|
+| Web app 3001                 | ZooKeeper 2181, Kafka 9092, Schema Registry 8081    |
+| Superset 8088                | Pinot Controller 9000, Broker 8099, Server 8097/8098, Minion 7500 |
+| Grafana 3000                 | Prometheus 9090, Loki 3100, Alloy 12345             |
+| —                            | JMX exporters 19092, 19000, 18099, 18098, 17500     |
 
 None of the unpublished services has any authentication, which is exactly why
 they stay inside the network. The JMX exporter ports have never been published
 — Prometheus scrapes them over the bridge.
 
-Where the four published ports listen is controlled by the `BIND` variable in
+Where the three published ports listen is controlled by the `BIND` variable in
 the env files:
 
 | Env  | `BIND`      | Effect                                                             |
@@ -560,11 +569,16 @@ the env files:
 
 #### Reaching an unpublished port from the host
 
-Three ports are covered by the debug override, which re-publishes them on
+Four ports are covered by the debug override, which re-publishes them on
 `127.0.0.1` only — Prometheus 9090 (its `/targets` page, the only view of
 whether a JMX scrape is up), Alloy 12345 (the only view of whether Docker log
-discovery is working) and the Pinot broker 8099 (what
-`scripts/load_test_broker.py` connects to by default):
+discovery is working), the Pinot broker 8099 (what
+`scripts/load_test_broker.py` connects to by default) and the Pinot controller
+9000 (its cluster UI, and what a host-run `add-tables.sh` or `server.py` points
+`PINOT_CONTROLLER_URL` at). The controller is deliberately dev-only: its API
+can delete tables and segments and has no authentication of its own, so the
+only way in on a shared host is `https://pinot.<domain>` through Caddy, which puts
+basic auth in front of it:
 
 ```bash
 docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml -f cluster-setup/container/container-compose.debug-ports.yml up -d

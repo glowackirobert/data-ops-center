@@ -1,9 +1,15 @@
-# Opt-in override that re-publishes three internal-only ports on the loopback
+# Opt-in override that re-publishes four internal-only ports on the loopback
 # interface, for local debugging:
 #
 #   - Prometheus  9090  — /targets, the only view of whether a JMX scrape is up
 #   - Alloy      12345  — the only view of whether Docker log discovery is working
 #   - Pinot broker 8099 — scripts/load_test_broker.py defaults to localhost:8099
+#   - Pinot controller 9000 — the cluster UI, and what host-run
+#                             table_config/add-tables.sh and web-app/server.py
+#                             point at (PINOT_CONTROLLER_URL). In prod it is
+#                             reached only through Caddy (pinot.${BASE_DOMAIN}),
+#                             which puts basic auth in front of an API that can
+#                             delete tables and segments.
 #
 #   docker compose --env-file cluster-setup/env/versions.env \
 #     --env-file cluster-setup/env/env.dev \
@@ -27,6 +33,10 @@
 # resolve. Use `docker exec kafka ...` instead.
 
 services:
+  pinot-controller:
+    ports:
+      - "127.0.0.1:9000:9000"
+
   pinot-broker:
     ports:
       - "127.0.0.1:8099:8099"
