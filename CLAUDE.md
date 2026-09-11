@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Working style
+
+Smallest change that works. No speculative abstractions, no defensive error
+handling unless the surrounding code has it, no comments unless the
+neighbouring code is commented. Don't restate the diff in prose — the diff is
+already readable. A short answer is the correct answer when there is little to
+report.
+
 ## Project Overview
 
 Data Operations Center is a data engineering platform that:
@@ -100,7 +108,7 @@ Embedding requires the `EMBEDDED_SUPERSET` feature flag, the `EmbeddedGuest` rol
 
 Backend code is split into `server.py` (thin HTTP routing) and `app/` (domain modules: `config`, `http`, `http_client`, `gtfs`, `pinot`, `superset`, `geo`); frontend assets live under `static/` (`index.html` shell, `css/styles.css`, and `js/`: `app` (tab switching) and `help` (intro modal) above the two views — `dashboard` for the Analytics tab, and for the map `map` (creates the Mapbox map and deck.gl overlay once, then owns the refresh loop, the vehicle selection and the camera), `layers` (everything deck.gl draws, plus the hover tooltip), `stopbox` (the departures popup), `histogram` (the route-delay panel) and `state` (the app-state object and the DOM handles, the two singletons those four share). `geo` (path/screen geometry) and `utils` (formatting, `getJson`, the shared hour-of-day bar chart) are the dependency-free leaves, and the only two with unit tests. Tests are under `tests/` — `python -m unittest discover -s cluster-setup/web-app/tests` for the Python modules, `node --test cluster-setup/web-app/tests/test_geo.js cluster-setup/web-app/tests/test_utils.js` for the frontend geometry and latency-badge helpers (list both files explicitly — the directory also holds the Python tests, which trips up Node's test-file auto-discovery).
 
-Two env-file variables must be reachable from the **user's browser** (container names never work there): `SUPERSET_DOMAIN` (`src` of the embedded dashboard iframe, local default `http://localhost:8088`) and `WEBAPP_ORIGIN` (Superset CSP `frame-ancestors` allowlist, local default `http://localhost:3001`). On EC2 or any remote host set both to the instance's public DNS/IP — see the comments in `cluster-setup/env/env.prod`; the localhost defaults are already correct when tunneling ports 8088 and 3001 over SSH.
+Two env-file variables must be reachable from the **user's browser** (container names never work there): `SUPERSET_DOMAIN` (`src` of the embedded dashboard iframe, local default `http://localhost:8088`) and `WEBAPP_ORIGIN` (Superset CSP `frame-ancestors` allowlist, local default `http://localhost:3001`). `env.dev` carries the plain-HTTP pair (a plain `up` starts no Caddy — it sits behind `--profile tls`), `env.prod` the `https://bi.` / `https://map.` pair; `env.dev` also keeps the TLS pair commented out for testing that profile locally. On EC2 or any remote host set both to the instance's public DNS/IP; the localhost defaults are already correct when tunneling ports 8088 and 3001 over SSH. See *Browser-visible origins* in `cluster-setup/README-docker.md`.
 
 ## Monitoring
 

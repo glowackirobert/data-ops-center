@@ -34,4 +34,10 @@
 Kafka, ZooKeeper, Schema Registry and the Pinot broker/server/minion no longer
 publish a host port, so their plaintext, unauthenticated traffic never leaves
 the Docker network. Still open: TLS everywhere, and authentication on the Pinot
-controller UI/API (port 9000), whose API can drop tables and segments.
+controller UI/API (port 9000), whose API can drop tables and segments. 
+12. Real domain + email in env.prod (also SUPERSET_DOMAIN/WEBAPP_ORIGIN — they must be browser-reachable)
+13. Postgres for Superset metadata 
+14. mem_limit/cpus on the JVM services, especially pinot-ingestion-runner 
+15. rate_limit in the Caddyfile for map. 
+16. Prometheus rules + Alertmanager 
+17. Replication ≥ 2 — needs more nodes, which is really the k8s path, not compose  

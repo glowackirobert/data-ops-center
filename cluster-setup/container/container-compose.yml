@@ -427,6 +427,10 @@ services:
   caddy:
     image: caddy:${CADDY_VERSION}
     container_name: caddy
+    # Opt-in: a plain `up` serves the three published ports over HTTP, so local
+    # work needs no certificate. `--profile tls` puts this single TLS entrypoint
+    # in front and is how prod runs (see env.prod).
+    profiles: ["tls"]
     restart: unless-stopped
     ports:
       - "80:80"

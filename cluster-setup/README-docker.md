@@ -461,9 +461,18 @@ names like `superset:8088` never work there):
 | `SUPERSET_DOMAIN` | `src` of the embedded dashboard iframe    | `http://localhost:8088` |
 | `WEBAPP_ORIGIN`   | Superset CSP `frame-ancestors` allowlist  | `http://localhost:3001` |
 
-On EC2 (or any remote host) set both to the instance's public DNS/IP — see the
-comments in `cluster-setup/env/env.prod`. If you reach the host through SSH
-tunnels for ports 8088 and 3001, the localhost defaults are already correct.
+On EC2 (or any remote host) set both to the instance's public DNS/IP, or to the
+`https://bi.` / `https://map.` names if Caddy fronts it. If you reach the host
+through SSH tunnels for ports 8088 and 3001, the localhost defaults are already
+correct.
+
+`env.dev` ships the plain-HTTP pair above: a plain `up` starts no Caddy (it
+sits behind `--profile tls`), so each service is reached on its own port —
+nothing to trust, no certificate to import. `env.prod` ships the `https://bi.`
+/ `https://map.` pair instead, because prod always runs the proxy. To test the
+TLS entrypoint in dev, swap in the commented pair in `env.dev`; both must match
+the URL the browser actually uses, or Superset's CSP `frame-ancestors` rejects
+the Analytics-tab iframe.
 
 ### Running tests
 
@@ -520,7 +529,6 @@ Import the CA once to fix both (PowerShell as Administrator):
 
 ```powershell
 Import-Certificate -FilePath cluster-setup\volumes\caddy\data\caddy\pki\authorities\local\root.crt -CertStoreLocation Cert:\LocalMachine\Root
-oot.crt -CertStoreLocation Cert:\LocalMachine\Root
 ```
 
 Then restart the browser. The CA lives in the `caddy-data` volume and survives
