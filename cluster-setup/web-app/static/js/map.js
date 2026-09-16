@@ -78,6 +78,8 @@ export async function initMap() {
 
   // 24 h ping-density heatmap, queried live from Pinot on every toggle-on —
   // no caching anywhere, so the latency badge always shows a real query.
+  // Returns an error message on failure, so the caller's render() can show
+  // it instead of the routine vehicle-count line — see render()'s comment.
   async function loadHeatmap() {
     try {
       const { data, ms, stats } = await getJson('/api/heatmap');
@@ -85,16 +87,17 @@ export async function initMap() {
       state.heatmapMs = ms;
       state.heatmapStats = stats;
     } catch (err) {
-      statusEl.textContent = `Heatmap failed: ${err.message}`;
+      return `Heatmap failed: ${err.message}`;
     }
   }
 
   heatmapToggle.onchange = async () => {
+    let error;
     if (heatmapToggle.checked) {
-      await loadHeatmap();
+      error = await loadHeatmap();
       clearTripPath(); // heatmap and live vehicles are separate modes
     }
-    render();
+    render(error);
   };
 
   // Clicking a vehicle draws the trajectory of the trip it is serving, split
@@ -130,10 +133,11 @@ export async function initMap() {
     } catch (err) {
       // 404 is the ordinary case — a vehicle between trips, or a course not
       // in today's plan. A fact to report, not a failure to apologise for.
-      statusEl.textContent = err.status === 404
+      const message = err.status === 404
         ? `No route path for line ${d.route} (course ${d.tripId})`
         : `Route path failed: ${err.message}`;
       clearTripPath();
+      render(message);
     }
   }
 
@@ -223,8 +227,13 @@ export async function initMap() {
   // deck.gl diffs them on the GPU and the base map keeps its tiles, camera
   // and WebGL context. Called from the 10 s refresh, from every state change
   // that alters what is drawn, and every 100 ms while a vehicle is selected
-  // (the halo pulse).
-  function render() {
+  // (the halo pulse). `statusOverride`, when given, replaces the usual
+  // vehicle-count line — for a status a caller set moments earlier in the
+  // same synchronous handler (a heatmap failure, a lost route path, a
+  // vehicle going out of service mid-poll) that this render() call would
+  // otherwise paint over unseen, since nothing yields to the browser
+  // between the two writes.
+  function render(statusOverride) {
     const route = routeSelect.value;
     const rows = route ? rowsOnRoute(route) : state.lastRows;
     // Heatmap (24 h aggregate) and live vehicles are alternate modes, not a
@@ -232,6 +241,10 @@ export async function initMap() {
     // under the busiest hot spots, which are usually the same clusters.
     const heatOn = heatmapToggle.checked;
     overlay.setProps({ layers: deckLayers(rows, route, heatOn) });
+    if (statusOverride) {
+      statusEl.textContent = statusOverride;
+      return;
+    }
     const count = route ? `${rows.length} of ${state.lastRows.length}` : `${rows.length}`;
     const ms = heatOn ? state.heatmapMs : state.positionsMs;
     const stats = heatOn ? state.heatmapStats : state.positionsStats;
@@ -334,6 +347,9 @@ export async function initMap() {
   // Three things can have happened to it since the last one: it went out of
   // service, it finished its trip and started the return leg (new course, so
   // a new shape to draw), or it dropped out of the feed entirely.
+  // Returns a status message when the tracked vehicle just went out of
+  // service, so refresh()'s render() can show it instead of the routine
+  // vehicle-count line — see render()'s comment.
   function syncSelection(rows) {
     const trip = state.selectedTrip;
     if (!trip) return;
@@ -345,10 +361,8 @@ export async function initMap() {
     }
     if (v.inService === false) {
       // finished its last trip and went out of service — nothing left to track
-      statusEl.textContent =
-        `Vehicle on line ${v.route} is not currently in service`;
       state.selectedTrip = null;
-      return;
+      return `Vehicle on line ${v.route} is not currently in service`;
     }
     if (v.tripId !== trip.tripId || v.routeId !== trip.routeId) {
       // finished the trip and started the return leg — swap the shape
@@ -366,9 +380,9 @@ export async function initMap() {
       state.positionsMs = ms;
       state.positionsStats = stats;
       state.lastUpdated = Date.now();
-      syncSelection(state.lastRows);
+      const statusOverride = syncSelection(state.lastRows);
       updateRouteActivity(state.lastRows);
-      render();
+      render(statusOverride);
       globalThis._log.push({ t: Date.now(), ev: 'refresh', n: state.lastRows.length, zoom: map.getZoom() });
     } catch (err) {
       statusEl.textContent = `Refresh failed: ${err.message}`;
