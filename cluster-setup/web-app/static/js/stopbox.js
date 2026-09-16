@@ -7,12 +7,17 @@ import { onScreen, placeBox } from './geo.js';
 import { state, els } from './state.js';
 import { stopsVisible } from './layers.js';
 
-// Departures popup keeps itself alive while open, on two cadences. The tick
-// re-renders from data already in hand, so the countdown keeps counting even
-// when the backend is unreachable; the poll re-fetches, and is the slower of
-// the two because each one costs a Pinot query (DELAYS_SQL).
+// Departures popup keeps itself alive while open, on two cadences. The poll
+// re-fetches delays every 10 s — matching REFRESH_MS in map.js, since both
+// read the same upsert table (gdansk_public_transport_latest) and a slower
+// poll let a tracked vehicle's badge (10 s) and an open stop popup for a
+// stop it's approaching disagree on its delay for up to 50 s. The tick is
+// the fallback for when a poll fails: it re-renders from data already in
+// hand, so the countdown keeps counting (and departed rows keep dropping)
+// even when the backend is briefly unreachable, without waiting on the next
+// successful poll.
 const STOP_TICK_MS = 20000;
-const STOP_POLL_MS = 60000;
+const STOP_POLL_MS = 10000;
 
 // Departures popup. Fetched on click, then kept alive while open: a
 // countdown that never ticks is worse than none, because it still reads as
