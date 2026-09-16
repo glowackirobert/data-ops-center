@@ -26,8 +26,8 @@ class Handler(BaseHTTPRequestHandler):
     def _send(self, code, body, content_type):
         send(self, code, body, content_type)
 
-    def _send_json(self, code, payload, time_used_ms=None):
-        send_json(self, code, payload, time_used_ms=time_used_ms)
+    def _send_json(self, code, payload, time_used_ms=None, stats=None):
+        send_json(self, code, payload, time_used_ms=time_used_ms, stats=stats)
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
@@ -82,24 +82,24 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json(200, superset.get_guest_token())
 
     def _serve_positions(self):
-        rows, ms = pinot.get_positions()
+        rows, ms, stats = pinot.get_positions()
         trip_ends = gtfs.get_trip_ends()
         for row in rows:
             row['atTerminus'] = gtfs.at_terminus(row, trip_ends)
             row['inService'] = row['tripId'] != pinot.NULL_INT
-        self._send_json(200, rows, time_used_ms=ms)
+        self._send_json(200, rows, time_used_ms=ms, stats=stats)
 
     def _serve_stats(self):
-        data, ms = pinot.table_stats()
-        self._send_json(200, data, time_used_ms=ms)
+        data, ms, stats = pinot.table_stats()
+        self._send_json(200, data, time_used_ms=ms, stats=stats)
 
     def _serve_network_hourly(self):
-        rows, ms = pinot.network_hourly()
-        self._send_json(200, rows, time_used_ms=ms)
+        rows, ms, stats = pinot.network_hourly()
+        self._send_json(200, rows, time_used_ms=ms, stats=stats)
 
     def _serve_heatmap(self):
-        rows, ms = pinot.heatmap_cells()
-        self._send_json(200, rows, time_used_ms=ms)
+        rows, ms, stats = pinot.heatmap_cells()
+        self._send_json(200, rows, time_used_ms=ms, stats=stats)
 
     def _serve_route_delay_histogram(self):
         route = self.query.get('route', [''])[0]
@@ -107,11 +107,11 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(400, {'error': 'route query parameter required'})
             return
         try:
-            rows, ms = pinot.route_hourly_delay(route)
+            rows, ms, stats = pinot.route_hourly_delay(route)
         except ValueError:  # route failed the pattern check in pinot.py
             self._send_json(400, {'error': 'invalid route'})
             return
-        self._send_json(200, rows, time_used_ms=ms)
+        self._send_json(200, rows, time_used_ms=ms, stats=stats)
 
     def _serve_route_shape(self):
         route_id = self.query.get('routeId', [''])[0]
@@ -162,7 +162,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self._require_gtfs():
             return
         now = int(time.time() * 1000)
-        delays, ms = pinot.live_delays()
+        delays, ms, stats = pinot.live_delays()
         upcoming = gtfs.upcoming_departures(
             gtfs.get_departures(stop_id), delays, now)
         within_hour = [d for d in upcoming if d['estimated'] <= now + 3_600_000]
@@ -184,7 +184,7 @@ class Handler(BaseHTTPRequestHandler):
         if route_filter and not any(d['route'] == route_filter for d in shown):
             payload['routeNext'] = next(
                 (d for d in upcoming if d['route'] == route_filter), None)
-        self._send_json(200, payload, time_used_ms=ms)
+        self._send_json(200, payload, time_used_ms=ms, stats=stats)
 
     def log_message(self, fmt, *args):
         pass  # silence per-request noise

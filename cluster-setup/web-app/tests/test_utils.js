@@ -2,21 +2,65 @@
 // so this runs directly under Node's built-in test runner: node --test tests/
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { latencyMs, latencyBadgeHtml, toDisplayedMinute, displayedShiftMin, minutesUntil,
+import { latencyMs, statsFromResponse, explainReading, latencyBadgeHtml,
+         toDisplayedMinute, displayedShiftMin, minutesUntil,
          routeOf, getJson, hourlyBarsHtml, HOUR_TICKS_HTML }
   from '../static/js/utils.js';
 
-function fakeResponse(headerValue) {
-  return { headers: { get: name => name === 'X-Pinot-Time-Ms' ? headerValue : null } };
+function fakeResponse(headers) {
+  return { headers: { get: name => (name in headers ? headers[name] : null) } };
 }
 
 test('latencyMs: reads and numifies the header', () => {
-  assert.equal(latencyMs(fakeResponse('42')), 42);
+  assert.equal(latencyMs(fakeResponse({ 'X-Pinot-Time-Ms': '42' })), 42);
 });
 
 test('latencyMs: null when the header is absent', () => {
-  assert.equal(latencyMs(fakeResponse(null)), null);
+  assert.equal(latencyMs(fakeResponse({})), null);
 });
+
+// statsFromResponse - the explain panel's raw material (see app/http.py's
+// X-Pinot-Stats header).
+
+test('statsFromResponse: parses the compact JSON header', () => {
+  const stats = { docsScanned: 5279, totalDocs: 60417459, segmentsProcessed: 32,
+                  segmentsQueried: 33, segmentsPruned: 1, serversQueried: 2 };
+  const resp = fakeResponse({ 'X-Pinot-Stats': JSON.stringify(stats) });
+  assert.deepEqual(statsFromResponse(resp), stats);
+});
+
+test('statsFromResponse: null when the header is absent', () => {
+  assert.equal(statsFromResponse(fakeResponse({})), null);
+});
+
+test('statsFromResponse: null rather than throwing on a malformed header', () => {
+  assert.equal(statsFromResponse(fakeResponse({ 'X-Pinot-Stats': 'not json' })), null);
+});
+
+// explainReading - the ratio, not the raw counts, is the number that lands.
+
+test('explainReading: rounds a tiny ratio to three decimals', () => {
+  // The measured example from PINOT_QUERY_AGENT_PLAN.md.
+  assert.equal(
+    explainReading({ docsScanned: 5279, totalDocs: 60417459 }), '0.009% of the table');
+});
+
+test('explainReading: fewer decimals as the ratio grows', () => {
+  assert.equal(explainReading({ docsScanned: 500, totalDocs: 1000 }), '50% of the table');
+  assert.equal(explainReading({ docsScanned: 50, totalDocs: 1000 }), '5.0% of the table');
+  assert.equal(explainReading({ docsScanned: 5, totalDocs: 1000 }), '0.50% of the table');
+});
+
+test('explainReading: null when there are no stats at all', () => {
+  assert.equal(explainReading(null), null);
+});
+
+test('explainReading: null when totalDocs is 0 rather than dividing by it', () => {
+  assert.equal(explainReading({ docsScanned: 0, totalDocs: 0 }), null);
+});
+
+// latencyBadgeHtml - stays a plain badge at rest; carries the stats along as
+// a data attribute for app.js's click-to-open popover when they're known.
 
 test('latencyBadgeHtml: empty string for null', () => {
   assert.equal(latencyBadgeHtml(null), '');
@@ -25,6 +69,18 @@ test('latencyBadgeHtml: empty string for null', () => {
 test('latencyBadgeHtml: renders the value inside a badge span', () => {
   assert.match(latencyBadgeHtml(7), /class="latency-badge"/);
   assert.match(latencyBadgeHtml(7), /7 ms/);
+});
+
+test('latencyBadgeHtml: no data-stats attribute when stats are unknown', () => {
+  assert.doesNotMatch(latencyBadgeHtml(7), /data-stats/);
+});
+
+test('latencyBadgeHtml: carries the stats as an escaped data attribute', () => {
+  const html = latencyBadgeHtml(7, { docsScanned: 5279, totalDocs: 60417459 });
+  const m = /data-stats="([^"]*)"/.exec(html);
+  assert.ok(m, 'expected a data-stats attribute');
+  const decoded = m[1].replaceAll('&quot;', '"');
+  assert.deepEqual(JSON.parse(decoded), { docsScanned: 5279, totalDocs: 60417459 });
 });
 
 // Departure rows: the chip and the struck-through schedule must be the same
@@ -139,13 +195,15 @@ function stubFetch(impl) {
   globalThis.fetch = impl;
 }
 
-test('getJson: returns the parsed body and the Pinot latency', async () => {
+test('getJson: returns the parsed body, the Pinot latency and its scan stats', async () => {
+  const stats = { docsScanned: 5279, totalDocs: 60417459 };
   stubFetch(async () => ({
     ok: true, status: 200,
     json: async () => ({ rows: 3 }),
-    headers: { get: n => (n === 'X-Pinot-Time-Ms' ? '17' : null) },
+    ...fakeResponse({ 'X-Pinot-Time-Ms': '17', 'X-Pinot-Stats': JSON.stringify(stats) }),
   }));
-  assert.deepEqual(await getJson('/api/whatever'), { data: { rows: 3 }, ms: 17 });
+  assert.deepEqual(
+    await getJson('/api/whatever'), { data: { rows: 3 }, ms: 17, stats });
 });
 
 test('getJson: ms is null for an endpoint that queried no Pinot', async () => {

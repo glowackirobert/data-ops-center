@@ -88,8 +88,43 @@ export function latencyMs(resp) {
   return v === null ? null : Number(v);
 }
 
-export function latencyBadgeHtml(ms) {
-  return ms == null ? '' : ` <span class="latency-badge">${ms} ms</span>`;
+// The scan figures behind that number (docsScanned/totalDocs/segments…),
+// same header-not-body reasoning as latencyMs. Compact JSON (see
+// app/http.py's send()) — Number() has nothing to parse here, so this just
+// unwraps the header and returns null for a missing or malformed one rather
+// than throwing and taking the whole render down with it.
+export function statsFromResponse(resp) {
+  const v = resp.headers.get('X-Pinot-Stats');
+  if (v === null) return null;
+  try {
+    return JSON.parse(v);
+  } catch {
+    return null;
+  }
+}
+
+// The one-line reading that makes the scan figures land: the ratio, not the
+// raw counts (see PINOT_QUERY_AGENT_PLAN.md's explain panel). More decimals
+// as the ratio shrinks, since "0%" and "0.009%" are very different claims
+// about a columnar store. totalDocs of 0 (or no stats at all) has no ratio
+// to report.
+function explainDecimals(pct) {
+  if (pct < 0.01) return 3;
+  if (pct < 1) return 2;
+  if (pct < 10) return 1;
+  return 0;
+}
+
+export function explainReading(stats) {
+  if (!stats?.totalDocs) return null;
+  const pct = (stats.docsScanned / stats.totalDocs) * 100;
+  return `${pct.toFixed(explainDecimals(pct))}% of the table`;
+}
+
+export function latencyBadgeHtml(ms, stats) {
+  if (ms == null) return '';
+  const attr = stats ? ` data-stats="${esc(JSON.stringify(stats))}"` : '';
+  return ` <span class="latency-badge"${attr}>${ms} ms</span>`;
 }
 
 // The route a position row is on, as the dropdown and the badges spell it.
@@ -121,7 +156,7 @@ export async function getJson(url) {
   // `null` in state.lastRows on a connection reset mid-body — the next render
   // then died on "Cannot read properties of null (reading 'filter')" instead
   // of keeping the rows already on screen.
-  return { data: await resp.json(), ms: latencyMs(resp) };
+  return { data: await resp.json(), ms: latencyMs(resp), stats: statsFromResponse(resp) };
 }
 
 // Both hour-of-day charts (route delay on the map, network rush hour on the

@@ -38,12 +38,12 @@ export async function initDashboard() {
 // reads as "points on the map", which it is not. Fed from refreshOverview's
 // /api/stats fetch rather than its own: the endpoint is uncached, so one
 // live stats query per tick serves both this strip and the Total-rows tile.
-function renderStorageStrip(s, ms) {
+function renderStorageStrip(s, ms, stats) {
   document.getElementById('dash-stats').innerHTML =
     `Apache Pinot storage (hybrid realtime + offline table): ` +
     `<b>${s.segments.toLocaleString()}</b> segments · ` +
     `<b>${fmtBytes(s.sizeBytes)}</b>` +
-    latencyBadgeHtml(ms);
+    latencyBadgeHtml(ms, stats);
 }
 
 // Native overview strip (Total rows + Network rush hour — formerly the
@@ -63,16 +63,16 @@ export async function refreshOverview() {
       getJson('/api/network-hourly'),
     ]);
     if (stats.status === 'rejected') throw stats.reason;
-    renderStorageStrip(stats.value.data, stats.value.ms);
+    renderStorageStrip(stats.value.data, stats.value.ms, stats.value.stats);
     if (rush.status === 'rejected') throw rush.reason;
-    renderOverview(el, stats.value.data, rush.value.data, rush.value.ms);
+    renderOverview(el, stats.value.data, rush.value.data, rush.value.ms, rush.value.stats);
   } catch (err) {
     el.innerHTML =
       `<span class="ov-error">Overview failed to load: ${esc(err.message)}</span>`;
   }
 }
 
-function renderOverview(el, stats, rows, ms) {
+function renderOverview(el, stats, rows, ms, rushStats) {
   const byHour = new Map(rows.map(r => [r.hour, r.activeVehicles]));
   // All 24 slots always drawn, same as the route-delay histogram: hours with
   // no data (feed gaps) read as an empty slot, not a squeezed axis.
@@ -86,7 +86,7 @@ function renderOverview(el, stats, rows, ms) {
     `</div>` +
     `<div class="ov-panel" id="overview-rush">` +
       `<h4>Network rush hour — active vehicles by hour (last 24 h)` +
-      `${latencyBadgeHtml(ms)}</h4>` +
+      `${latencyBadgeHtml(ms, rushStats)}</h4>` +
       `<div class="bars">${bars}</div>` +
       `<div class="hours">${HOUR_TICKS_HTML}</div>` +
     `</div>`;

@@ -25,10 +25,11 @@ class _FakeResponse(io.BytesIO):
         self.close()
 
 
-def _pinot_result(cols, rows, time_used_ms=0):
+def _pinot_result(cols, rows, time_used_ms=0, **stats_fields):
     return json.dumps({
         'resultTable': {'dataSchema': {'columnNames': cols}, 'rows': rows},
         'timeUsedMs': time_used_ms,
+        **stats_fields,
     }).encode('utf-8')
 
 
@@ -43,9 +44,31 @@ class QueryShapingTests(unittest.TestCase):
     def test_query_zips_columns_and_rows_into_dicts(self):
         urllib.request.urlopen = lambda req, timeout=None: _FakeResponse(
             _pinot_result(['a', 'b'], [[1, 'x'], [2, 'y']], time_used_ms=42))
-        rows, ms = pinot._query('SELECT a, b FROM t')
+        rows, ms, _ = pinot._query('SELECT a, b FROM t')
         self.assertEqual(rows, [{'a': 1, 'b': 'x'}, {'a': 2, 'b': 'y'}])
         self.assertEqual(ms, 42)
+
+    def test_query_returns_scan_stats_from_response(self):
+        urllib.request.urlopen = lambda req, timeout=None: _FakeResponse(
+            _pinot_result(['a'], [[1]], numDocsScanned=5279, totalDocs=60417459,
+                          numSegmentsProcessed=32, numSegmentsQueried=33,
+                          numSegmentsPrunedByValue=1, numServersQueried=2))
+        _, _, stats = pinot._query('SELECT a FROM t')
+        self.assertEqual(stats, {
+            'docsScanned': 5279, 'totalDocs': 60417459,
+            'segmentsProcessed': 32, 'segmentsQueried': 33,
+            'segmentsPruned': 1, 'serversQueried': 2,
+        })
+
+    def test_query_defaults_stats_fields_to_zero_when_absent(self):
+        urllib.request.urlopen = lambda req, timeout=None: _FakeResponse(
+            _pinot_result(['a'], [[1]]))
+        _, _, stats = pinot._query('SELECT a FROM t')
+        self.assertEqual(stats, {
+            'docsScanned': 0, 'totalDocs': 0,
+            'segmentsProcessed': 0, 'segmentsQueried': 0,
+            'segmentsPruned': 0, 'serversQueried': 0,
+        })
 
     def test_query_raises_on_exceptions_in_response(self):
         body = json.dumps({'exceptions': [{'errorCode': 200, 'message': 'boom'}]})
@@ -98,16 +121,17 @@ class LiveDelaysTests(unittest.TestCase):
         urllib.request.urlopen = lambda req, timeout=None: _FakeResponse(
             _pinot_result(['routeShortName', 'tripId', 'delay'],
                           [['8', 12, 45]]))
-        data, _ = pinot.live_delays()
+        data, _, _ = pinot.live_delays()
         self.assertEqual(data, {('8', '12'): 45})
 
     def test_live_delays_degrades_to_empty_on_failure(self):
         def boom(req, timeout=None):
             raise OSError('network down')
         urllib.request.urlopen = boom
-        data, ms = pinot.live_delays()
+        data, ms, stats = pinot.live_delays()
         self.assertEqual(data, {})  # schedule-only fallback, not a crash
         self.assertEqual(ms, 0)
+        self.assertIsNone(stats)
 
 
 class RouteHourlyDelayTests(unittest.TestCase):
@@ -122,7 +146,7 @@ class RouteHourlyDelayTests(unittest.TestCase):
         urllib.request.urlopen = lambda req, timeout=None: _FakeResponse(
             _pinot_result(['hourOfDay', 'avgDelaySec', 'snapshots'],
                           [[8, 42, 100]], time_used_ms=7))
-        rows, ms = pinot.route_hourly_delay('8')
+        rows, ms, _ = pinot.route_hourly_delay('8')
         self.assertEqual(rows, [{'hour': '08:00', 'avgDelaySec': 42, 'snapshots': 100}])
         self.assertEqual(ms, 7)
 
@@ -146,7 +170,7 @@ class NetworkHourlyTests(unittest.TestCase):
         urllib.request.urlopen = lambda req, timeout=None: _FakeResponse(
             _pinot_result(['hourOfDay', 'activeVehicles'],
                           [[7, 350], [8, 412]], time_used_ms=19))
-        rows, ms = pinot.network_hourly()
+        rows, ms, _ = pinot.network_hourly()
         self.assertEqual(rows, [{'hour': '07:00', 'activeVehicles': 350},
                                 {'hour': '08:00', 'activeVehicles': 412}])
         self.assertEqual(ms, 19)

@@ -186,14 +186,16 @@ def _read_json(target, timeout, what):
 
 
 def _query(sql, timeout=15):
-    """Run a SQL query against the broker; return (rows, timeUsedMs).
+    """Run a SQL query against the broker; return (rows, timeUsedMs, stats).
 
     `timeout` is the *query* budget in seconds, handed to Pinot as the
     queryOptions timeoutMs (which overrides the broker's own default) and
     used to derive the socket timeout — see _SOCKET_GRACE_SEC.
 
     timeUsedMs is Pinot's own broker-reported query time — surfaced end to
-    end as a latency badge in the app, not just used internally.
+    end as a latency badge in the app, not just used internally. stats is a
+    small dict of the scan figures behind that number (docs/segments touched
+    vs. the table total) — the explain panel's raw material.
     """
     payload = {'sql': sql, 'queryOptions': f'timeoutMs={int(timeout * 1000)}'}
     req = urllib.request.Request(
@@ -206,7 +208,15 @@ def _query(sql, timeout=15):
         raise PinotQueryError(result['exceptions'])
     cols = result['resultTable']['dataSchema']['columnNames']
     rows = [dict(zip(cols, r)) for r in result['resultTable']['rows']]
-    return rows, result.get('timeUsedMs', 0)
+    stats = {
+        'docsScanned': result.get('numDocsScanned', 0),
+        'totalDocs': result.get('totalDocs', 0),
+        'segmentsProcessed': result.get('numSegmentsProcessed', 0),
+        'segmentsQueried': result.get('numSegmentsQueried', 0),
+        'segmentsPruned': result.get('numSegmentsPrunedByValue', 0),
+        'serversQueried': result.get('numServersQueried', 0),
+    }
+    return rows, result.get('timeUsedMs', 0), stats
 
 
 def get_positions():
@@ -224,22 +234,22 @@ def _hour_labeled(row):
 
 
 def route_hourly_delay(route):
-    """(rows of {hour, avgDelaySec, snapshots} for one route's whole history, timeUsedMs)."""
+    """(rows of {hour, avgDelaySec, snapshots} for one route's whole history, timeUsedMs, stats)."""
     if not _ROUTE_RE.match(route):
         raise ValueError('invalid route')
-    rows, ms = _query(ROUTE_HOURLY_DELAY_SQL.format(route=route), timeout=15)
-    return [_hour_labeled(r) for r in rows], ms
+    rows, ms, stats = _query(ROUTE_HOURLY_DELAY_SQL.format(route=route), timeout=15)
+    return [_hour_labeled(r) for r in rows], ms, stats
 
 
 def live_delays():
-    """((route short name, course no as str) -> current delay in seconds, timeUsedMs)."""
+    """((route short name, course no as str) -> current delay in seconds, timeUsedMs, stats)."""
     try:
-        rows, ms = _query(DELAYS_SQL, timeout=10)
+        rows, ms, stats = _query(DELAYS_SQL, timeout=10)
         data = {(str(r['routeShortName']), str(r['tripId'])): r['delay'] for r in rows}
     except Exception as e:  # degrade to schedule-only rather than fail
         print(f'delays: fetch failed: {e}')
-        return {}, 0
-    return data, ms
+        return {}, 0, None
+    return data, ms, stats
 
 
 def heatmap_cells():
@@ -247,13 +257,13 @@ def heatmap_cells():
 
 
 def network_hourly():
-    """(rows of {hour, activeVehicles} over the last 24 h, timeUsedMs)."""
-    rows, ms = _query(NETWORK_HOURLY_SQL, timeout=15)
-    return [_hour_labeled(r) for r in rows], ms
+    """(rows of {hour, activeVehicles} over the last 24 h, timeUsedMs, stats)."""
+    rows, ms, stats = _query(NETWORK_HOURLY_SQL, timeout=15)
+    return [_hour_labeled(r) for r in rows], ms, stats
 
 
 def table_stats():
-    rows, ms = _query(STATS_SQL, timeout=15)
+    rows, ms, stats = _query(STATS_SQL, timeout=15)
     docs = rows[0]['totalDocs']
     size_bytes = _read_json(
         PINOT_CONTROLLER_URL + '/tables/gdansk_public_transport/size?detailed=false',
@@ -266,4 +276,4 @@ def table_stats():
             15, 'controller')
         for names in entry.values())
     data = {'totalDocs': docs, 'segments': segments, 'sizeBytes': size_bytes}
-    return data, ms
+    return data, ms, stats

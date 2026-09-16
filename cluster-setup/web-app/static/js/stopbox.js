@@ -23,7 +23,7 @@ export async function showStopBox(info) {
   const { stopId, name, routes, lon, lat } = info.object;
   hideStopBox(); // stop the timers of a box already open on another stop
   state.stopBox = { stopId, name, routes, lon, lat,
-                    data: null, ms: null, w: 0, h: 0, tick: null, poll: null };
+                    data: null, ms: null, stats: null, w: 0, h: 0, tick: null, poll: null };
   els.stopBox.classList.remove('hidden');
   els.stopBox.innerHTML = `<h3>${esc(name)}</h3>Loading…`;
   positionStopBox(true);
@@ -41,12 +41,13 @@ async function pollStopBox() {
     // The active line rides along: the server answers why this pole is
     // marked as served when none of the next 60 minutes belongs to it.
     const route = els.routeSelect.value;
-    const { data, ms } = await getJson(
+    const { data, ms, stats } = await getJson(
       `/api/departures?stopId=${encodeURIComponent(box.stopId)}`
       + (route ? `&route=${encodeURIComponent(route)}` : ''));
     if (state.stopBox !== box) return; // another stop clicked mid-flight
     box.data = data;
     box.ms = ms;
+    box.stats = stats;
     renderStopBox();
   } catch (err) {
     // A failed *re*-poll keeps the departures already on screen: the
@@ -133,7 +134,7 @@ function renderStopBox() {
   els.stopBox.innerHTML = `
     <button class="close" aria-label="Close">✕</button>
     <h3>${esc(box.name)}</h3>
-    <div class="mode">${modeLabel(box, live)}${latencyBadgeHtml(box.ms)}</div>
+    <div class="mode">${modeLabel(box, live)}${latencyBadgeHtml(box.ms, box.stats)}</div>
     <table>${live.map(d => departureRowHtml(d, now)).join('')}</table>
     ${routeNextHtml(box)}`;
   els.stopBox.querySelector('.close').onclick = hideStopBox;

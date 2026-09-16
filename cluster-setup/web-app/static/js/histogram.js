@@ -19,9 +19,9 @@ export async function loadRouteHistogram(route) {
     return;
   }
   try {
-    const { data, ms } = await getJson(
+    const { data, ms, stats } = await getJson(
       `/api/route-delay-histogram?route=${encodeURIComponent(route)}`);
-    renderRouteHistogram(route, data, ms);
+    renderRouteHistogram(route, data, ms, stats);
   } catch (err) {
     els.histogram.classList.remove('hidden');
     els.histogram.innerHTML = `<h4>Route ${esc(route)} — delay by hour</h4>`
@@ -29,7 +29,7 @@ export async function loadRouteHistogram(route) {
   }
 }
 
-function renderRouteHistogram(route, rows, ms) {
+function renderRouteHistogram(route, rows, ms, stats) {
   const byHour = new Map(rows.map(r => [r.hour, r]));
   // Always draw all 24 slots so a route with sparse-hour coverage (e.g. a
   // night line) still reads as a full day, not a squeezed partial chart.
@@ -42,7 +42,7 @@ function renderRouteHistogram(route, rows, ms) {
   els.histogram.classList.remove('hidden');
   els.histogram.innerHTML =
     `<h4>Route ${esc(route)} — avg delay by hour (whole history)` +
-    `${latencyBadgeHtml(ms)}</h4>` +
+    `${latencyBadgeHtml(ms, stats)}</h4>` +
     `<div class="bars">${bars}</div>` +
     `<div class="hours">${HOUR_TICKS_HTML}</div>`;
 }

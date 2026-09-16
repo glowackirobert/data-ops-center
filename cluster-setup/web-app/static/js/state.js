@@ -13,12 +13,14 @@ export const state = {
   overlay: null,
   selectedTrip: null, // when set, has fields vehicleId, routeId, tripId, path, progress
   followSelected: false, // camera tracks selectedTrip until the user moves the map
-  // when open: { stopId, name, lon, lat, routes, data, ms, w, h, tick, poll }
+  // when open: { stopId, name, lon, lat, routes, data, ms, stats, w, h, tick, poll }
   stopBox: null,
   lastRows: [],
   lastUpdated: 0,
-  positionsMs: null, // Pinot's timeUsedMs for the last /api/positions fetch
-  heatmapMs: null,   // same, for the last /api/heatmap fetch
+  positionsMs: null,     // Pinot's timeUsedMs for the last /api/positions fetch
+  positionsStats: null,  // and the explain-panel scan figures behind it
+  heatmapMs: null,       // same, for the last /api/heatmap fetch
+  heatmapStats: null,
   stopsData: [],
   heatmapData: [],
 };

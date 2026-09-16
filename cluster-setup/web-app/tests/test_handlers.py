@@ -76,22 +76,31 @@ class HandlerTests(unittest.TestCase):
 
     def test_positions_returns_rows_with_at_terminus(self):
         pinot.get_positions = lambda: ([
-            {'vehicleId': 1, 'lat': 54.35, 'lon': 18.64, 'route': '8', 'tripId': 1}], 12)
+            {'vehicleId': 1, 'lat': 54.35, 'lon': 18.64, 'route': '8', 'tripId': 1}], 12, None)
         gtfs.get_trip_ends = lambda: {}
         status, body = self._get('/api/positions')
         self.assertEqual(status, 200)
         self.assertFalse(body[0]['atTerminus'])
 
     def test_positions_includes_latency_header(self):
-        pinot.get_positions = lambda: ([], 37)
+        pinot.get_positions = lambda: ([], 37, None)
         gtfs.get_trip_ends = lambda: {}
         url = f'http://127.0.0.1:{self.port}/api/positions'
         with urllib.request.urlopen(url, timeout=5) as resp:
             self.assertEqual(resp.headers.get('X-Pinot-Time-Ms'), '37')
 
+    def test_positions_includes_stats_header(self):
+        stats = {'docsScanned': 5279, 'totalDocs': 60417459, 'segmentsProcessed': 32,
+                  'segmentsQueried': 33, 'segmentsPruned': 1, 'serversQueried': 2}
+        pinot.get_positions = lambda: ([], 37, stats)
+        gtfs.get_trip_ends = lambda: {}
+        url = f'http://127.0.0.1:{self.port}/api/positions'
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            self.assertEqual(json.loads(resp.headers.get('X-Pinot-Stats')), stats)
+
     def test_stats_returns_data_with_latency_header(self):
         pinot.table_stats = lambda: (
-            {'totalDocs': 5, 'segments': 2, 'sizeBytes': 1024}, 15)
+            {'totalDocs': 5, 'segments': 2, 'sizeBytes': 1024}, 15, None)
         url = f'http://127.0.0.1:{self.port}/api/stats'
         with urllib.request.urlopen(url, timeout=5) as resp:
             self.assertEqual(resp.headers.get('X-Pinot-Time-Ms'), '15')
@@ -170,7 +179,7 @@ class HandlerTests(unittest.TestCase):
 
     def test_route_delay_histogram_returns_rows_with_latency_header(self):
         pinot.route_hourly_delay = lambda route: (
-            [{'hour': '08:00', 'avgDelaySec': 42, 'snapshots': 100}], 9)
+            [{'hour': '08:00', 'avgDelaySec': 42, 'snapshots': 100}], 9, None)
         url = f'http://127.0.0.1:{self.port}/api/route-delay-histogram?route=8'
         with urllib.request.urlopen(url, timeout=5) as resp:
             self.assertEqual(resp.headers.get('X-Pinot-Time-Ms'), '9')
@@ -228,7 +237,7 @@ class HandlerTests(unittest.TestCase):
         gtfs.is_loaded = lambda: True
         now_ms = int(__import__('time').time() * 1000)
         gtfs.get_departures = lambda stop_id: [(now_ms + 60_000, '8', 'Jelitkowo', '1')]
-        pinot.live_delays = lambda: ({('8', '1'): 120}, 5)  # +120s delay
+        pinot.live_delays = lambda: ({('8', '1'): 120}, 5, None)  # +120s delay
         status, body = self._get('/api/departures?stopId=S1')
         self.assertEqual(status, 200)
         dep = body['departures'][0]
@@ -241,7 +250,7 @@ class HandlerTests(unittest.TestCase):
         # scheduled 30s in the future, but a 60s delay pushes the estimate
         # into the past relative to "now" -> should be dropped, not listed
         gtfs.get_departures = lambda stop_id: [(now_ms + 30_000, '8', 'X', '1')]
-        pinot.live_delays = lambda: ({('8', '1'): -60}, 5)
+        pinot.live_delays = lambda: ({('8', '1'): -60}, 5, None)
         _, body = self._get('/api/departures?stopId=S1')
         self.assertEqual(body['departures'], [])
 
@@ -250,7 +259,7 @@ class HandlerTests(unittest.TestCase):
         now_ms = int(__import__('time').time() * 1000)
         far_future = now_ms + 5 * 3_600_000  # 5 h out — outside the 1 h/3 h windows
         gtfs.get_departures = lambda stop_id: [(far_future, '8', 'X', None)]
-        pinot.live_delays = lambda: ({}, 0)
+        pinot.live_delays = lambda: ({}, 0, None)
         _, body = self._get('/api/departures?stopId=S1')
         self.assertEqual(body['mode'], 'next')
         self.assertEqual(len(body['departures']), 1)
@@ -264,7 +273,7 @@ class HandlerTests(unittest.TestCase):
             (now_ms + 60_000, '5', 'Oliwa', None),
             (now_ms + 9 * 3_600_000, '2', 'Lawendowe Wzgorze', None),
         ]
-        pinot.live_delays = lambda: ({}, 0)
+        pinot.live_delays = lambda: ({}, 0, None)
         _, body = self._get('/api/departures?stopId=S1&route=2')
         self.assertEqual([d['route'] for d in body['departures']], ['5'])
         self.assertEqual(body['routeNext']['route'], '2')
@@ -274,7 +283,7 @@ class HandlerTests(unittest.TestCase):
         gtfs.is_loaded = lambda: True
         now_ms = int(__import__('time').time() * 1000)
         gtfs.get_departures = lambda stop_id: [(now_ms + 60_000, '2', 'X', None)]
-        pinot.live_delays = lambda: ({}, 0)
+        pinot.live_delays = lambda: ({}, 0, None)
         _, body = self._get('/api/departures?stopId=S1&route=2')
         self.assertNotIn('routeNext', body)
 
@@ -283,7 +292,7 @@ class HandlerTests(unittest.TestCase):
         gtfs.is_loaded = lambda: True
         now_ms = int(__import__('time').time() * 1000)
         gtfs.get_departures = lambda stop_id: [(now_ms + 60_000, '5', 'X', None)]
-        pinot.live_delays = lambda: ({}, 0)
+        pinot.live_delays = lambda: ({}, 0, None)
         _, body = self._get('/api/departures?stopId=S1&route=2')
         self.assertIn('routeNext', body)
         self.assertIsNone(body['routeNext'])
@@ -292,7 +301,7 @@ class HandlerTests(unittest.TestCase):
         gtfs.is_loaded = lambda: True
         now_ms = int(__import__('time').time() * 1000)
         gtfs.get_departures = lambda stop_id: [(now_ms + 60_000, '5', 'X', None)]
-        pinot.live_delays = lambda: ({}, 0)
+        pinot.live_delays = lambda: ({}, 0, None)
         _, body = self._get('/api/departures?stopId=S1')
         self.assertNotIn('routeNext', body)
 

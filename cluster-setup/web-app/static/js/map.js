@@ -80,9 +80,10 @@ export async function initMap() {
   // no caching anywhere, so the latency badge always shows a real query.
   async function loadHeatmap() {
     try {
-      const { data, ms } = await getJson('/api/heatmap');
+      const { data, ms, stats } = await getJson('/api/heatmap');
       state.heatmapData = data;
       state.heatmapMs = ms;
+      state.heatmapStats = stats;
     } catch (err) {
       statusEl.textContent = `Heatmap failed: ${err.message}`;
     }
@@ -233,8 +234,9 @@ export async function initMap() {
     overlay.setProps({ layers: deckLayers(rows, route, heatOn) });
     const count = route ? `${rows.length} of ${state.lastRows.length}` : `${rows.length}`;
     const ms = heatOn ? state.heatmapMs : state.positionsMs;
+    const stats = heatOn ? state.heatmapStats : state.positionsStats;
     statusEl.innerHTML = `${count} vehicles · updated ${time24(state.lastUpdated)}`
-      + latencyBadgeHtml(ms);
+      + latencyBadgeHtml(ms, stats);
   }
 
   // Centering on a tracked vehicle — both on the click that selects it and
@@ -359,9 +361,10 @@ export async function initMap() {
 
   async function refresh() {
     try {
-      const { data, ms } = await getJson('/api/positions');
+      const { data, ms, stats } = await getJson('/api/positions');
       state.lastRows = data;
       state.positionsMs = ms;
+      state.positionsStats = stats;
       state.lastUpdated = Date.now();
       syncSelection(state.lastRows);
       updateRouteActivity(state.lastRows);
