@@ -94,6 +94,7 @@ cluster-setup/container/secrets/superset_admin_username    # Superset admin user
 cluster-setup/container/secrets/superset_admin_email       # Superset admin email
 cluster-setup/container/secrets/superset_mapbox_api_key    # Mapbox API key for map visualisations
 cluster-setup/container/secrets/pinot_basic_auth_hash      # bcrypt hash guarding the Pinot controller UI (see below)
+cluster-setup/container/secrets/anthropic_api_key          # Anthropic API key for the /api/ask text-to-SQL agent
 ```
 
 The `secrets/` directory is gitignored — these files must be created manually on every machine.
@@ -439,6 +440,7 @@ The backend (stdlib Python, no dependencies) exposes:
 | `/api/route-shape` | `?routeId=&tripId=` — today's trip trajectory (GeoJSON LineString coordinates) proxied from the ZTM shapes API, cached in memory per day; 404 if the trip has no shape today |
 | `/api/stats`       | Total docs (broker `COUNT(*)` over the hybrid table), segment count and reported size (controller API) — feeds the header scale strip |
 | `/api/heatmap`     | 24 h GPS ping density on a ~100 m grid, for the map's heatmap toggle |
+| `/api/ask`         | `POST {question}` — text-to-SQL agent (see `AI_PLATFORM_PLAN.md`); answers in English plus the Pinot SQL it ran, its rows and scan stats. Rate-limited per IP; needs the `anthropic_api_key` secret |
 
 The GTFS feed (`gtfsgoogle.zip`, ~20 MB) is downloaded on startup and every 6 h
 by a background thread; only today's and tomorrow's service days are kept in

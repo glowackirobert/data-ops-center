@@ -9,6 +9,10 @@ WORKDIR /app
 # far too little to ever fill the block buffer - without this, nothing at
 # all reaches "docker logs" or Alloy -> Loki.
 ENV PYTHONUNBUFFERED=1
+# The agent behind /api/ask (AI_PLATFORM_PLAN.md) — the first non-stdlib
+# dependencies in the web-app. Pinned exact versions, same rigor as the
+# image tags in versions.env.
+RUN pip install --no-cache-dir anthropic==1.6.0 sqlglot==30.18.0
 COPY cluster-setup/web-app/server.py ./
 COPY cluster-setup/web-app/app/ ./app/
 COPY cluster-setup/web-app/static/ ./static/
