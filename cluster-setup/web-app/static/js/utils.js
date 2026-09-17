@@ -104,7 +104,7 @@ export function statsFromResponse(resp) {
 }
 
 // The one-line reading that makes the scan figures land: the ratio, not the
-// raw counts (see PINOT_QUERY_AGENT_PLAN.md's explain panel). More decimals
+// raw counts. More decimals
 // as the ratio shrinks, since "0%" and "0.009%" are very different claims
 // about a columnar store. totalDocs of 0 (or no stats at all) has no ratio
 // to report.

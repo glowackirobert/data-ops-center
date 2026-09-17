@@ -40,7 +40,6 @@ test('statsFromResponse: null rather than throwing on a malformed header', () =>
 // explainReading - the ratio, not the raw counts, is the number that lands.
 
 test('explainReading: rounds a tiny ratio to three decimals', () => {
-  // The measured example from PINOT_QUERY_AGENT_PLAN.md.
   assert.equal(
     explainReading({ docsScanned: 5279, totalDocs: 60417459 }), '0.009% of the table');
 });
