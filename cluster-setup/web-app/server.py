@@ -20,6 +20,8 @@ from app.http import send, send_json, send_error_response
 
 STATIC_DIR = os.path.join(BASE, 'static')
 GTFS_NOT_LOADED = {'error': 'GTFS not loaded yet, retry shortly'}
+NOT_FOUND = 'not found'
+TEXT_PLAIN = 'text/plain'
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -62,14 +64,14 @@ class Handler(BaseHTTPRequestHandler):
         elif parsed.path.startswith('/static/'):
             self._run_route(parsed.path, lambda: self._serve_static(parsed.path))
         else:
-            self._send(404, 'not found', 'text/plain')
+            self._send(404, NOT_FOUND, TEXT_PLAIN)
 
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == '/api/ask':
             self._run_route(parsed.path, self._serve_ask)
         else:
-            self._send(404, 'not found', 'text/plain')
+            self._send(404, NOT_FOUND, TEXT_PLAIN)
 
     def _serve_index(self):
         with open(os.path.join(STATIC_DIR, 'index.html'), 'rb') as f:
@@ -83,7 +85,7 @@ class Handler(BaseHTTPRequestHandler):
         full = os.path.normpath(os.path.join(STATIC_DIR, rel))
         if not (full == STATIC_DIR or full.startswith(STATIC_DIR + os.sep)) \
                 or not os.path.isfile(full):
-            self._send(404, 'not found', 'text/plain')
+            self._send(404, NOT_FOUND, TEXT_PLAIN)
             return
         content_type = mimetypes.guess_type(full)[0] or 'application/octet-stream'
         with open(full, 'rb') as f:
