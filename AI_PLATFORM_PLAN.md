@@ -8,8 +8,10 @@ latency-badge popover. So has Track 1's MCP server — the same tool surface,
 plus schema/health/ingestion/log/metric tools, with Claude Code wired as its
 first client via `.mcp.json`. So has Track 2's natural-language map filter —
 the **Filter** button beside **Ask**, Pinot-free, so it keeps working when
-`/api/ask` is answering 504s. All four are live, documented in `CLAUDE.md`.
-What remains is Tracks 3-5 below, plus Track 1's optional public exposure
+`/api/ask` is answering 504s. So has Track 4's eval harness — a checked-in
+question set and three deterministic graders, run by hand against the live
+cluster, not in CI. All five are live, documented in `CLAUDE.md`. What
+remains is Tracks 3 and 5 below, plus Track 1's optional public exposure
 (for a Claude Desktop / claude.ai client — nothing needs it yet).
 
 The organising idea: **one tool surface, many clients.** The same handful of
@@ -158,22 +160,49 @@ right cheaply, then move the same prompt to (a).
 
 ## Track 4 — Evals: what decides the model, the prompt and the rules
 
-The thing that makes the agent engineering rather than a demo. A checked-in
-set, `cluster-setup/web-app/tests/evals/text_to_sql.jsonl`, of ~30 questions
-with golden SQL, and three deterministic graders that need no LLM judge:
+Shipped: `cluster-setup/web-app/tests/evals/text_to_sql.jsonl`, 14 questions
+with golden SQL (current-state, star-tree daily aggregates, whole-history
+sorted-column, and two geographic cases — smaller than the ~30 first
+sketched here, in favor of every case being grounded in a query shape
+already proven elsewhere in this codebase rather than padded to a round
+number; growing it is one JSONL line), and three deterministic graders in
+`tests/evals/text_to_sql.py` that need no LLM judge:
 
-1. **Result equality** — the rows match the golden query's rows.
-2. **Index hit** — `numDocsScanned / totalDocs` under a threshold, taken
-   from the same broker stats the explain panel shows.
-3. **Plan shape** — `explain_sql` output contains no `FILTER_FULL_SCAN`.
+1. **Result equality** — the agent's own SQL, executed, matched against the
+   golden query's rows. Row/column-order- and alias-independent (the
+   agent's SELECT list won't match the golden query's), which trades a
+   small accepted risk of a coincidental cross-column collision for not
+   having to predict the agent's exact column names — the standard
+   execution-accuracy tradeoff. Numeric values are rounded to the nearest
+   whole unit before comparing, so a `ROUNDDECIMAL` precision mismatch
+   doesn't fail a case the answer got right. Group-by (multi-row) cases opt
+   out via `"check_result": false` for the same column-shape-prediction
+   reason; geographic cases opt out because their correct answer depends on
+   `find_stops`'s live bbox, which isn't known at authoring time.
+2. **Index hit** — `docsScanned / totalDocs` under a per-case
+   `max_scan_ratio`, taken from the same broker stats the explain panel
+   shows.
+3. **Plan shape** — `EXPLAIN PLAN FOR` the agent's own SQL contains no
+   `FULL_SCAN` in any column (not assumed to be literally named
+   `"Operator"` — that exact shape wasn't checked against a live 1.5.1
+   controller, see `CLAUDE.md`).
 
-Run by hand against the live cluster with an API key
-(`python -m tests.evals.text_to_sql --model ...`), printing one table of
-pass rates and median `timeUsedMs` per model. CI stays offline as today. This
-is the run that answers "Opus-low or Haiku", "does the geographic rule
-actually prevent the 2.5 s bbox scan", and "did adding `explain_sql` change
-anything" — with numbers, in the same style as the measurements this plan is
-built on.
+Run by hand against the live cluster with a real Anthropic API key and
+Pinot reachable (`python -m tests.evals.text_to_sql --model claude-opus-5
+--date 2026-09-10`, from `cluster-setup/web-app`), printing pass rates and
+median `timeUsedMs`. `{date}` in a question/golden SQL is substituted from
+`--date` (default: 2 days ago) rather than the agent resolving "yesterday"
+itself — `agent.py`'s system prompt carries no notion of "today". CI stays
+offline: the pure grading logic (`grade`, `rows_match`, `is_full_scan`,
+`load_cases`) is unit-tested in `tests/test_evals_text_to_sql.py` with
+everything mocked; `run_case`/`main`, the only parts that call
+Pinot/Anthropic, are not run there — same split `mcp_server.py`'s untested-
+by-design live dispatch has. This is the run that answers "Opus-low or
+Haiku", "does the geographic rule actually prevent the 2.5 s bbox scan",
+and "did adding `explain_sql` change anything" — with numbers, in the same
+style as the measurements this plan is built on. Not yet actually run
+against the live cluster with a real API key while writing this — the
+grading logic is verified, the questions/golden SQL are not.
 
 ## Track 5 — Claude Code as part of the repo's workflow
 
@@ -211,7 +240,7 @@ Small, optional, and cheap now that Track 1 exists:
 |------|-------------------------------------|-------------------------------------------|----------|--------------------------------------------|
 | 1    | Track 1 server + `.mcp.json`       | already available (`app/agent.py`, `/api/ask`) | **Done** | the cluster is agent-operable      |
 | 2    | Track 2 map filter (voice not done) | —                                       | **Done** | structured output, Pinot-free            |
-| 3    | Track 4 evals                      | 1                                        | 1 day    | numbers behind every model/prompt choice |
+| 3    | Track 4 evals (not yet run live)   | 1                                        | **Done** | numbers behind every model/prompt choice |
 | 4    | Track 3 brief, path (b) then (a)   | 1, `mcp.` exposure                       | 1–2 days | scheduled autonomous agent               |
 | 5    | Track 5                            | 1                                        | hours (1/3 done) | —                                |
 
