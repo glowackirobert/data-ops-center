@@ -28,6 +28,7 @@ from the host when debugging.
 | Superset              | 8088    | **host**        | BI and data exploration UI connected to Pinot via `pinotdb`.                                                                                                                                                                       |
 | Caddy                 | 80, 443 | **host**        | TLS reverse proxy; the only public entrypoint. Serves the four browser-facing services on `map.` / `bi.` / `ops.` / `pinot.` subdomains. |
 | Web app               | 3001    | **host**        | Live vehicle map (flicker-free 10 s refresh) + Analytics tab embedding the Superset dashboard                                                                                                                                      |
+| Data Ops MCP          | 8765    | internal        | Same image as web app, second entrypoint (`python mcp_server.py`) — 8 read-only tools over MCP (AI_PLATFORM_PLAN.md Track 1): SQL, schema, cluster health, S3 ingestion gaps, Loki logs, Prometheus metrics. No public route yet. |
 | Gdansk GPS producer   | -       | n/a             | Polls the Gdansk public transport API every 10 s (twice as often as the API's own ~20 s refresh, whose phase is unknown) and publishes every vehicle position as JSON to the `gdansk-public-transport` topic. Listens on nothing.  |
 
 ### Init containers (run once, `--profile init`)
@@ -442,6 +443,15 @@ The backend (stdlib Python, no dependencies) exposes:
 | `/api/heatmap`     | 24 h GPS ping density on a ~100 m grid, for the map's heatmap toggle |
 | `/api/ask`         | `POST {question}` — text-to-SQL agent (see `AI_PLATFORM_PLAN.md`); answers in English plus the Pinot SQL it ran, its rows and scan stats. Rate-limited per IP; needs the `anthropic_api_key` secret |
 
+The same tool surface `/api/ask` uses internally, plus schema/health/S3/log/
+metric tools, is also exposed over MCP by `mcp_server.py` (`AI_PLATFORM_PLAN.md`
+Track 1) — checked in as `.mcp.json` at the repo root, so any Claude Code
+session here can query the live cluster with no setup beyond having Python
+and this repo's `pip install`s (`mcp`, `boto3`, `anthropic`, `sqlglot`)
+available. It also runs as the `data-ops-mcp` compose service
+(`MCP_TRANSPORT=http`) for future networked clients, reachable on
+`pinot-network` only — no public route today.
+
 The GTFS feed (`gtfsgoogle.zip`, ~20 MB) is downloaded on startup and every 6 h
 by a background thread; only today's and tomorrow's service days are kept in
 memory. Stops appear on the map from zoom 13; clicking one opens the
@@ -563,7 +573,7 @@ and has **no host mapping at all**:
 | Web app 3001                 | ZooKeeper 2181, Kafka 9092, Schema Registry 8081    |
 | Superset 8088                | Pinot Controller 9000, Broker 8099, Server 8097/8098, Minion 7500 |
 | Grafana 3000                 | Prometheus 9090, Loki 3100, Alloy 12345             |
-| —                            | JMX exporters 19092, 19000, 18099, 18098, 17500     |
+| —                            | Data Ops MCP 8765, JMX exporters 19092, 19000, 18099, 18098, 17500 |
 
 None of the unpublished services has any authentication, which is exactly why
 they stay inside the network. The JMX exporter ports have never been published

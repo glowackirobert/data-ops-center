@@ -28,6 +28,19 @@ SUPERSET_DOMAIN = os.environ.get('SUPERSET_DOMAIN', 'http://localhost:8088')
 DASHBOARD_TITLE = os.environ.get('DASHBOARD_TITLE', 'Gdansk Public Transport')
 APPLICATION_JSON = 'application/json'
 
+# --- MCP server (mcp_server.py, AI_PLATFORM_PLAN.md Track 1) ---
+# Same LOKI_URL/PROMETHEUS_URL names container-compose.yml already sets on
+# the grafana service (its provisioned datasources read them too) — reused
+# here rather than inventing new ones.
+LOKI_URL = os.environ.get('LOKI_URL', 'http://localhost:3100')
+PROMETHEUS_URL = os.environ.get('PROMETHEUS_URL', 'http://localhost:9090')
+S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME', 'gdansk-public-transport')
+# 'stdio' for Claude Code/Desktop (a subprocess per session, see .mcp.json);
+# 'http' for the data-ops-mcp compose service, reachable on pinot-network by
+# any future networked client without a subprocess to manage.
+MCP_TRANSPORT = os.environ.get('MCP_TRANSPORT', 'stdio')
+MCP_PORT = int(os.environ.get('MCP_PORT', '8765'))
+
 # --- GTFS ---
 GTFS_URL = os.environ.get(
     'GTFS_URL',

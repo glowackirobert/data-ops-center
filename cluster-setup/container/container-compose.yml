@@ -425,6 +425,39 @@ services:
     networks:
       - pinot-network
 
+  # AI_PLATFORM_PLAN.md Track 1: the same 8 read-only tools /api/ask uses
+  # internally (run_pinot_sql, explain_sql, find_stops, guard included) plus
+  # get_schema/cluster_health/ingestion_gaps/get_logs/get_metric, exposed
+  # over MCP so Claude Code, a scheduled agent, etc. can reach them without
+  # importing app/agent.py directly. Same image as web-app, second
+  # entrypoint. No published port and no Caddyfile route yet — reachable
+  # only on pinot-network, since no client needs it publicly exposed today
+  # (see "Public exposure" in AI_PLATFORM_PLAN.md's Track 1).
+  data-ops-mcp:
+    image: ${DOCKER_IMAGE_BASE_PATH}web-app:${WEB_APP_VERSION}
+    container_name: data-ops-mcp
+    restart: unless-stopped
+    command: ["python", "mcp_server.py"]
+    environment:
+      PINOT_BROKER_URL: http://pinot-broker:8099
+      PINOT_CONTROLLER_URL: http://pinot-controller:9000
+      LOKI_URL: ${LOKI_URL}
+      PROMETHEUS_URL: ${PROMETHEUS_URL}
+      MCP_TRANSPORT: http
+      AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
+      # boto3 has no config-file fallback here (only AWS_SHARED_CREDENTIALS_FILE
+      # is mounted, no ~/.aws/config) and raises NoRegionError without this.
+      # Matches the S3 region Pinot's own deep-store config already uses
+      # (cluster-setup/pinot/pinot-controller.conf).
+      AWS_REGION: eu-north-1
+    secrets:
+      - aws_credentials
+    depends_on:
+      pinot-broker:
+        condition: service_healthy
+    networks:
+      - pinot-network
+
   caddy:
     image: caddy:${CADDY_VERSION}
     container_name: caddy

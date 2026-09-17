@@ -10,11 +10,12 @@ WORKDIR /app
 # all reaches "docker logs" or Alloy -> Loki.
 ENV PYTHONUNBUFFERED=1
 # The agent behind /api/ask (AI_PLATFORM_PLAN.md) — the first non-stdlib
-# dependencies in the web-app. Pinned exact versions, same rigor as the
-# image tags in versions.env.
-RUN pip install --no-cache-dir anthropic==1.6.0 sqlglot==30.18.0
-COPY cluster-setup/web-app/server.py ./
+# dependencies in the web-app. mcp/boto3 back mcp_server.py (Track 1): the
+# MCP SDK's FastMCP, and S3 listing for the ingestion_gaps tool. Pinned
+# exact versions, same rigor as the image tags in versions.env.
+RUN pip install --no-cache-dir anthropic==1.6.0 sqlglot==30.18.0 mcp==1.30.0 boto3==1.43.96
+COPY cluster-setup/web-app/server.py cluster-setup/web-app/mcp_server.py ./
 COPY cluster-setup/web-app/app/ ./app/
 COPY cluster-setup/web-app/static/ ./static/
-EXPOSE 3001
+EXPOSE 3001 8765
 CMD ["python", "server.py"]

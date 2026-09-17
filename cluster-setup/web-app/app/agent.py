@@ -2,13 +2,16 @@
 
 Guard-then-query pattern: every SQL string the model produces goes through
 _guard_select() before it ever reaches pinot._query() — the same guard
-whether the call comes from ask() here or (Track 1) the MCP server, since
-both will share this module's tool bodies.
+whether the call comes from ask() here or from mcp_server.py's
+run_pinot_sql/explain_sql tools (Track 1), which call _guard_select() and
+_find_stops() directly rather than duplicating them. Only those two plus
+pinot._query() are actually shared — each side's tool-runner wiring (the
+per-request last_query capture here, FastMCP's @mcp.tool() there) and error
+handling are separate, since the two frameworks want different shapes.
 
 Wired into server.py's do_POST (AI_PLATFORM_PLAN.md step 4) — that handler
 just calls ask() and hands the result to send_json(); this module stays
-usable standalone (e.g. from a REPL or a future MCP server tool body) either
-way.
+usable standalone (e.g. from a REPL) either way.
 """
 import difflib
 import json
@@ -119,7 +122,10 @@ number that didn't come from a tool result.\
 # map. The real risk is a cartesian join or an unbounded GROUP BY pinning
 # the broker, so this validates shape and caps LIMIT, nothing more.)
 
-_KNOWN_TABLES = {'gdansk_public_transport', 'gdansk_public_transport_latest'}
+# The canonical set lives in pinot.py (it owns every other piece of
+# table-specific knowledge too) — mcp_server.py's get_schema/cluster_health
+# tools validate against the same set.
+_KNOWN_TABLES = pinot.KNOWN_TABLES
 _DEFAULT_LIMIT = 2000
 _MAX_LIMIT = 5000
 _QUERY_TIMEOUT_S = 15

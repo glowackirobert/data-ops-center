@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "data-ops-center": {
+      "command": "python",
+      "args": ["cluster-setup/web-app/mcp_server.py"]
+    }
+  }
+}

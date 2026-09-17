@@ -44,7 +44,7 @@ All commands are in `cluster-setup/README-docker.md`. Key facts:
 - All Docker image versions live in `cluster-setup/env/versions.env` — the single source of truth, read by the compose commands (first `--env-file`), the README build commands, and the CI workflow. Exception: `kafka-producer-app` is versioned by its `pom.xml`. The k8s manifests do **not** read it.
 - The `secrets/` directory (`cluster-setup/container/secrets/`) is gitignored and must be populated before first run — the README lists the required files.
 - Custom images (`apache-pinot`, `superset`, `kafka-producer-app`, `web-app`) must be built locally before first start in **dev mode** (`env.dev`, `DOCKER_IMAGE_BASE_PATH` empty). **Prod mode** (`env.prod`) pulls them from Docker Hub `robertglowacki83/` — built and pushed automatically by `.github/workflows/docker-ci.yml` on pushes to `master` that touch image inputs.
-- Files are baked into the custom images at build time: `cluster-setup/table_config/` and `cluster-setup/pinot/` into `apache-pinot`, `cluster-setup/web-app/server.py`, `cluster-setup/web-app/app/`, and `cluster-setup/web-app/static/` into `web-app` — rebuild the image after changing them.
+- Files are baked into the custom images at build time: `cluster-setup/table_config/` and `cluster-setup/pinot/` into `apache-pinot`, `cluster-setup/web-app/server.py`, `cluster-setup/web-app/mcp_server.py`, `cluster-setup/web-app/app/`, and `cluster-setup/web-app/static/` into `web-app` (also the image behind the `data-ops-mcp` service — same tag, different `command:`) — rebuild the image after changing them.
 - `--profile init` additionally runs the one-shot seeding containers: `kafka-topic-init`, `pinot-table-registrar` (registers schemas/tables), `kafka-producer`, `pinot-ingestion-runner` (S3 batch ingestion), `superset-init`.
 
 Service ports and dev/prod bind behaviour are documented in `cluster-setup/README-docker.md`.
@@ -115,7 +115,32 @@ toggled by the **Ask** button). Needs the `anthropic_api_key` secret (same
 pattern as `superset_mapbox_api_key`). First non-stdlib dependencies in the
 web-app: `anthropic`, `sqlglot` (pinned in `Dockerfile.web-app`).
 
-Backend code is split into `server.py` (thin HTTP routing) and `app/` (domain modules: `config`, `http`, `http_client`, `gtfs`, `pinot`, `superset`, `geo`, `agent`); frontend assets live under `static/` (`index.html` shell, `css/styles.css`, and `js/`: `app` (tab switching, and the explain-panel popover a latency badge opens on click) and `help` (intro modal) above the two views — `dashboard` for the Analytics tab, and for the map `map` (creates the Mapbox map and deck.gl overlay once, then owns the refresh loop, the vehicle selection and the camera), `layers` (everything deck.gl draws, plus the hover tooltip), `stopbox` (the departures popup), `histogram` (the route-delay panel), `chat` (the `/api/ask` panel — self-contained like `histogram`, reuses `app.js`'s delegated latency-badge popover rather than wiring its own) and `state` (the app-state object and the DOM handles, the two singletons those four share — `chat` isn't one of the four, since nothing else on the map depends on its state). `geo` (path/screen geometry) and `utils` (formatting, `getJson`/`postJson`, the shared hour-of-day bar chart) are the dependency-free leaves, and the only two with unit tests. Tests are under `tests/` — `python -m unittest discover -s cluster-setup/web-app/tests` for the Python modules, `node --test cluster-setup/web-app/tests/test_geo.js cluster-setup/web-app/tests/test_utils.js` for the frontend geometry and latency-badge helpers (list both files explicitly — the directory also holds the Python tests, which trips up Node's test-file auto-discovery).
+`mcp_server.py` (`AI_PLATFORM_PLAN.md` Track 1) is a second entrypoint of
+the same image — `python mcp_server.py` instead of `server.py` — exposing 8
+read-only tools over MCP: `run_pinot_sql`/`explain_sql`/`find_stops` reuse
+`agent._guard_select()`/`agent._find_stops()` and `pinot._query()` verbatim
+(no duplicated guard), `get_schema`/`cluster_health` are new `pinot.py`
+functions (controller `/schemas`, `/tables`, `/segments`, `/health`,
+`/tables/{t}/externalview`), `ingestion_gaps` is a new `app/ingestion.py`
+(paginated S3 listing under `raw/YYYY/MM/DD/`, boto3, contiguous
+missing-minute ranges rather than 1,440 individual minutes), and
+`get_logs`/`get_metric` are a new `app/observability.py` (Loki
+`/loki/api/v1/query_range`, Prometheus `/api/v1/query_range`, both
+unauthenticated on `pinot-network`). Runs two ways: `stdio` (the
+`.mcp.json` checked in at the repo root — Claude Code's own MCP client,
+"the cheapest client: one JSON file") or `MCP_TRANSPORT=http` (the
+`data-ops-mcp` compose service, internal-only — no Caddyfile route or
+bearer-token secret yet, since no client needs public exposure today).
+`get_logs` only reaches Loki when run inside the compose network or
+`container-compose.debug-ports.yml` is extended with a Loki port — unlike
+Prometheus/the Pinot controller/broker, Loki has no debug port published
+today. The `/tables/{t}/externalview` shape `cluster_health` reads wasn't
+checked against a live 1.5.1 controller while writing this — verify at
+`http://localhost:9000/help` before relying on it operationally. New
+dependencies for both: `mcp`, `boto3` (pinned in `Dockerfile.web-app`
+alongside `anthropic`/`sqlglot`).
+
+Backend code is split into `server.py` (thin HTTP routing) and `app/` (domain modules: `config`, `http`, `http_client`, `gtfs`, `pinot`, `superset`, `geo`, `agent`, `observability`, `ingestion`); frontend assets live under `static/` (`index.html` shell, `css/styles.css`, and `js/`: `app` (tab switching, and the explain-panel popover a latency badge opens on click) and `help` (intro modal) above the two views — `dashboard` for the Analytics tab, and for the map `map` (creates the Mapbox map and deck.gl overlay once, then owns the refresh loop, the vehicle selection and the camera), `layers` (everything deck.gl draws, plus the hover tooltip), `stopbox` (the departures popup), `histogram` (the route-delay panel), `chat` (the `/api/ask` panel — self-contained like `histogram`, reuses `app.js`'s delegated latency-badge popover rather than wiring its own) and `state` (the app-state object and the DOM handles, the two singletons those four share — `chat` isn't one of the four, since nothing else on the map depends on its state). `geo` (path/screen geometry) and `utils` (formatting, `getJson`/`postJson`, the shared hour-of-day bar chart) are the dependency-free leaves, and the only two with unit tests. Tests are under `tests/` — `python -m unittest discover -s cluster-setup/web-app/tests` for the Python modules, `node --test cluster-setup/web-app/tests/test_geo.js cluster-setup/web-app/tests/test_utils.js` for the frontend geometry and latency-badge helpers (list both files explicitly — the directory also holds the Python tests, which trips up Node's test-file auto-discovery).
 
 Two env-file variables must be reachable from the **user's browser** (container names never work there): `SUPERSET_DOMAIN` (`src` of the embedded dashboard iframe, local default `http://localhost:8088`) and `WEBAPP_ORIGIN` (Superset CSP `frame-ancestors` allowlist, local default `http://localhost:3001`). `env.dev` carries the plain-HTTP pair (a plain `up` starts no Caddy — it sits behind `--profile tls`), `env.prod` the `https://bi.` / `https://map.` pair; `env.dev` also keeps the TLS pair commented out for testing that profile locally. On EC2 or any remote host set both to the instance's public DNS/IP; the localhost defaults are already correct when tunneling ports 8088 and 3001 over SSH. See *Browser-visible origins* in `cluster-setup/README-docker.md`.
 

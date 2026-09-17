@@ -10,6 +10,11 @@ import urllib.request
 
 from app.config import APPLICATION_JSON, PINOT_BROKER_URL, PINOT_CONTROLLER_URL
 
+# The only two tables app/agent.py's SQL guard and mcp_server.py's tools may
+# reference — kept here since pinot.py is where every other piece of
+# table-specific knowledge (the SQL below, controller calls) already lives.
+KNOWN_TABLES = {'gdansk_public_transport', 'gdansk_public_transport_latest'}
+
 # Pinot's INT null sentinel (Integer.MIN_VALUE) — what a null tripId (no
 # default set in either gdansk_public_transport schema) reads back as for a
 # vehicle currently between trips (e.g. laying over at a depot/terminus) —
@@ -277,3 +282,87 @@ def table_stats():
         for names in entry.values())
     data = {'totalDocs': docs, 'segments': segments, 'sizeBytes': size_bytes}
     return data, ms, stats
+
+
+def get_schema(table):
+    """Columns/types (from the schema) plus sorted column, inverted/range
+    index columns and star-tree dimensions (from the table config) — the
+    shape an MCP client or a prompt needs without inlining the whole
+    controller response (AI_PLATFORM_PLAN.md Track 1's get_schema tool).
+
+    Raises ValueError for a table outside KNOWN_TABLES, mirroring the guard
+    in app/agent.py rather than letting an unknown name reach the controller.
+    """
+    if table not in KNOWN_TABLES:
+        raise ValueError(f'unknown table: {table}')
+    schema = _read_json(PINOT_CONTROLLER_URL + f'/schemas/{table}', 15, 'controller')
+    columns = [
+        {'name': f['name'], 'dataType': f['dataType']}
+        for kind in ('dimensionFieldSpecs', 'metricFieldSpecs', 'dateTimeFieldSpecs')
+        for f in schema.get(kind, [])
+    ]
+    # {"OFFLINE": {tableConfig...}, "REALTIME": {tableConfig...}} — whichever
+    # types are registered for this table.
+    configs = _read_json(PINOT_CONTROLLER_URL + f'/tables/{table}', 15, 'controller')
+    table_types = {}
+    for table_type, config in configs.items():
+        index_config = config.get('tableIndexConfig', {})
+        star_tree = [
+            {'dimensionsSplitOrder': s.get('dimensionsSplitOrder', []),
+             'functionColumnPairs': s.get('functionColumnPairs', [])}
+            for s in (index_config.get('starTreeIndexConfigs') or [])
+        ]
+        table_types[table_type] = {
+            'sortedColumn': index_config.get('sortedColumn', []),
+            'invertedIndexColumns': index_config.get('invertedIndexColumns', []),
+            'rangeIndexColumns': index_config.get('rangeIndexColumns', []),
+            'starTree': star_tree,
+        }
+    return {'table': table, 'columns': columns, 'tableTypes': table_types}
+
+
+def cluster_health():
+    """Controller reachability, and per known table: deep-store size and
+    segment counts by state (AI_PLATFORM_PLAN.md Track 1's cluster_health
+    tool). 'is realtime consuming' is read off the external view — a
+    segment in CONSUMING state is exactly that signal, so no separate
+    consuming-offsets call is needed for a health summary.
+
+    The /tables/{tableWithType}/externalview shape used here is Pinot's
+    long-stable segment-status endpoint, but wasn't checked against a live
+    1.5.1 controller while writing this — verify against
+    http://localhost:9000/help before relying on it operationally.
+    """
+    try:
+        # urlopen raises HTTPError (a URLError subclass) on any non-2xx
+        # status, so reaching the body check at all already means success;
+        # the content check is what tells "OK" apart from a 200 with an
+        # empty or unexpected body.
+        with urllib.request.urlopen(PINOT_CONTROLLER_URL + '/health', timeout=10) as resp:
+            healthy = resp.read().strip() == b'OK'
+    except (TimeoutError, urllib.error.URLError):
+        healthy = False
+
+    tables = {}
+    for table in sorted(KNOWN_TABLES):
+        size_bytes = _read_json(
+            PINOT_CONTROLLER_URL + f'/tables/{table}/size?detailed=false',
+            15, 'controller').get('reportedSizeInBytes')
+        table_info = {'sizeBytes': size_bytes, 'segmentStates': {}, 'consuming': False}
+        # [{"OFFLINE": [names…]}, {"REALTIME": [names…]}]
+        for entry in _read_json(PINOT_CONTROLLER_URL + f'/segments/{table}', 15, 'controller'):
+            for table_type, names in entry.items():
+                if not names:
+                    continue
+                view = _read_json(
+                    PINOT_CONTROLLER_URL + f'/tables/{table}_{table_type}/externalview',
+                    15, 'controller')
+                states = {}
+                for segment_states in view.values():
+                    for state in segment_states.values():
+                        states[state] = states.get(state, 0) + 1
+                        if state == 'CONSUMING':
+                            table_info['consuming'] = True
+                table_info['segmentStates'][table_type] = states
+        tables[table] = table_info
+    return {'controllerHealthy': healthy, 'tables': tables}
