@@ -408,7 +408,6 @@ services:
       SUPERSET_DOMAIN: ${SUPERSET_DOMAIN:-http://localhost:8088}
     secrets:
       - superset_mapbox_api_key
-      - anthropic_api_key
       - superset_admin_username
       - superset_admin_password
     depends_on:
@@ -483,5 +482,3 @@ secrets:
     file: ./secrets/superset_mapbox_api_key
   pinot_basic_auth_hash:
     file: ./secrets/pinot_basic_auth_hash
-  anthropic_api_key:
-    file: ./secrets/anthropic_api_key

@@ -159,25 +159,6 @@ export async function getJson(url) {
   return { data: await resp.json(), ms: latencyMs(resp), stats: statsFromResponse(resp) };
 }
 
-// POST counterpart to getJson, for the one endpoint (/api/ask) that takes a
-// body. Same error-unwrapping rule: the server's own `error` text beats a
-// bare status code.
-export async function postJson(url, body) {
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!resp.ok) {
-    const data = await resp.json().catch(() => null);
-    const detail = typeof data?.error === 'string' ? data.error : null;
-    const err = new Error(detail || `HTTP ${resp.status}`);
-    err.status = resp.status;
-    throw err;
-  }
-  return resp.json();
-}
-
 // Both hour-of-day charts (route delay on the map, network rush hour on the
 // Analytics tab) are the same bar strip against the same CSS, differing only
 // in what a bar means — so they share the drawing and pass their own titles.

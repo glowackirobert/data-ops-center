@@ -45,7 +45,6 @@
       <li>Click a <b>vehicle</b> to draw its current trip: grey = already covered, light blue = ahead.</li>
       <li>Click a <b>stop</b> pole to see its scheduled departures and live delays.</li>
       <li>Toggle <b>Heatmap</b> to see 24 h GPS density instead of live vehicles.</li>
-      <li>Click <b>Ask</b> to ask a question in plain English — it answers using live Pinot data and shows the query it ran.</li>
       <li>Small badges like <span class="latency-badge">12 ms</span> show how fast that panel's data query ran.</li>
     </ul>
     <h3>Analytics</h3>
@@ -67,21 +66,10 @@
     <label id="heatmap-label" title="GPS ping density over the last 24 h — where vehicles spend their time">
       <input type="checkbox" id="heatmap-toggle"> Heatmap
     </label>
-    <button id="ask-btn" title="Ask a question about the live data">Ask</button>
     <span id="panel-status">Loading…</span>
   </div>
   <div id="stop-box" class="hidden"></div>
   <div id="route-histogram" class="hidden"></div>
-  <div id="ask-box" class="hidden">
-    <button class="close" aria-label="Close">&times;</button>
-    <h3>Ask the data</h3>
-    <form id="ask-form">
-      <input id="ask-input" type="text" autocomplete="off"
-             placeholder="e.g. how many vehicles are on route 8 right now?">
-      <button type="submit">Ask</button>
-    </form>
-    <div id="ask-result"></div>
-  </div>
 </div>
 <div id="dash-view" class="view hidden">
   <div id="dash-stats"></div>

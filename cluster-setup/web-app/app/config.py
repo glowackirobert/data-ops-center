@@ -16,11 +16,6 @@ PINOT_BROKER_URL = os.environ.get('PINOT_BROKER_URL', 'http://localhost:8099')
 PINOT_CONTROLLER_URL = os.environ.get('PINOT_CONTROLLER_URL', 'http://localhost:9000')
 MAPBOX_KEY_FILE = os.environ.get(
     'MAPBOX_KEY_FILE', os.path.join(SECRETS_DIR, 'superset_mapbox_api_key'))
-ANTHROPIC_KEY_FILE = os.environ.get(
-    'ANTHROPIC_KEY_FILE', os.path.join(SECRETS_DIR, 'anthropic_api_key'))
-# Env var, not a constant — a one-line change to try a different model on a
-# question that stumps the default (see AI_PLATFORM_PLAN.md "Model and cost").
-ANTHROPIC_MODEL = os.environ.get('ANTHROPIC_MODEL', 'claude-opus-5')
 # Internal URL for server-to-server Superset API calls vs. the browser-visible
 # origin baked into the embedded iframe src.
 SUPERSET_INTERNAL_URL = os.environ.get('SUPERSET_INTERNAL_URL', 'http://localhost:8088')

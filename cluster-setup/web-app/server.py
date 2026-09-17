@@ -6,7 +6,6 @@ the browser never talks to Pinot directly (avoids CORS). Stdlib only.
     python web-app/server.py
     # then open http://localhost:3001
 """
-import json
 import mimetypes
 import os
 import threading
@@ -14,7 +13,7 @@ import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from app import agent, gtfs, pinot, superset, geo
+from app import gtfs, pinot, superset, geo
 from app.config import BASE, PORT, PINOT_BROKER_URL, MAPBOX_KEY_FILE, read_secret
 from app.http import send, send_json, send_error_response
 
@@ -30,12 +29,17 @@ class Handler(BaseHTTPRequestHandler):
     def _send_json(self, code, payload, time_used_ms=None, stats=None):
         send_json(self, code, payload, time_used_ms=time_used_ms, stats=stats)
 
-    def _run_route(self, path, fn):
-        # Shared by do_GET and do_POST: the response to a failure is the
-        # same regardless of HTTP method, so it is handled once here rather
-        # than duplicated in each dispatcher.
+    def do_GET(self):
+        parsed = urllib.parse.urlparse(self.path)
+        self.query = urllib.parse.parse_qs(parsed.query)
+        route = self.ROUTES.get(parsed.path)
         try:
-            fn()
+            if route:
+                route(self)
+            elif parsed.path.startswith('/static/'):
+                self._serve_static(parsed.path)
+            else:
+                self._send(404, 'not found', 'text/plain')
         except pinot.PinotQueryError as e:
             # Pinot answered and rejected the query (bad SQL, server-side
             # timeout). Handled here rather than in each Pinot-backed route:
@@ -48,28 +52,10 @@ class Handler(BaseHTTPRequestHandler):
             # S3 backfill building a segment on the same host is enough).
             # A known, transient condition: log one line, not a traceback,
             # and say so rather than claiming an internal error.
-            print(f'WARN: {path}: {e}')
+            print(f'WARN: {parsed.path}: {e}')
             self._send_json(504, {'error': f'Pinot unavailable: {e}'})
         except Exception:  # keep the dev server alive on any request error
-            send_error_response(self, path)
-
-    def do_GET(self):
-        parsed = urllib.parse.urlparse(self.path)
-        self.query = urllib.parse.parse_qs(parsed.query)
-        route = self.ROUTES.get(parsed.path)
-        if route:
-            self._run_route(parsed.path, lambda: route(self))
-        elif parsed.path.startswith('/static/'):
-            self._run_route(parsed.path, lambda: self._serve_static(parsed.path))
-        else:
-            self._send(404, 'not found', 'text/plain')
-
-    def do_POST(self):
-        parsed = urllib.parse.urlparse(self.path)
-        if parsed.path == '/api/ask':
-            self._run_route(parsed.path, self._serve_ask)
-        else:
-            self._send(404, 'not found', 'text/plain')
+            send_error_response(self, parsed.path)
 
     def _serve_index(self):
         with open(os.path.join(STATIC_DIR, 'index.html'), 'rb') as f:
@@ -142,26 +128,6 @@ class Handler(BaseHTTPRequestHandler):
         if last_stop and len(path) >= 2:
             path = geo.truncate_path_at(path, last_stop)
         self._send_json(200, {'path': path})
-
-    def _serve_ask(self):
-        # Per-IP token bucket (app/agent.py) — spoofable and in-memory, but
-        # this is a demo, not public infra; see AI_PLATFORM_PLAN.md's guard
-        # section for the actual threat model (broker load / API spend, not
-        # data exfiltration).
-        if not agent.RATE_LIMITER.allow(self.client_address[0]):
-            self._send_json(429, {'error': 'rate limit exceeded, try again shortly'})
-            return
-        length = int(self.headers.get('Content-Length', 0))
-        try:
-            body = json.loads(self.rfile.read(length)) if length else {}
-        except json.JSONDecodeError:
-            self._send_json(400, {'error': 'invalid JSON body'})
-            return
-        question = (body.get('question') or '').strip()
-        if not question:
-            self._send_json(400, {'error': 'question is required'})
-            return
-        self._send_json(200, agent.ask(question))
 
     def _require_gtfs(self):
         """True if the feed is parsed; otherwise answers 503 and returns False.

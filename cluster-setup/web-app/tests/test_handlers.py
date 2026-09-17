@@ -18,7 +18,7 @@ from http.server import ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app import agent, gtfs, pinot, geo
+from app import gtfs, pinot, geo
 import server
 
 
@@ -334,88 +334,6 @@ class HandlerTests(unittest.TestCase):
         status, body = self._get_raw('/static/js/utils.js')
         self.assertEqual(status, 200)
         self.assertIn(b'colorForRoute', body)
-
-
-class AskHandlerTests(unittest.TestCase):
-    """POST /api/ask — request validation, rate limiting, and the response
-    shape, with app.agent.ask mocked. The agent's own behaviour (the guard,
-    find_stops, the tool-runner wiring) is covered end to end in
-    test_agent.py; this only checks server.py's dispatch around it."""
-
-    @classmethod
-    def setUpClass(cls):
-        cls.httpd = ThreadingHTTPServer(('127.0.0.1', 0), server.Handler)
-        cls.port = cls.httpd.server_address[1]
-        cls.thread = threading.Thread(target=cls.httpd.serve_forever, daemon=True)
-        cls.thread.start()
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.httpd.shutdown()
-        cls.thread.join(timeout=5)
-
-    def setUp(self):
-        self._orig_ask = agent.ask
-        self._orig_allow = agent.RATE_LIMITER.allow
-        agent.RATE_LIMITER.allow = lambda ip: True  # bypassed unless a test says otherwise
-
-    def tearDown(self):
-        agent.ask = self._orig_ask
-        agent.RATE_LIMITER.allow = self._orig_allow
-
-    def _post(self, path, body_bytes, content_type='application/json'):
-        url = f'http://127.0.0.1:{self.port}{path}'
-        req = urllib.request.Request(
-            url, data=body_bytes, headers={'Content-Type': content_type}, method='POST')
-        try:
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                return resp.status, json.loads(resp.read())
-        except urllib.error.HTTPError as e:
-            return e.code, json.loads(e.read())
-
-    def _post_json(self, path, payload):
-        return self._post(path, json.dumps(payload).encode('utf-8'))
-
-    def test_missing_question_is_400(self):
-        status, body = self._post_json('/api/ask', {})
-        self.assertEqual(status, 400)
-        self.assertIn('question', body['error'])
-
-    def test_blank_question_is_400(self):
-        status, body = self._post_json('/api/ask', {'question': '   '})
-        self.assertEqual(status, 400)
-
-    def test_invalid_json_body_is_400(self):
-        status, body = self._post('/api/ask', b'not json')
-        self.assertEqual(status, 400)
-
-    def test_rate_limited_is_429(self):
-        agent.RATE_LIMITER.allow = lambda ip: False
-        status, _ = self._post_json('/api/ask', {'question': 'how many vehicles on route 8?'})
-        self.assertEqual(status, 429)
-
-    def test_successful_ask_returns_the_agent_result_verbatim(self):
-        result = {
-            'answer': 'Route 8 has 3 vehicles.',
-            'sql': "SELECT COUNT(*) FROM gdansk_public_transport_latest WHERE routeShortName IN ('8')",
-            'rationale': 'sorted column on routeShortName',
-            'index_shape': 'sorted column',
-            'rows': [{'count': 3}],
-            'stats': {'docsScanned': 3, 'totalDocs': 100},
-            'ms': 12,
-        }
-        agent.ask = lambda question: result
-        status, body = self._post_json('/api/ask', {'question': 'how many vehicles on route 8?'})
-        self.assertEqual(status, 200)
-        self.assertEqual(body, result)
-
-    def test_unhandled_agent_exception_is_generic_500_not_raw_text(self):
-        def boom(question):
-            raise RuntimeError('sk-ant-some-internal-detail leaked')
-        agent.ask = boom
-        status, body = self._post_json('/api/ask', {'question': 'anything'})
-        self.assertEqual(status, 500)
-        self.assertEqual(body, {'error': 'internal error'})
 
 
 if __name__ == '__main__':

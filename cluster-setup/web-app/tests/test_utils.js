@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { latencyMs, statsFromResponse, explainReading, latencyBadgeHtml,
          toDisplayedMinute, displayedShiftMin, minutesUntil,
-         routeOf, getJson, postJson, hourlyBarsHtml, HOUR_TICKS_HTML }
+         routeOf, getJson, hourlyBarsHtml, HOUR_TICKS_HTML }
   from '../static/js/utils.js';
 
 function fakeResponse(headers) {
@@ -256,32 +256,6 @@ test('getJson: the thrown error carries the status', async () => {
     headers: { get: () => null },
   }));
   await assert.rejects(getJson('/api/route-shape'), err => err.status === 404);
-});
-
-// postJson - the /api/ask fetch wrapper. Same error-unwrapping rule as
-// getJson, checked once here rather than duplicated in full; the body-shape
-// cases above already cover it.
-
-test('postJson: sends the body as JSON and returns the parsed response', async () => {
-  let sentUrl, sentInit;
-  stubFetch(async (url, init) => {
-    sentUrl = url; sentInit = init;
-    return { ok: true, status: 200, json: async () => ({ answer: 'Route 8 has 3 vehicles.' }) };
-  });
-  const result = await postJson('/api/ask', { question: 'how many on route 8?' });
-  assert.deepEqual(result, { answer: 'Route 8 has 3 vehicles.' });
-  assert.equal(sentUrl, '/api/ask');
-  assert.equal(sentInit.method, 'POST');
-  assert.equal(sentInit.headers['Content-Type'], 'application/json');
-  assert.deepEqual(JSON.parse(sentInit.body), { question: 'how many on route 8?' });
-});
-
-test('postJson: an error body beats the bare status code', async () => {
-  stubFetch(async () => ({
-    ok: false, status: 429,
-    json: async () => ({ error: 'rate limit exceeded, try again shortly' }),
-  }));
-  await assert.rejects(postJson('/api/ask', { question: 'x' }), /rate limit exceeded/);
 });
 
 // hourlyBarsHtml - shared by the route-delay histogram and the network

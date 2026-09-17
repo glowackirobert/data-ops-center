@@ -1,7 +1,6 @@
 import { initMap, resizeMap } from './map.js';
 import { initDashboard, refreshOverview } from './dashboard.js';
 import { initHelp } from './help.js';
-import { initChat } from './chat.js';
 import { explainReading } from './utils.js';
 
 function showTab(name) {
@@ -64,7 +63,6 @@ document.addEventListener('click', e => {
 });
 
 initHelp();
-initChat();
 
 refreshOverview(); // also feeds the storage strip from its /api/stats fetch
 setInterval(refreshOverview, 60000);
