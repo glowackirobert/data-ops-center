@@ -49,6 +49,24 @@ def route_shape(route_id, trip_id):
     return path
 
 
+def bbox_around(lat, lon, radius_m):
+    """{latMin, latMax, lonMin, lonMax} of a square of the given half-width
+    around (lat, lon).
+
+    Same latitude-scaling ratio as truncate_path_at's ambiguity radius and
+    HEATMAP_SQL's lattice (a degree of longitude is foreshortened by
+    cos(latitude) relative to a degree of latitude) — reused here rather than
+    restated, since a model asked to do this trigonometry inline gets it
+    wrong in a way nothing catches (see AI_PLATFORM_PLAN.md, find_stops).
+    """
+    dlat = radius_m / 111320
+    dlon = radius_m / (111320 * math.cos(math.radians(lat)))
+    return {
+        'latMin': lat - dlat, 'latMax': lat + dlat,
+        'lonMin': lon - dlon, 'lonMax': lon + dlon,
+    }
+
+
 def truncate_path_at(path, target):
     """Cut [[lon, lat], …] at the point on it nearest `target` (lat, lon).
 
