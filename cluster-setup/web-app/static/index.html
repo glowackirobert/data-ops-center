@@ -46,6 +46,7 @@
       <li>Click a <b>stop</b> pole to see its scheduled departures and live delays.</li>
       <li>Toggle <b>Heatmap</b> to see 24 h GPS density instead of live vehicles.</li>
       <li>Click <b>Ask</b> to ask a question in plain English — it answers using live Pinot data and shows the query it ran.</li>
+      <li>Click <b>Filter</b> to describe what to show in plain English (e.g. "late 6s near Wrzeszcz") instead of using the controls above — it never queries Pinot, so it keeps working even when Ask can't.</li>
       <li>Small badges like <span class="latency-badge">12 ms</span> show how fast that panel's data query ran.</li>
     </ul>
     <h3>Analytics</h3>
@@ -68,6 +69,7 @@
       <input type="checkbox" id="heatmap-toggle"> Heatmap
     </label>
     <button id="ask-btn" title="Ask a question about the live data">Ask</button>
+    <button id="map-filter-btn" title="Describe what to show, in plain English">Filter</button>
     <span id="panel-status">Loading…</span>
   </div>
   <div id="stop-box" class="hidden"></div>
@@ -81,6 +83,16 @@
       <button type="submit">Ask</button>
     </form>
     <div id="ask-result"></div>
+  </div>
+  <div id="map-filter-box" class="hidden">
+    <button class="close" aria-label="Close">&times;</button>
+    <h3>Filter the map</h3>
+    <form id="map-filter-form">
+      <input id="map-filter-input" type="text" autocomplete="off"
+             placeholder="e.g. late 6s near Wrzeszcz">
+      <button type="submit">Go</button>
+    </form>
+    <div id="map-filter-result"></div>
   </div>
 </div>
 <div id="dash-view" class="view hidden">

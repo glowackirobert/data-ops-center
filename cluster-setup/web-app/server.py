@@ -68,8 +68,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
-        if parsed.path == '/api/ask':
-            self._run_route(parsed.path, self._serve_ask)
+        route = self.POST_ROUTES.get(parsed.path)
+        if route:
+            self._run_route(parsed.path, lambda: route(self))
         else:
             self._send(404, NOT_FOUND, TEXT_PLAIN)
 
@@ -145,25 +146,51 @@ class Handler(BaseHTTPRequestHandler):
             path = geo.truncate_path_at(path, last_stop)
         self._send_json(200, {'path': path})
 
-    def _serve_ask(self):
+    def _rate_limited(self):
         # Per-IP token bucket (app/agent.py) — spoofable and in-memory, but
         # this is a demo, not public infra; see AI_PLATFORM_PLAN.md's guard
         # section for the actual threat model (broker load / API spend, not
-        # data exfiltration).
-        if not agent.RATE_LIMITER.allow(self.client_address[0]):
-            self._send_json(429, {'error': 'rate limit exceeded, try again shortly'})
-            return
+        # data exfiltration). Shared by every AI-backed POST route, one
+        # budget across them rather than a separate bucket each.
+        if agent.RATE_LIMITER.allow(self.client_address[0]):
+            return False
+        self._send_json(429, {'error': 'rate limit exceeded, try again shortly'})
+        return True
+
+    def _read_json_body(self):
+        # Shared by every POST route. Returns None (having already sent the
+        # 400) on a body that isn't valid JSON, so the caller's only job is
+        # `body = self._read_json_body(); if body is None: return`.
         length = int(self.headers.get('Content-Length', 0))
         try:
-            body = json.loads(self.rfile.read(length)) if length else {}
+            return json.loads(self.rfile.read(length)) if length else {}
         except json.JSONDecodeError:
             self._send_json(400, {'error': 'invalid JSON body'})
+            return None
+
+    def _serve_ask(self):
+        if self._rate_limited():
+            return
+        body = self._read_json_body()
+        if body is None:
             return
         question = (body.get('question') or '').strip()
         if not question:
             self._send_json(400, {'error': 'question is required'})
             return
         self._send_json(200, agent.ask(question))
+
+    def _serve_map_filter(self):
+        if self._rate_limited():
+            return
+        body = self._read_json_body()
+        if body is None:
+            return
+        text = (body.get('text') or '').strip()
+        if not text:
+            self._send_json(400, {'error': 'text is required'})
+            return
+        self._send_json(200, agent.parse_map_filter(text))
 
     def _require_gtfs(self):
         """True if the feed is parsed; otherwise answers 503 and returns False.
@@ -243,6 +270,10 @@ class Handler(BaseHTTPRequestHandler):
         '/api/network-hourly': _serve_network_hourly,
         '/api/heatmap': _serve_heatmap,
         '/api/route-delay-histogram': _serve_route_delay_histogram,
+    }
+    POST_ROUTES = {
+        '/api/ask': _serve_ask,
+        '/api/map-filter': _serve_map_filter,
     }
 
 

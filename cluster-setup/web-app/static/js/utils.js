@@ -159,9 +159,9 @@ export async function getJson(url) {
   return { data: await resp.json(), ms: latencyMs(resp), stats: statsFromResponse(resp) };
 }
 
-// POST counterpart to getJson, for the one endpoint (/api/ask) that takes a
-// body. Same error-unwrapping rule: the server's own `error` text beats a
-// bare status code.
+// POST counterpart to getJson, for the endpoints (/api/ask, /api/map-filter)
+// that take a body. Same error-unwrapping rule: the server's own `error`
+// text beats a bare status code.
 export async function postJson(url, body) {
   const resp = await fetch(url, {
     method: 'POST',
@@ -176,6 +176,24 @@ export async function postJson(url, body) {
     throw err;
   }
   return resp.json();
+}
+
+// One-line plain-English readback of a /api/map-filter response (see
+// AI_PLATFORM_PLAN.md Track 2), built from the structured fields rather
+// than model-written prose — it can never claim something the filter
+// didn't actually apply.
+export function describeMapFilter(filter) {
+  const parts = [];
+  if (filter.routes?.length) {
+    parts.push(`route${filter.routes.length > 1 ? 's' : ''} ${filter.routes.join(', ')}`);
+  }
+  if (filter.minDelaySec != null) {
+    parts.push(`delayed ${Math.round(filter.minDelaySec / 60)}+ min`);
+  }
+  if (filter.inServiceOnly) parts.push('in service only');
+  if (filter.placeMatch) parts.push(`near ${filter.placeMatch.name}`);
+  if (filter.heatmap) parts.push('heatmap');
+  return parts.length ? `Showing: ${parts.join(', ')}` : 'No filter recognized — showing everything';
 }
 
 // Both hour-of-day charts (route delay on the map, network rush hour on the

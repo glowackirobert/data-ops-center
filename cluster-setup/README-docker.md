@@ -442,6 +442,7 @@ The backend (stdlib Python, no dependencies) exposes:
 | `/api/stats`       | Total docs (broker `COUNT(*)` over the hybrid table), segment count and reported size (controller API) — feeds the header scale strip |
 | `/api/heatmap`     | 24 h GPS ping density on a ~100 m grid, for the map's heatmap toggle |
 | `/api/ask`         | `POST {question}` — text-to-SQL agent (see `AI_PLATFORM_PLAN.md`); answers in English plus the Pinot SQL it ran, its rows and scan stats. Rate-limited per IP; needs the `anthropic_api_key` secret |
+| `/api/map-filter`  | `POST {text}` — Track 2's natural-language map filter (see `AI_PLATFORM_PLAN.md`); turns a sentence into `{routes, minDelaySec, inServiceOnly, heatmap, placeMatch}` for the frontend to apply. No tools, no SQL, no Pinot query — stays usable when `/api/ask` can't. Same rate limit as `/api/ask` |
 
 The same tool surface `/api/ask` uses internally, plus schema/health/S3/log/
 metric tools, is also exposed over MCP by `mcp_server.py` (`AI_PLATFORM_PLAN.md`

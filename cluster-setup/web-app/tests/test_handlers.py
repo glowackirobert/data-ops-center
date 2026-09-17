@@ -418,5 +418,86 @@ class AskHandlerTests(unittest.TestCase):
         self.assertEqual(body, {'error': 'internal error'})
 
 
+class MapFilterHandlerTests(unittest.TestCase):
+    """POST /api/map-filter — same dispatch shape as /api/ask (shared
+    _rate_limited/_read_json_body helpers), with app.agent.parse_map_filter
+    mocked. The parsing itself is covered in test_agent.py's MapFilterTests."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.httpd = ThreadingHTTPServer(('127.0.0.1', 0), server.Handler)
+        cls.port = cls.httpd.server_address[1]
+        cls.thread = threading.Thread(target=cls.httpd.serve_forever, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.shutdown()
+        cls.thread.join(timeout=5)
+
+    def setUp(self):
+        self._orig_parse = agent.parse_map_filter
+        self._orig_allow = agent.RATE_LIMITER.allow
+        agent.RATE_LIMITER.allow = lambda ip: True
+
+    def tearDown(self):
+        agent.parse_map_filter = self._orig_parse
+        agent.RATE_LIMITER.allow = self._orig_allow
+
+    def _post(self, path, body_bytes, content_type='application/json'):
+        url = f'http://127.0.0.1:{self.port}{path}'
+        req = urllib.request.Request(
+            url, data=body_bytes, headers={'Content-Type': content_type}, method='POST')
+        try:
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                return resp.status, json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+
+    def _post_json(self, path, payload):
+        return self._post(path, json.dumps(payload).encode('utf-8'))
+
+    def test_missing_text_is_400(self):
+        status, body = self._post_json('/api/map-filter', {})
+        self.assertEqual(status, 400)
+        self.assertIn('text', body['error'])
+
+    def test_blank_text_is_400(self):
+        status, body = self._post_json('/api/map-filter', {'text': '   '})
+        self.assertEqual(status, 400)
+
+    def test_invalid_json_body_is_400(self):
+        status, body = self._post('/api/map-filter', b'not json')
+        self.assertEqual(status, 400)
+
+    def test_rate_limited_is_429(self):
+        agent.RATE_LIMITER.allow = lambda ip: False
+        status, _ = self._post_json('/api/map-filter', {'text': 'late 6s near Wrzeszcz'})
+        self.assertEqual(status, 429)
+
+    def test_successful_filter_returns_the_agent_result_verbatim(self):
+        result = {
+            'routes': ['6'], 'minDelaySec': 300, 'inServiceOnly': False,
+            'heatmap': False,
+            'placeMatch': {'stopId': 'S1', 'name': 'Gdańsk Wrzeszcz PKP',
+                            'lat': 54.372, 'lon': 18.616,
+                            'bbox': {'latMin': 54.37, 'latMax': 54.374,
+                                     'lonMin': 18.61, 'lonMax': 18.62},
+                            'routes': ['6']},
+        }
+        agent.parse_map_filter = lambda text: result
+        status, body = self._post_json('/api/map-filter', {'text': 'late 6s near Wrzeszcz'})
+        self.assertEqual(status, 200)
+        self.assertEqual(body, result)
+
+    def test_unhandled_agent_exception_is_generic_500_not_raw_text(self):
+        def boom(text):
+            raise RuntimeError('sk-ant-some-internal-detail leaked')
+        agent.parse_map_filter = boom
+        status, body = self._post_json('/api/map-filter', {'text': 'anything'})
+        self.assertEqual(status, 500)
+        self.assertEqual(body, {'error': 'internal error'})
+
+
 if __name__ == '__main__':
     unittest.main()

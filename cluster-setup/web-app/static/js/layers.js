@@ -175,8 +175,9 @@ function thinVehicles(rows) {
 }
 
 // The whole stack, bottom to top, for one render. `rows` is already filtered
-// to the selected line; `route` and `heatOn` are the two mode switches that
-// decide which layers are populated at all.
+// (the selected line, and/or the Filter box's delay/in-service constraint —
+// see currentRows in map.js); `route` and `heatOn` are the two mode switches
+// that decide which layers are populated at all.
 export function deckLayers(rows, route, heatOn) {
   // One decision, both vehicle layers: a badge and its arrow are one visual
   // unit and must appear or disappear together.

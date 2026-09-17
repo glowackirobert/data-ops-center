@@ -1,4 +1,5 @@
-"""Text-to-SQL agent behind /api/ask — see AI_PLATFORM_PLAN.md.
+"""Text-to-SQL agent behind /api/ask, plus the Track 2 map filter — see
+AI_PLATFORM_PLAN.md.
 
 Guard-then-query pattern: every SQL string the model produces goes through
 _guard_select() before it ever reaches pinot._query() — the same guard
@@ -9,9 +10,13 @@ pinot._query() are actually shared — each side's tool-runner wiring (the
 per-request last_query capture here, FastMCP's @mcp.tool() there) and error
 handling are separate, since the two frameworks want different shapes.
 
+parse_map_filter() (Track 2, bottom of this file) shares _get_client() and
+_find_stops() but nothing else with ask() — it never touches
+_guard_select()/pinot._query() at all, since nothing it produces is SQL.
+
 Wired into server.py's do_POST (AI_PLATFORM_PLAN.md step 4) — that handler
-just calls ask() and hands the result to send_json(); this module stays
-usable standalone (e.g. from a REPL) either way.
+just calls ask()/parse_map_filter() and hands the result to send_json();
+this module stays usable standalone (e.g. from a REPL) either way.
 """
 import difflib
 import json
@@ -363,4 +368,81 @@ def ask(question):
         'rows': last_query.get('rows', []),
         'stats': last_query.get('stats'),
         'ms': last_query.get('ms'),
+    }
+
+
+# --- Track 2: natural-language map filter (no SQL, no guard) --------------
+# AI_PLATFORM_PLAN.md Track 2. A single structured-output call, no tools, no
+# Pinot query — the frontend applies the result to /api/positions rows it
+# already holds, so this stays usable even when /api/ask is answering 504s
+# during an S3 backfill. Reuses _get_client()/_find_stops() from above but
+# nothing else from ask() — there is no guard here because nothing this
+# produces ever reaches Pinot as a query.
+
+class MapFilter(BaseModel):
+    routes: list[str]           # [] = no line named
+    min_delay_s: int | None
+    place: str | None           # resolved through _find_stops() below
+    in_service_only: bool
+    heatmap: bool
+
+
+MAP_FILTER_SYSTEM_PROMPT = """\
+You convert one sentence about the live Gdansk vehicle map into a filter. \
+You do not answer questions or run any query — you only decide which of \
+the five fields below the sentence asks for. Leave every field at its \
+"nothing asked" value unless the sentence clearly asks for it: an \
+unrelated or unclear sentence should come back with every field \
+empty/false/null rather than inventing a filter.
+
+- routes: line numbers/names mentioned (trams are 1-2 digits, e.g. "8", \
+"12"; night buses are N-prefixed, e.g. "N4"), exactly as written, no \
+leading zeros. Empty list if no line is named — never guess a line.
+- min_delay_s: a delay threshold in seconds, only if the sentence asks for \
+late/delayed vehicles. A specific amount ("more than 5 minutes late") \
+converts directly (300). A vague ask ("late", "delayed", "behind \
+schedule") with no number defaults to 300 (5 minutes) — enough to mean \
+"meaningfully late", not GPS jitter. null if delay was not mentioned.
+- place: a place or stop name mentioned (e.g. "near Wrzeszcz", "around the \
+main station"), exactly as written, for the caller to resolve against the \
+stop list. null if none.
+- in_service_only: true only if the sentence explicitly asks to exclude \
+out-of-service/between-trips vehicles (e.g. "only vehicles in service", \
+"hide idle buses"). false otherwise — most questions do not care.
+- heatmap: true only if the sentence explicitly asks for a density/heatmap \
+view ("heatmap", "where do buses spend their time") rather than live \
+vehicle positions. false otherwise.\
+"""
+
+_MAP_FILTER_MAX_TOKENS = 256
+
+
+def parse_map_filter(text):
+    """Convert one sentence into the /api/map-filter response.
+
+    {routes, minDelaySec, inServiceOnly, heatmap, placeMatch} — camelCase to
+    match every other JSON response in this app; placeMatch is the first
+    find_stops() result for `place` (None if nothing was named, or nothing
+    matched).
+    """
+    client = _get_client()
+    result = client.messages.parse(
+        model=ANTHROPIC_MODEL,
+        max_tokens=_MAP_FILTER_MAX_TOKENS,
+        system=MAP_FILTER_SYSTEM_PROMPT,
+        output_config={'effort': 'low'},
+        output_format=MapFilter,
+        messages=[{'role': 'user', 'content': text}],
+    )
+    parsed = result.parsed_output
+    if parsed is None:
+        raise RuntimeError('model did not produce a structured filter')
+
+    place_matches = _find_stops(parsed.place) if parsed.place else []
+    return {
+        'routes': parsed.routes,
+        'minDelaySec': parsed.min_delay_s,
+        'inServiceOnly': parsed.in_service_only,
+        'heatmap': parsed.heatmap,
+        'placeMatch': place_matches[0] if place_matches else None,
     }

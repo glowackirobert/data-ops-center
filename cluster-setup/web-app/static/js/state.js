@@ -23,6 +23,14 @@ export const state = {
   heatmapStats: null,
   stopsData: [],
   heatmapData: [],
+  // Set only by the Filter box (AI_PLATFORM_PLAN.md Track 2) — an extra,
+  // additive constraint layered on top of whatever the route dropdown
+  // already shows. null means "no extra constraint". Replaced wholesale on
+  // every filter-box submission (each sentence describes the whole extra
+  // filter, not a delta); never touched by the dropdown/heatmap checkbox,
+  // which own their own state and are only ever added to, never reset, by
+  // the filter box — see applyMapFilter in map.js.
+  nlFilter: null,
 };
 
 // Resolved once, at import time: module scripts are deferred, so the document
@@ -34,6 +42,11 @@ export const els = {
   stopBox: document.getElementById('stop-box'),
   heatmapToggle: document.getElementById('heatmap-toggle'),
   histogram: document.getElementById('route-histogram'),
+  mapFilterBtn: document.getElementById('map-filter-btn'),
+  mapFilterBox: document.getElementById('map-filter-box'),
+  mapFilterForm: document.getElementById('map-filter-form'),
+  mapFilterInput: document.getElementById('map-filter-input'),
+  mapFilterResult: document.getElementById('map-filter-result'),
   // #map is the Mapbox container; map.project() returns pixels relative to
   // the canvas Mapbox puts inside it, which is inset within #map-view.
   mapView: document.getElementById('map-view'),

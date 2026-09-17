@@ -4,7 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { latencyMs, statsFromResponse, explainReading, latencyBadgeHtml,
          toDisplayedMinute, displayedShiftMin, minutesUntil,
-         routeOf, getJson, postJson, hourlyBarsHtml, HOUR_TICKS_HTML }
+         routeOf, getJson, postJson, describeMapFilter, hourlyBarsHtml,
+         HOUR_TICKS_HTML }
   from '../static/js/utils.js';
 
 function fakeResponse(headers) {
@@ -282,6 +283,52 @@ test('postJson: an error body beats the bare status code', async () => {
     json: async () => ({ error: 'rate limit exceeded, try again shortly' }),
   }));
   await assert.rejects(postJson('/api/ask', { question: 'x' }), /rate limit exceeded/);
+});
+
+// describeMapFilter - the Filter box's plain-English readback.
+
+test('describeMapFilter: nothing recognized says so', () => {
+  assert.equal(
+    describeMapFilter({ routes: [], minDelaySec: null, inServiceOnly: false,
+                        heatmap: false, placeMatch: null }),
+    'No filter recognized — showing everything');
+});
+
+test('describeMapFilter: a single route', () => {
+  assert.equal(
+    describeMapFilter({ routes: ['8'], minDelaySec: null, inServiceOnly: false,
+                        heatmap: false, placeMatch: null }),
+    'Showing: route 8');
+});
+
+test('describeMapFilter: multiple routes pluralize', () => {
+  assert.equal(
+    describeMapFilter({ routes: ['8', '12'], minDelaySec: null, inServiceOnly: false,
+                        heatmap: false, placeMatch: null }),
+    'Showing: routes 8, 12');
+});
+
+test('describeMapFilter: a delay threshold reads in minutes', () => {
+  assert.equal(
+    describeMapFilter({ routes: [], minDelaySec: 300, inServiceOnly: false,
+                        heatmap: false, placeMatch: null }),
+    'Showing: delayed 5+ min');
+});
+
+test('describeMapFilter: a place match names the place', () => {
+  assert.equal(
+    describeMapFilter({ routes: [], minDelaySec: null, inServiceOnly: false,
+                        heatmap: false, placeMatch: { name: 'Gdańsk Wrzeszcz PKP' } }),
+    'Showing: near Gdańsk Wrzeszcz PKP');
+});
+
+test('describeMapFilter: every field combines into one line', () => {
+  assert.equal(
+    describeMapFilter({
+      routes: ['8'], minDelaySec: 300, inServiceOnly: true,
+      heatmap: true, placeMatch: { name: 'Wrzeszcz' },
+    }),
+    'Showing: route 8, delayed 5+ min, in service only, near Wrzeszcz, heatmap');
 });
 
 // hourlyBarsHtml - shared by the route-delay histogram and the network

@@ -343,5 +343,94 @@ class AskEndToEndTests(unittest.TestCase):
             agent.ask('anything')
 
 
+# --- parse_map_filter() end to end, mocked Anthropic client -----------------
+# A plain client.messages.parse() call, not the tool_runner ask() uses above —
+# Track 2 has no tools and no guard, so this fake is deliberately simpler.
+
+class _FakeParsedMessage:
+    def __init__(self, parsed_output):
+        self.parsed_output = parsed_output
+
+
+class _FakeMessages:
+    def __init__(self, on_parse):
+        self._on_parse = on_parse
+
+    def parse(self, **kwargs):
+        return self._on_parse(kwargs)
+
+
+class _FakeParseClient:
+    def __init__(self, on_parse):
+        self.messages = _FakeMessages(on_parse)
+
+
+class MapFilterTests(unittest.TestCase):
+
+    def setUp(self):
+        self._orig_get_client = agent._get_client
+        self._orig_find_stops = agent._find_stops
+
+    def tearDown(self):
+        agent._get_client = self._orig_get_client
+        agent._find_stops = self._orig_find_stops
+
+    def test_maps_parsed_fields_to_camelcase_response(self):
+        parsed = agent.MapFilter(routes=['8'], min_delay_s=300, place=None,
+                                  in_service_only=True, heatmap=False)
+        agent._get_client = lambda: _FakeParseClient(lambda kw: _FakeParsedMessage(parsed))
+        result = agent.parse_map_filter('late 8s in service')
+        self.assertEqual(result, {
+            'routes': ['8'], 'minDelaySec': 300, 'inServiceOnly': True,
+            'heatmap': False, 'placeMatch': None,
+        })
+
+    def test_resolves_place_through_find_stops(self):
+        parsed = agent.MapFilter(routes=[], min_delay_s=None, place='Wrzeszcz',
+                                  in_service_only=False, heatmap=False)
+        agent._get_client = lambda: _FakeParseClient(lambda kw: _FakeParsedMessage(parsed))
+        agent._find_stops = lambda query: [{'stopId': 'S1', 'name': 'Gdańsk Wrzeszcz PKP'}]
+        result = agent.parse_map_filter('near Wrzeszcz')
+        self.assertEqual(result['placeMatch'], {'stopId': 'S1', 'name': 'Gdańsk Wrzeszcz PKP'})
+
+    def test_no_place_named_skips_find_stops(self):
+        parsed = agent.MapFilter(routes=[], min_delay_s=None, place=None,
+                                  in_service_only=False, heatmap=True)
+        agent._get_client = lambda: _FakeParseClient(lambda kw: _FakeParsedMessage(parsed))
+
+        def boom(query):
+            raise AssertionError('should not call find_stops when place is None')
+        agent._find_stops = boom
+        result = agent.parse_map_filter('show heatmap')
+        self.assertIsNone(result['placeMatch'])
+        self.assertTrue(result['heatmap'])
+
+    def test_place_named_but_no_match_gives_none(self):
+        parsed = agent.MapFilter(routes=[], min_delay_s=None, place='Nonexistent Place',
+                                  in_service_only=False, heatmap=False)
+        agent._get_client = lambda: _FakeParseClient(lambda kw: _FakeParsedMessage(parsed))
+        agent._find_stops = lambda query: []
+        result = agent.parse_map_filter('near Nonexistent Place')
+        self.assertIsNone(result['placeMatch'])
+
+    def test_missing_structured_output_raises(self):
+        agent._get_client = lambda: _FakeParseClient(lambda kw: _FakeParsedMessage(None))
+        with self.assertRaises(RuntimeError):
+            agent.parse_map_filter('anything')
+
+    def test_passes_the_output_format_and_the_sentence(self):
+        seen = {}
+
+        def on_parse(kwargs):
+            seen.update(kwargs)
+            return _FakeParsedMessage(agent.MapFilter(
+                routes=[], min_delay_s=None, place=None,
+                in_service_only=False, heatmap=False))
+        agent._get_client = lambda: _FakeParseClient(on_parse)
+        agent.parse_map_filter('all vehicles')
+        self.assertIs(seen['output_format'], agent.MapFilter)
+        self.assertEqual(seen['messages'], [{'role': 'user', 'content': 'all vehicles'}])
+
+
 if __name__ == '__main__':
     unittest.main()

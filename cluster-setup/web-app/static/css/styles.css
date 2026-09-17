@@ -109,6 +109,36 @@ nav button.active { background: #374151; color: #fff; }
 .ask-pending { color: #6b7280; }
 .ask-answer { margin-bottom: 6px; }
 .ask-rationale { color: #6b7280; font-size: 12px; margin-bottom: 6px; }
+#map-filter-btn {
+  background: #2563eb; color: #fff; border: 0; border-radius: 4px;
+  padding: 4px 10px; font: inherit; font-weight: 600; cursor: pointer;
+}
+#map-filter-btn:hover, #map-filter-btn.active { background: #1d4ed8; }
+/* Below #panel, not #ask-box's top-right corner — the two boxes can be open
+   at once without ever overlapping, with no cross-module coordination
+   needed to close one when the other opens. */
+#map-filter-box {
+  position: absolute; z-index: 15; top: 54px; left: 10px; width: 320px;
+  background: rgba(255, 255, 255, 0.97); border-radius: 6px;
+  padding: 10px 12px; font-size: 13px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+#map-filter-box h3 { margin: 0 18px 8px 0; font-size: 13px; font-weight: 600; }
+#map-filter-box .close {
+  position: absolute; top: 6px; right: 8px; border: 0; background: none;
+  font-size: 14px; cursor: pointer; color: #6b7280; padding: 0;
+}
+#map-filter-form { display: flex; gap: 6px; margin-bottom: 8px; }
+#map-filter-input {
+  flex: 1; font: inherit; padding: 4px 6px; min-width: 0;
+  border: 1px solid #d1d5db; border-radius: 4px;
+}
+#map-filter-form button[type="submit"] {
+  background: #2563eb; color: #fff; border: 0; border-radius: 4px;
+  padding: 4px 10px; font: inherit; font-weight: 600; cursor: pointer;
+}
+#map-filter-form button[type="submit"]:hover { background: #1d4ed8; }
+#map-filter-result { color: #374151; }
 .ask-sql {
   background: #f3f4f6; border-radius: 4px; padding: 6px 8px; font-size: 12px;
   white-space: pre-wrap; word-break: break-word; margin: 0; color: #111827;

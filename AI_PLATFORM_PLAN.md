@@ -6,8 +6,10 @@ already shipped, alongside the sibling **explain panel** (Pinot's own scan
 statistics, no LLM): the `X-Pinot-Stats` header and the click-to-open
 latency-badge popover. So has Track 1's MCP server — the same tool surface,
 plus schema/health/ingestion/log/metric tools, with Claude Code wired as its
-first client via `.mcp.json`. All three are live, documented in `CLAUDE.md`.
-What remains is Tracks 2-5 below, plus Track 1's optional public exposure
+first client via `.mcp.json`. So has Track 2's natural-language map filter —
+the **Filter** button beside **Ask**, Pinot-free, so it keeps working when
+`/api/ask` is answering 504s. All four are live, documented in `CLAUDE.md`.
+What remains is Tracks 3-5 below, plus Track 1's optional public exposure
 (for a Claude Desktop / claude.ai client — nothing needs it yet).
 
 The organising idea: **one tool surface, many clients.** The same handful of
@@ -97,28 +99,26 @@ spend — and the guard is the same code.
 
 ## Track 2 — Natural-language map filter (no SQL, no guard)
 
-"Show me the late 6s near Wrzeszcz." One `client.messages.parse` call into
+Shipped: "show me late 6s near Wrzeszcz" — the **Filter** button beside
+**Ask** — turns into a `MapFilter` (`routes`, `min_delay_s`, `place`,
+`in_service_only`, `heatmap`) via one `client.messages.parse` call in
+`app/agent.py`'s `parse_map_filter()`, no tools, no guard, since nothing it
+produces is SQL. The frontend (`map.js`'s `applyMapFilter`, wired through
+`mapfilter.js`) applies it to `/api/positions` rows already in the browser —
+a named route/heatmap drives the existing dropdown/checkbox and their
+existing onchange handlers (camera fit, histogram load, all reused
+verbatim); delay/in-service live in `state.nlFilter`, an additive filter
+`currentRows()` layers on top; a named place gets `map.fitBounds()`'d via
+the same `find_stops` bbox `/api/ask` uses. Nothing reaches Pinot, so it
+keeps working when `/api/ask` is answering 504s — verified in-browser by
+submitting a filter while `/api/positions` itself was 504ing throughout.
+Only ever *adds* to the dropdown/checkbox, never resets them: a filter that
+doesn't name a route or ask for the heatmap leaves whatever was already
+picked alone. Full detail in `CLAUDE.md`'s Web App section.
 
-```python
-class MapFilter(BaseModel):
-    routes: list[str]          # [] = all
-    min_delay_s: int | None
-    place: str | None          # resolved with find_stops -> camera fit
-    in_service_only: bool
-    heatmap: bool
-```
-
-and the frontend applies it to the `/api/positions` rows it already holds —
-the route dropdown, delay colouring, selection and camera-fit plumbing in
-`map.js`/`state.js` all exist. Nothing reaches Pinot, so it works during an
-S3 backfill when `/api/ask` would be answering 504s. Cheapest track after the
-`.mcp.json`; a good first thing to ship because it is pure structured output
-and cannot produce a bad query.
-
-The experimental garnish: Chrome's Web Speech API
-(`webkitSpeechRecognition`, feature-detected, ~20 lines) feeding the same
-box. A spoken filter on a wall-mounted operations map is the demo the
-"operations floor" line in `BUSINESS_OVERVIEW.md` is asking for.
+Not done: the experimental voice-input garnish (Chrome's Web Speech API
+feeding the same box) was skipped — optional, and the text box already
+delivers the track's actual value.
 
 ## Track 3 — The morning brief (scheduled agent)
 
@@ -210,7 +210,7 @@ Small, optional, and cheap now that Track 1 exists:
 | Step | Piece                              | Depends on                              | Effort   | What it proves                           |
 |------|-------------------------------------|-------------------------------------------|----------|--------------------------------------------|
 | 1    | Track 1 server + `.mcp.json`       | already available (`app/agent.py`, `/api/ask`) | **Done** | the cluster is agent-operable      |
-| 2    | Track 2 map filter (+ voice)       | —                                        | ½–1 day  | structured output, Pinot-free            |
+| 2    | Track 2 map filter (voice not done) | —                                       | **Done** | structured output, Pinot-free            |
 | 3    | Track 4 evals                      | 1                                        | 1 day    | numbers behind every model/prompt choice |
 | 4    | Track 3 brief, path (b) then (a)   | 1, `mcp.` exposure                       | 1–2 days | scheduled autonomous agent               |
 | 5    | Track 5                            | 1                                        | hours (1/3 done) | —                                |
