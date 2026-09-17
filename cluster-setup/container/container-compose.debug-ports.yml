@@ -1,5 +1,4 @@
-# Opt-in override that re-publishes four internal-only ports on the loopback
-# interface, for local debugging:
+# Opt-in override that re-publishes four internal-only ports, for debugging:
 #
 #   - Prometheus  9090  — /targets, the only view of whether a JMX scrape is up
 #   - Alloy      12345  — the only view of whether Docker log discovery is working
@@ -16,9 +15,14 @@
 #     -f cluster-setup/container/container-compose.yml \
 #     -f cluster-setup/container/container-compose.debug-ports.yml up -d
 #
-# Deliberately hardcoded to 127.0.0.1 rather than ${BIND}: these ports have no
-# authentication of any kind, so they must never reach beyond this machine.
-# Never use this file on a shared or internet-facing host.
+# Bound to ${DEBUG_BIND:-127.0.0.1} — defaults to loopback-only, independent of
+# ${BIND} (the three main published ports), because these four have no
+# authentication of any kind and must not ride along whenever BIND happens to
+# be 0.0.0.0 (dev's default). Only flip DEBUG_BIND to 0.0.0.0 on a host with no
+# other way in (e.g. EC2 without a domain, Caddy not running) and lock the
+# security group down to your own IP first — see the "no domain yet" mode in
+# README-ec2.md. Revert to loopback (drop the DEBUG_BIND line) once Caddy is
+# back in front.
 #
 # Nothing else belongs here. Loki is already queryable through Grafana, which is
 # published; ZooKeeper, Schema Registry and the Pinot server/minion expose
@@ -35,16 +39,16 @@
 services:
   pinot-controller:
     ports:
-      - "127.0.0.1:9000:9000"
+      - "${DEBUG_BIND:-127.0.0.1}:9000:9000"
 
   pinot-broker:
     ports:
-      - "127.0.0.1:8099:8099"
+      - "${DEBUG_BIND:-127.0.0.1}:8099:8099"
 
   prometheus:
     ports:
-      - "127.0.0.1:9090:9090"
+      - "${DEBUG_BIND:-127.0.0.1}:9090:9090"
 
   alloy:
     ports:
-      - "127.0.0.1:12345:12345"
+      - "${DEBUG_BIND:-127.0.0.1}:12345:12345"
