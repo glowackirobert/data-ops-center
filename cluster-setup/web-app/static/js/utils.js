@@ -185,7 +185,10 @@ export async function postJson(url, body) {
 export function describeMapFilter(filter) {
   const parts = [];
   if (filter.routes?.length) {
-    parts.push(`route${filter.routes.length > 1 ? 's' : ''} ${filter.routes.join(', ')}`);
+    // Only the first — applyMapFilter (map.js) sets a single-select
+    // dropdown from filter.routes[0], so describing more would claim a
+    // filter that was not actually applied.
+    parts.push(`route ${filter.routes[0]}`);
   }
   if (filter.minDelaySec != null) {
     parts.push(`delayed ${Math.round(filter.minDelaySec / 60)}+ min`);

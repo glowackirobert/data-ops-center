@@ -395,9 +395,11 @@ the five fields below the sentence asks for. Leave every field at its \
 unrelated or unclear sentence should come back with every field \
 empty/false/null rather than inventing a filter.
 
-- routes: line numbers/names mentioned (trams are 1-2 digits, e.g. "8", \
+- routes: at most one line number/name (trams are 1-2 digits, e.g. "8", \
 "12"; night buses are N-prefixed, e.g. "N4"), exactly as written, no \
-leading zeros. Empty list if no line is named — never guess a line.
+leading zeros. The map can only show one line at a time — if the sentence \
+names more than one, keep just the first. Empty list if no line is named — \
+never guess a line.
 - min_delay_s: a delay threshold in seconds, only if the sentence asks for \
 late/delayed vehicles. A specific amount ("more than 5 minutes late") \
 converts directly (300). A vague ask ("late", "delayed", "behind \

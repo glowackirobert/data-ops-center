@@ -301,11 +301,11 @@ test('describeMapFilter: a single route', () => {
     'Showing: route 8');
 });
 
-test('describeMapFilter: multiple routes pluralize', () => {
+test('describeMapFilter: only the first route is described (the map can show one line at a time)', () => {
   assert.equal(
     describeMapFilter({ routes: ['8', '12'], minDelaySec: null, inServiceOnly: false,
                         heatmap: false, placeMatch: null }),
-    'Showing: routes 8, 12');
+    'Showing: route 8');
 });
 
 test('describeMapFilter: a delay threshold reads in minutes', () => {
