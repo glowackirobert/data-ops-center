@@ -10,9 +10,11 @@ first client via `.mcp.json`. So has Track 2's natural-language map filter —
 the **Filter** button beside **Ask**, Pinot-free, so it keeps working when
 `/api/ask` is answering 504s. So has Track 4's eval harness — a checked-in
 question set and three deterministic graders, run by hand against the live
-cluster, not in CI. All five are live, documented in `CLAUDE.md`. What
-remains is Tracks 3 and 5 below, plus Track 1's optional public exposure
-(for a Claude Desktop / claude.ai client — nothing needs it yet).
+cluster, not in CI. All five are live, documented in `CLAUDE.md`,
+`README-docker.md` (endpoints, MCP service, eval-harness command) and
+`README-ec2.md` (the `anthropic_api_key` secret). What remains is Tracks 3
+and 5 below, plus Track 1's optional public exposure (for a Claude Desktop /
+claude.ai client — nothing needs it yet).
 
 The organising idea: **one tool surface, many clients.** The same handful of
 tools — run SQL, explain SQL, find stops, read logs, read metrics — serve the
