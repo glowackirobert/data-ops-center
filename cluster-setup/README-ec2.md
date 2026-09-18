@@ -131,7 +131,7 @@ mounted volume` in Troubleshooting below). Creating them yourself first, as
 `ubuntu`, sidesteps that:
 
 ```bash
-mkdir -p cluster-setup/volumes/{zoo-data,zoo-log,kafka-data,pinot/controller,pinot/server,pinot/ingestion-logs,pinot/ingestion-staging,caddy/data,loki,superset}
+mkdir -p cluster-setup/volumes/{zoo-data,zoo-log,kafka-data,pinot/controller,pinot/controller-logs,pinot/broker-logs,pinot/server,pinot/server-logs,pinot/minion-logs,pinot/ingestion-logs,pinot/ingestion-staging,caddy/data,loki,superset}
 sudo chown -R 1000:1000   cluster-setup/volumes/zoo-data
 sudo chown -R 1000:1000   cluster-setup/volumes/zoo-log
 sudo chown -R 1000:1000   cluster-setup/volumes/kafka-data
@@ -143,8 +143,10 @@ sudo chown -R 1000:1000   cluster-setup/volumes/superset
 1000 — same as `ubuntu` on the standard AMI, so these four `chown`s only
 matter if the `mkdir` above ran under `sudo`. `loki` is the one image here
 that runs as a different UID (10001), so its `chown` is required regardless.
-Pinot (`pinot/controller`, `pinot/server`, `pinot/ingestion-logs`,
-`pinot/ingestion-staging`) and Caddy (`caddy/data`) both run as root, so
+Pinot (`pinot/controller`, `pinot/controller-logs`, `pinot/broker-logs`,
+`pinot/server`, `pinot/server-logs`, `pinot/minion-logs`,
+`pinot/ingestion-logs`, `pinot/ingestion-staging`) and Caddy (`caddy/data`)
+both run as root, so
 those directories need no `chown` no matter who creates them.
 
 ## 6. Point a mode file at this host

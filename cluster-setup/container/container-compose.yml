@@ -85,13 +85,14 @@ services:
     # (pinot.${BASE_DOMAIN}, basic auth) or, in dev, through
     # container-compose.debug-ports.yml on 127.0.0.1:9000.
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_CONTROLLER_HEAP:--Xms256M -Xmx1G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-controller.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=19000:/opt/pinot/etc/jmx_prometheus_javaagent/configs/controller.yml"
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Dlog4j2.configurationFile=/opt/pinot/config/pinot-controller-log4j2.xml ${PINOT_CONTROLLER_HEAP:--Xms256M -Xmx1G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-controller.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=19000:/opt/pinot/etc/jmx_prometheus_javaagent/configs/controller.yml"
       AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
       PINOT_CONTROLLER_DATA_DIR: ${PINOT_CONTROLLER_DATA_DIR}
     secrets:
       - aws_credentials
     volumes:
       - ../volumes/pinot/controller:/opt/pinot/data/controller
+      - ../volumes/pinot/controller-logs:/opt/pinot/logs
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -113,7 +114,9 @@ services:
     hostname: pinot-broker
     restart: unless-stopped
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_BROKER_HEAP:--Xms256M -Xmx1G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-broker.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18099:/opt/pinot/etc/jmx_prometheus_javaagent/configs/broker.yml"
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Dlog4j2.configurationFile=/opt/pinot/config/pinot-broker-log4j2.xml ${PINOT_BROKER_HEAP:--Xms256M -Xmx1G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-broker.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18099:/opt/pinot/etc/jmx_prometheus_javaagent/configs/broker.yml"
+    volumes:
+      - ../volumes/pinot/broker-logs:/opt/pinot/logs
     depends_on:
       pinot-controller:
         condition: service_healthy
@@ -133,12 +136,13 @@ services:
     hostname: pinot-server
     restart: unless-stopped
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_SERVER_HEAP:--Xms512M -Xmx3G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-server.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18098:/opt/pinot/etc/jmx_prometheus_javaagent/configs/server.yml"
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Dlog4j2.configurationFile=/opt/pinot/config/pinot-server-log4j2.xml ${PINOT_SERVER_HEAP:--Xms512M -Xmx3G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-server.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=18098:/opt/pinot/etc/jmx_prometheus_javaagent/configs/server.yml"
       AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
     secrets:
       - aws_credentials
     volumes:
       - ../volumes/pinot/server:/opt/pinot/pinotServerData
+      - ../volumes/pinot/server-logs:/opt/pinot/logs
     depends_on:
       pinot-broker:
         condition: service_healthy
@@ -158,10 +162,12 @@ services:
     hostname: pinot-minion
     restart: unless-stopped
     environment:
-      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins ${PINOT_MINION_HEAP:--Xms256M -Xmx2G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-minion.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=17500:/opt/pinot/etc/jmx_prometheus_javaagent/configs/minion.yml"
+      JAVA_OPTS: "-Dplugins.dir=/opt/pinot/plugins -Dlog4j2.configurationFile=/opt/pinot/config/pinot-minion-log4j2.xml ${PINOT_MINION_HEAP:--Xms256M -Xmx2G} -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/opt/pinot/logs/gc-minion.log:time,uptime:filecount=5,filesize=20m -javaagent:/opt/pinot/etc/jmx_prometheus_javaagent/jmx_prometheus_javaagent.jar=17500:/opt/pinot/etc/jmx_prometheus_javaagent/configs/minion.yml"
       AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
     secrets:
       - aws_credentials
+    volumes:
+      - ../volumes/pinot/minion-logs:/opt/pinot/logs
     depends_on:
       pinot-server:
         condition: service_healthy
