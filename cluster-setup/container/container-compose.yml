@@ -201,8 +201,8 @@ services:
       LOKI_URL: ${LOKI_URL}
       GF_PLUGINS_PREINSTALL_DISABLED: "true"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/logs_dashboard.json
-      GF_SERVER_ROOT_URL: https://ops.${BASE_DOMAIN:-localhost}
-      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-https://ops.${BASE_DOMAIN:-localhost}}
+      GF_SECURITY_COOKIE_SECURE: ${GRAFANA_COOKIE_SECURE:-true}
       GF_USERS_ALLOW_SIGN_UP: "false"
     secrets:
       - grafana_admin_password
