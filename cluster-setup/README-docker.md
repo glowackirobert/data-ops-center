@@ -175,32 +175,77 @@ all others take JVM flags like `-Xms256M -Xmx1G`.
 
 ```bash
 # Start core services
-docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml up
+docker compose \
+--env-file cluster-setup/env/versions.env \
+--env-file cluster-setup/env/env.dev \
+-f cluster-setup/container/container-compose.yml up
 
 # First-time setup — also run init containers
-docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml --profile init up
+docker compose \
+--env-file cluster-setup/env/versions.env 
+--env-file cluster-setup/env/env.dev 
+-f cluster-setup/container/container-compose.yml --profile init up
 
 # Start core services plus the debug-port override
-docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml -f cluster-setup/container/container-compose.debug-ports.yml up
+docker compose \
+--env-file cluster-setup/env/versions.env \
+--env-file cluster-setup/env/env.dev \
+-f cluster-setup/container/container-compose.yml \
+-f cluster-setup/container/container-compose.debug-ports.yml up
 
 # First-time setup — also run init containers plus the debug-port override
-docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml -f cluster-setup/container/container-compose.debug-ports.yml --profile init up
+docker compose \
+--env-file cluster-setup/env/versions.env \
+--env-file cluster-setup/env/env.dev \
+-f cluster-setup/container/container-compose.yml \
+-f cluster-setup/container/container-compose.debug-ports.yml --profile init up
 
 # Stop
-docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.dev -f cluster-setup/container/container-compose.yml down
+docker compose \
+--env-file cluster-setup/env/versions.env \
+--env-file cluster-setup/env/env.dev \
+-f cluster-setup/container/container-compose.yml down
 ```
 
 ### Production
 
+`env.prod` is shared across all three EC2 modes; a third `--env-file` picks
+the mode — `env.mode-a`/`env.mode-b`/`env.mode-c` — see *Decide how the
+browser will reach the stack* in [README-ec2.md](README-ec2.md). Examples
+below use Mode A (`env.mode-a`, no debug ports).
+
 ```bash
 # Start core services, pull latest images
-docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml up --pull always -d
+docker compose \
+--env-file cluster-setup/env/versions.env \
+--env-file cluster-setup/env/env.prod \
+--env-file cluster-setup/env/env.mode-a \
+-f cluster-setup/container/container-compose.yml up --pull always -d
+
+# Same, plus the debug-port override (Mode B/C in README-ec2.md — swap in
+# env.mode-b or env.mode-c)
+docker compose \
+--env-file cluster-setup/env/versions.env \
+--env-file cluster-setup/env/env.prod \
+--env-file cluster-setup/env/env.mode-c \
+-f cluster-setup/container/container-compose.yml \
+-f cluster-setup/container/container-compose.debug-ports.yml up --pull always -d
 
 # First-time setup — also run init containers
-docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml --profile init up --pull always
+docker compose \
+--env-file cluster-setup/env/versions.env \
+--env-file cluster-setup/env/env.prod \
+--env-file cluster-setup/env/env.mode-a \
+-f cluster-setup/container/container-compose.yml \
+-f cluster-setup/container/container-compose.debug-ports.yml --profile init up --pull always
 
 # Stop
-docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setup/env/env.prod -f cluster-setup/container/container-compose.yml down
+docker compose \
+--env-file cluster-setup/env/versions.env \
+--env-file cluster-setup/env/env.prod \
+--env-file cluster-setup/env/env.mode-a \
+-f cluster-setup/container/container-compose.yml \
+-f cluster-setup/container/container-compose.debug-ports.yml down --remove-orphans
 ```
 
 ### Verifying Kafka messages
@@ -431,17 +476,17 @@ The `web-app` service serves a single-page UI with two tabs:
 
 The backend (stdlib Python, no dependencies) exposes:
 
-| Endpoint           | Purpose                                                                                       |
-|--------------------|-----------------------------------------------------------------------------------------------|
-| `/api/positions`   | Proxies the positions query to the Pinot broker (avoids CORS)                                 |
-| `/api/config`      | Hands the Mapbox token (from the `superset_mapbox_api_key` secret) to the browser             |
-| `/api/guest-token` | Logs into Superset with the admin secrets and mints a guest token for the embedded dashboard  |
-| `/api/stops`       | All stop poles (id, name, code, lat/lon) from the ZTM GTFS feed                               |
-| `/api/departures`  | `?stopId=` — scheduled departures in the next 60 min (or the next 3 if none), adjusted by live delays from the GPS feed: a delayed vehicle stays listed until its estimated time passes |
-| `/api/route-shape` | `?routeId=&tripId=` — today's trip trajectory (GeoJSON LineString coordinates) proxied from the ZTM shapes API, cached in memory per day; 404 if the trip has no shape today |
-| `/api/stats`       | Total docs (broker `COUNT(*)` over the hybrid table), segment count and reported size (controller API) — feeds the header scale strip |
-| `/api/heatmap`     | 24 h GPS ping density on a ~100 m grid, for the map's heatmap toggle |
-| `/api/ask`         | `POST {question}` — text-to-SQL agent (see `AI_PLATFORM_PLAN.md`); answers in English plus the Pinot SQL it ran, its rows and scan stats. Rate-limited per IP; needs the `anthropic_api_key` secret |
+| Endpoint           | Purpose                                                                                                                                                                                                                                                                                              |
+|--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `/api/positions`   | Proxies the positions query to the Pinot broker (avoids CORS)                                                                                                                                                                                                                                        |
+| `/api/config`      | Hands the Mapbox token (from the `superset_mapbox_api_key` secret) to the browser                                                                                                                                                                                                                    |
+| `/api/guest-token` | Logs into Superset with the admin secrets and mints a guest token for the embedded dashboard                                                                                                                                                                                                         |
+| `/api/stops`       | All stop poles (id, name, code, lat/lon) from the ZTM GTFS feed                                                                                                                                                                                                                                      |
+| `/api/departures`  | `?stopId=` — scheduled departures in the next 60 min (or the next 3 if none), adjusted by live delays from the GPS feed: a delayed vehicle stays listed until its estimated time passes                                                                                                              |
+| `/api/route-shape` | `?routeId=&tripId=` — today's trip trajectory (GeoJSON LineString coordinates) proxied from the ZTM shapes API, cached in memory per day; 404 if the trip has no shape today                                                                                                                         |
+| `/api/stats`       | Total docs (broker `COUNT(*)` over the hybrid table), segment count and reported size (controller API) — feeds the header scale strip                                                                                                                                                                |
+| `/api/heatmap`     | 24 h GPS ping density on a ~100 m grid, for the map's heatmap toggle                                                                                                                                                                                                                                 |
+| `/api/ask`         | `POST {question}` — text-to-SQL agent (see `AI_PLATFORM_PLAN.md`); answers in English plus the Pinot SQL it ran, its rows and scan stats. Rate-limited per IP; needs the `anthropic_api_key` secret                                                                                                  |
 | `/api/map-filter`  | `POST {text}` — Track 2's natural-language map filter (see `AI_PLATFORM_PLAN.md`); turns a sentence into `{routes, minDelaySec, inServiceOnly, heatmap, placeMatch}` for the frontend to apply. No tools, no SQL, no Pinot query — stays usable when `/api/ask` can't. Same rate limit as `/api/ask` |
 
 The same tool surface `/api/ask` uses internally, plus schema/health/S3/log/
@@ -466,26 +511,33 @@ allowing the web-app origin.
 
 ### Browser-visible origins
 
-Two env-file variables must be reachable from the **user's browser** (container
-names like `superset:8088` never work there):
+Three env-file variables must be reachable from the **user's browser**
+(container names like `superset:8088` never work there):
 
-| Variable          | Used for                                  | Local default           |
-|-------------------|-------------------------------------------|-------------------------|
-| `SUPERSET_DOMAIN` | `src` of the embedded dashboard iframe    | `http://localhost:8088` |
-| `WEBAPP_ORIGIN`   | Superset CSP `frame-ancestors` allowlist  | `http://localhost:3001` |
+| Variable           | Used for                                  | Local default           |
+|--------------------|--------------------------------------------|-------------------------|
+| `SUPERSET_DOMAIN`  | `src` of the embedded dashboard iframe    | `http://localhost:8088` |
+| `WEBAPP_ORIGIN`    | Superset CSP `frame-ancestors` allowlist  | `http://localhost:3001` |
+| `GRAFANA_ROOT_URL` | Grafana's `GF_SERVER_ROOT_URL`            | `https://ops.localhost` |
 
-On EC2 (or any remote host) set both to the instance's public DNS/IP, or to the
-`https://bi.` / `https://map.` names if Caddy fronts it. If you reach the host
-through SSH tunnels for ports 8088 and 3001, the localhost defaults are already
-correct.
+On EC2 (or any remote host) set all three to the instance's public DNS/IP, or
+to the `https://bi.` / `https://map.` / `https://ops.` names if Caddy fronts
+it. If you reach the host through SSH tunnels for ports 8088, 3001 and 3000,
+the localhost defaults are already correct. If `GRAFANA_ROOT_URL` ends up
+`http://` on anything other than literally `localhost`, also set
+`GRAFANA_COOKIE_SECURE=false` — browsers silently drop a `Secure`-flagged
+cookie over plain HTTP to any other host, which makes Grafana login accept
+the password and bounce straight back to the login page with no error.
 
 `env.dev` ships the plain-HTTP pair above: a plain `up` starts no Caddy (it
 sits behind `--profile tls`), so each service is reached on its own port —
-nothing to trust, no certificate to import. `env.prod` ships the `https://bi.`
-/ `https://map.` pair instead, because prod always runs the proxy. To test the
-TLS entrypoint in dev, swap in the commented pair in `env.dev`; both must match
-the URL the browser actually uses, or Superset's CSP `frame-ancestors` rejects
-the Analytics-tab iframe.
+nothing to trust, no certificate to import. Prod ships the `https://bi.`
+/ `https://map.` pair instead, in `cluster-setup/env/env.mode-a` (layered on
+`env.prod` as a third `--env-file` — see *Decide how the browser will reach
+the stack* in [README-ec2.md](README-ec2.md)), because Mode A always runs
+the proxy. To test the TLS entrypoint in dev, swap in the commented pair in
+`env.dev`; both must match the URL the browser actually uses, or Superset's
+CSP `frame-ancestors` rejects the Analytics-tab iframe.
 
 ### Running tests
 
@@ -502,6 +554,20 @@ no dependencies):
 ```bash
 node --test cluster-setup/web-app/tests/test_geo.js
 ```
+
+Text-to-SQL evals (Track 4, `AI_PLATFORM_PLAN.md`) — a different kind of test:
+the pure grading logic runs in `unittest discover` above with everything
+mocked, but the harness itself calls a live Anthropic API and the live Pinot
+cluster, so it's run by hand, not in CI, from `cluster-setup/web-app` with the
+cluster up and `anthropic_api_key` set:
+
+```bash
+python -m tests.evals.text_to_sql --model claude-opus-5 --date 2026-09-10
+```
+
+Grades each question in `tests/evals/text_to_sql.jsonl` on result equality,
+index-hit ratio and plan shape, printing pass rates and median `timeUsedMs`.
+`--date` substitutes `{date}` in questions/golden SQL (default: 2 days ago).
 
 ### HTTPS and the reverse proxy
 
@@ -550,14 +616,16 @@ volume, which regenerates the CA and requires re-importing.
 
 #### EC2
 
-1. Point an A record for `map`, `bi`, `ops` and `pinot` at the instance.
-2. Set `BASE_DOMAIN`, `CADDY_TLS`, `SUPERSET_DOMAIN` and `WEBAPP_ORIGIN` in
-   `env/env.prod`.
-3. Security group: allow 80 and 443 only. Port 80 must stay open — Let's
-   Encrypt's HTTP-01 challenge uses it, and Caddy redirects HTTP to HTTPS on it.
+Four A records (`map`, `bi`, `ops`, `pinot`) pointing at the instance,
+`BASE_DOMAIN`/`CADDY_TLS`/`SUPERSET_DOMAIN`/`WEBAPP_ORIGIN` set in
+`env/env.mode-a`, and 80 and 443 open in the security group — port 80 must stay
+open, since Let's Encrypt's HTTP-01 challenge uses it and Caddy redirects HTTP
+to HTTPS on it. The full instance-to-browser runbook, including the no-domain
+alternative, is in [README-ec2.md](README-ec2.md).
 
 Let's Encrypt refuses to issue certificates for EC2's own
-`*.compute.amazonaws.com` hostname, so a domain you own is not optional.
+`*.compute.amazonaws.com` hostname, so TLS there needs a domain you own; without
+one, reach the stack over SSH tunnels instead.
 
 ### Port binding
 
