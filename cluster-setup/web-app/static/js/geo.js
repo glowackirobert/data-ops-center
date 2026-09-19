@@ -38,56 +38,6 @@ export const BOX_GAP_PX = 12;
 // map. Preferred corner is after the click on both axes; when that overflows,
 // flip to before it (which leaves the click point visible rather than covered),
 // and clamp only when neither side fits.
-// A route badge's on-screen box: TextLayer size 14 plus backgroundPadding
-// [18, 3, 6, 3] — the 18 px left slot is where the heading arrow sits.
-export const BADGE_W_PX = 54;
-export const BADGE_H_PX = 20;
-
-// Thin a set of screen points so no two kept boxes overlap. Highest priority
-// wins, so a tracked vehicle never loses its badge to a neighbour. Returns the
-// Set of surviving indices.
-//
-// Done on the CPU rather than with deck.gl's CollisionFilterExtension because
-// that extension filters each layer independently: the arrow layer culled on
-// its own glyph box and arrows vanished even where their badge survived.
-// Deciding once here and feeding both layers the same rows keeps a badge and
-// its arrow together by construction.
-//
-// Bucketed into a grid of one box per cell, checking only the 3x3
-// neighbourhood — O(n) rather than the O(n^2) of comparing every pair.
-// Does `p` overlap a box already kept in the 3x3 neighbourhood of its own
-// cell? Split out of thinOverlapping rather than inlined so the triple loop
-// and its early exit read as one thing, and so neither half carries the
-// nesting of the other.
-function overlapsKept(grid, p, cx, cy, cellW, cellH) {
-  for (let dx = -1; dx <= 1; dx++) {
-    for (let dy = -1; dy <= 1; dy++) {
-      for (const q of grid.get(`${cx + dx},${cy + dy}`) || []) {
-        if (Math.abs(q.x - p.x) < cellW && Math.abs(q.y - p.y) < cellH) return true;
-      }
-    }
-  }
-  return false;
-}
-
-export function thinOverlapping(points, cellW = BADGE_W_PX, cellH = BADGE_H_PX) {
-  const grid = new Map();
-  const keep = new Set();
-  const order = points.map((_, i) => i)
-    .sort((a, b) => (points[b].priority || 0) - (points[a].priority || 0));
-  for (const i of order) {
-    const p = points[i];
-    const cx = Math.floor(p.x / cellW);
-    const cy = Math.floor(p.y / cellH);
-    if (overlapsKept(grid, p, cx, cy, cellW, cellH)) continue;
-    keep.add(i);
-    const k = `${cx},${cy}`;
-    if (!grid.has(k)) grid.set(k, []);
-    grid.get(k).push(p);
-  }
-  return keep;
-}
-
 // The departures popup is anchored to its stop's own coordinates, so panning
 // carries the stop — and the popup with it — towards the edge. Once the stop
 // itself is off the map there is nothing left for the popup to point at, and

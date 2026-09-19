@@ -3,8 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { projectOnPath, bearingDiff, nearestRouteStop, needsRecentre, onScreen,
-         placeBox, thinOverlapping, OFF_ROUTE_M, FOLLOW_DEADZONE, BOX_GAP_PX,
-         BADGE_W_PX, BADGE_H_PX }
+         placeBox, OFF_ROUTE_M, FOLLOW_DEADZONE, BOX_GAP_PX }
   from '../static/js/geo.js';
 
 test('bearingDiff: opposite headings are 180 apart', () => {
@@ -154,58 +153,4 @@ test('placeBox: the flipped box never overlaps the click point', () => {
   const p = placeBox({ x: 950, y: 760 }, SMALL, VIEW);
   assert.ok(p.left + SMALL.width <= 950, 'stays left of the click');
   assert.ok(p.top + SMALL.height <= 760, 'stays above the click');
-});
-
-// thinOverlapping — badge decluttering. Kept boxes must never overlap, and the
-// highest-priority point must always survive.
-test('thinOverlapping: well-separated points are all kept', () => {
-  const pts = [{ x: 0, y: 0 }, { x: 500, y: 0 }, { x: 0, y: 400 }];
-  assert.equal(thinOverlapping(pts).size, 3);
-});
-
-test('thinOverlapping: overlapping points collapse to one', () => {
-  const pts = [{ x: 100, y: 100 }, { x: 105, y: 102 }, { x: 110, y: 104 }];
-  assert.equal(thinOverlapping(pts).size, 1);
-});
-
-test('thinOverlapping: the highest priority point is the one kept', () => {
-  const pts = [{ x: 100, y: 100, priority: 0 },
-               { x: 104, y: 101, priority: 0 },
-               { x: 108, y: 102, priority: 1 }]; // the selected vehicle
-  const keep = thinOverlapping(pts);
-  assert.equal(keep.size, 1);
-  assert.ok(keep.has(2), 'the prioritised point survived');
-});
-
-test('thinOverlapping: points just past a badge width both survive', () => {
-  const pts = [{ x: 0, y: 0 }, { x: BADGE_W_PX + 1, y: 0 }];
-  assert.equal(thinOverlapping(pts).size, 2);
-  const overlapping = [{ x: 0, y: 0 }, { x: BADGE_W_PX - 1, y: 0 }];
-  assert.equal(thinOverlapping(overlapping).size, 1);
-});
-
-test('thinOverlapping: neighbours across a grid-cell boundary still collide', () => {
-  // Straddles the cell edge: a same-cell-only check would wrongly keep both.
-  const pts = [{ x: BADGE_W_PX - 2, y: BADGE_H_PX - 2 },
-               { x: BADGE_W_PX + 2, y: BADGE_H_PX + 2 }];
-  assert.equal(thinOverlapping(pts).size, 1);
-});
-
-test('thinOverlapping: no two survivors overlap, on a dense random field', () => {
-  let seed = 42;
-  const rnd = () => {
-    seed = (seed * 1103515245 + 12345) % 2147483648;
-    return seed / 2147483648;
-  };
-  const pts = Array.from({ length: 400 },
-    () => ({ x: rnd() * 800, y: rnd() * 600 }));
-  const kept = [...thinOverlapping(pts)].map(i => pts[i]);
-  assert.ok(kept.length > 0 && kept.length < pts.length, 'thinned but not emptied');
-  for (let i = 0; i < kept.length; i++) {
-    for (let j = i + 1; j < kept.length; j++) {
-      const clash = Math.abs(kept[i].x - kept[j].x) < BADGE_W_PX &&
-                    Math.abs(kept[i].y - kept[j].y) < BADGE_H_PX;
-      assert.ok(!clash, `survivors overlap: ${JSON.stringify([kept[i], kept[j]])}`);
-    }
-  }
 });

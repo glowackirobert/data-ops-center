@@ -3,7 +3,7 @@
 // here, when to redraw is map.js's business (render()).
 
 import { colorForRoute, esc, routeOf, time24 } from './utils.js';
-import { OFF_ROUTE_M, projectOnPath, nearestRouteStop, thinOverlapping } from './geo.js';
+import { OFF_ROUTE_M, projectOnPath, nearestRouteStop } from './geo.js';
 import { state, els } from './state.js';
 
 const HALO_PERIOD_MS = 2200;
@@ -152,36 +152,11 @@ function selectedVehicleHaloLayer(rows) {
   })];
 }
 
-// Zoomed out to the whole city ~300 badges pile into unreadable mush, so
-// drop the ones that would overlap. Recomputed only when the data, camera or
-// selection actually changes: render() also runs every 100 ms to animate the
-// halo, and reprojecting every vehicle on each of those frames would be pure
-// waste. thinOverlapping is in geo.js, unit-tested there.
-let thinCache = { key: null, rows: null };
-function thinVehicles(rows) {
-  const c = state.map.getCenter();
-  const sel = state.selectedTrip?.vehicleId ?? '';
-  const key = `${state.lastUpdated}|${rows.length}|${state.map.getZoom().toFixed(3)}`
-            + `|${c.lng.toFixed(5)},${c.lat.toFixed(5)}|${sel}`;
-  if (thinCache.key === key) return thinCache.rows;
-  const pts = rows.map(d => {
-    const p = state.map.project([d.lon, d.lat]);
-    return { x: p.x, y: p.y, priority: d.vehicleId === sel ? 1 : 0 };
-  });
-  const keep = thinOverlapping(pts);
-  const out = rows.filter((_, i) => keep.has(i));
-  thinCache = { key, rows: out };
-  return out;
-}
-
 // The whole stack, bottom to top, for one render. `rows` is already filtered
 // (the selected line, and/or the Filter box's delay/in-service constraint —
 // see currentRows in map.js); `route` and `heatOn` are the two mode switches
 // that decide which layers are populated at all.
 export function deckLayers(rows, route, heatOn) {
-  // One decision, both vehicle layers: a badge and its arrow are one visual
-  // unit and must appear or disappear together.
-  const shown = heatOn ? rows : thinVehicles(rows);
   return [
     // Density heatmap — lowest layer, everything else reads on top of it.
     ...heatmapLayers(heatOn),
@@ -219,7 +194,7 @@ export function deckLayers(rows, route, heatOn) {
     // extra left padding reserving room for the heading arrow.
     new deck.TextLayer({
       id: 'vehicles',
-      data: heatOn ? [] : shown,
+      data: heatOn ? [] : rows,
       characterSet: 'auto',
       getText: routeOf,
       getPosition: d => [d.lon, d.lat],
@@ -241,7 +216,7 @@ export function deckLayers(rows, route, heatOn) {
     // ordinary speed-0 stop at lights or a stop keeps the last heading.
     new deck.TextLayer({
       id: 'vehicle-arrows',
-      data: heatOn ? [] : shown.filter(d => d.speed > 0 || !d.atTerminus),
+      data: heatOn ? [] : rows.filter(d => d.speed > 0 || !d.atTerminus),
       characterSet: ['↑'],
       getText: () => '↑',
       getPosition: d => [d.lon, d.lat],
