@@ -6,9 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Smallest change that works. No speculative abstractions, no defensive error
 handling unless the surrounding code has it, no comments unless the
-neighbouring code is commented. Don't restate the diff in prose — the diff is
-already readable. A short answer is the correct answer when there is little to
-report.
+neighbouring code is commented. A short answer is the correct answer 
+when there is little to report. Same bar for docs: short, 
+self-describing notes over long explanations — a reader should 
+get the point from one or two lines.
 
 ## Project Overview
 
@@ -25,17 +26,17 @@ Runnable commands live in the READMEs — do not duplicate them here:
 - `k8s/README.md` — Kubernetes deployment (Kustomize)
 - `cluster-setup/README-lambda.md` — AWS Lambda packaging/deployment
 - `kafka-producer-app/README-docker.md` — building and running the Kafka producer app
-- `BUSINESS_OVERVIEW.md` — non-technical overview for a business audience (value, use cases, why not a relational database)
+- `BUSINESS_OVERVIEW.md` — non-technical overview for a business audience (value, use cases)
 
 ## Modules
 
-| Directory                | Language               | Purpose                                                                                                                                                           |
-|--------------------------|------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `kafka-producer-app/`    | Java 21 / Maven        | Kafka producer that publishes Avro-serialized `Trade` events                                                                                                      |
-| `cluster-setup/`         | Docker Compose, shell  | Infrastructure: Kafka, Schema Registry, Pinot, Superset, Prometheus, Grafana                                                                                      |
-| `k8s/`                   | Kubernetes / Kustomize | Kubernetes manifests for Zookeeper, Kafka (KRaft mode), Apache Pinot                                                                                              |
-| `cluster-setup/py/`      | Python                 | Gdansk GPS fetchers: `_aws.py` (Lambda → S3), `_kafka.py` (streams to Kafka, runs as compose service), `_s3_compaction.py` (merges raw S3 files into daily gzips) |
-| `cluster-setup/web-app/` | Python (stdlib), HTML | Live vehicle map (Mapbox GL + deck.gl); flicker-free 10 s refresh — only the dot layer updates. Proxies queries to the Pinot broker                            |
+| Directory                | Language                 | Purpose                                                                                                                                                           |
+|--------------------------|--------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `kafka-producer-app/`    | Java 21 / Maven          | Kafka producer that publishes Avro-serialized `Trade` events                                                                                                      |
+| `cluster-setup/`         | Docker Compose, shell    | Infrastructure: Kafka, Schema Registry, Pinot, Superset, Prometheus, Grafana, Loki/Alloy, Caddy(TLS reverse proxy)                                                |
+| `k8s/`                   | Kubernetes / Kustomize   | Kubernetes manifests for Zookeeper, Kafka (KRaft mode), Apache Pinot                                                                                              |
+| `cluster-setup/py/`      | Python                   | Gdansk GPS fetchers: `_aws.py` (Lambda → S3), `_kafka.py` (streams to Kafka, runs as compose service), `_s3_compaction.py` (merges raw S3 files into daily gzips) |
+| `cluster-setup/web-app/` | Python (stdlib), HTML    | Live vehicle map (Mapbox GL + deck.gl); flicker-free 10 s refresh — only the dot layer updates. Proxies queries to the Pinot broker                               |
 
 ## Running the Cluster (Docker Compose)
 
@@ -44,7 +45,7 @@ All commands are in `cluster-setup/README-docker.md`. Key facts:
 - All Docker image versions live in `cluster-setup/env/versions.env` — the single source of truth, read by the compose commands (first `--env-file`), the README build commands, and the CI workflow. Exception: `kafka-producer-app` is versioned by its `pom.xml`. The k8s manifests do **not** read it.
 - The `secrets/` directory (`cluster-setup/container/secrets/`) is gitignored and must be populated before first run — the README lists the required files.
 - Custom images (`apache-pinot`, `superset`, `kafka-producer-app`, `web-app`) must be built locally before first start in **dev mode** (`env.dev`, `DOCKER_IMAGE_BASE_PATH` empty). **Prod mode** (`env.prod`) pulls them from Docker Hub `robertglowacki83/` — built and pushed automatically by `.github/workflows/docker-ci.yml` on pushes to `master` that touch image inputs.
-- Files are baked into the custom images at build time: `cluster-setup/table_config/` and `cluster-setup/pinot/` into `apache-pinot`, `cluster-setup/web-app/server.py`, `cluster-setup/web-app/mcp_server.py`, `cluster-setup/web-app/app/`, and `cluster-setup/web-app/static/` into `web-app` (also the image behind the `data-ops-mcp` service — same tag, different `command:`) — rebuild the image after changing them.
+- Files are baked into the custom images at build time: `cluster-setup/table_config/` and `cluster-setup/pinot/` into `apache-pinot`, `cluster-setup/web-app/server.py`, `cluster-setup/web-app/mcp_server.py`, `cluster-setup/web-app/app/`, and `cluster-setup/web-app/static/` into `web-app` (the `data-ops-mcp` compose service runs this same `web-app` image, just with `mcp_server.py` as its `command:` instead of `server.py` — one build covers both services) — rebuild the image after changing them.
 - `--profile init` additionally runs the one-shot seeding containers: `kafka-topic-init`, `pinot-table-registrar` (registers schemas/tables), `kafka-producer`, `pinot-ingestion-runner` (S3 batch ingestion), `superset-init`.
 
 Service ports and dev/prod bind behaviour are documented in `cluster-setup/README-docker.md`.
@@ -86,9 +87,18 @@ The `pinot-ingestion-runner` init container launches a batch ingestion job over 
 
 ## Superset
 
-- Dashboards are version-controlled as YAML under `cluster-setup/superset/dashboards/`. Map charts use built-in Mapbox styles authenticated at runtime via `MAPBOX_API_KEY` (from the `superset_mapbox_api_key` secret) — no key is stored in the YAML.
-- Query results are never cached: `DATA_CACHE_CONFIG` is `NullCache` in `superset_config.py` and every chart YAML pins `cache_timeout: -1` (Superset's explicit cache bypass — `0` would mean "never expires"), so each dashboard view re-queries Pinot live. The FileSystemCache entries in `superset_config.py` hold only UI state (metadata, native-filter state, Explore permalinks), not query data. Config changes take effect on Superset container restart (the file is volume-mounted); chart YAML changes need a dashboard re-import (`superset-init`).
-- `superset-init.sh` normalizes `metadata.yaml` to `type: assets` before import, since UI exports write `type: Dashboard`, which the assets importer rejects. It also creates the `EmbeddedGuest` role (Gamma permissions + datasource access) and registers dashboards for embedding.
+- Dashboards are version-controlled as YAML under `cluster-setup/superset/dashboards/`. 
+  Map charts use built-in Mapbox styles authenticated at runtime via `MAPBOX_API_KEY` 
+  (from the `superset_mapbox_api_key` secret) — no key is stored in the YAML.
+- Query results are never cached: `DATA_CACHE_CONFIG` is `NullCache` in `superset_config.py` 
+  and every chart YAML pins `cache_timeout: -1` (Superset's explicit cache bypass — `0` 
+  would mean "never expires"), so each dashboard view re-queries Pinot live. The FileSystemCache 
+  entries in `superset_config.py` hold only UI state (metadata, native-filter state, Explore 
+  permalinks), not query data. Config changes take effect on Superset container restart 
+  (the file is volume-mounted); chart YAML changes need a dashboard re-import (`superset-init`).
+- `superset-init.sh` normalizes `metadata.yaml` to `type: assets` before import, since UI
+  exports write `type: Dashboard`, which the assets importer rejects. It also creates the 
+  `EmbeddedGuest` role (Gamma permissions + datasource access) and registers dashboards for embedding.
 - Chart queries are written to fit the star-tree index (`dayBucket`, `routeShortName` with
   `SUM(isOnTime)`, `SUM(isLate)`, `COUNT(*)`, `AVG(speed)`): category filters are `IN`/range
   predicates rather than `REGEXP_LIKE`, and time windows are anchored to midnight, since a
@@ -148,7 +158,7 @@ Two env-file variables must be reachable from the **user's browser** (container 
 
 ## Monitoring
 
-Prometheus scrapes JMX metrics from Kafka (port 19092) and from each Pinot component via their respective JMX exporter ports. The JMX config lives in `cluster-setup/jmx_exporter/kafka_jmx_config.yml`. Grafana dashboards are provisioned from `cluster-setup/grafana/`.
+Prometheus scrapes JMX metrics from Kafka and from each Pinot component via their respective JMX exporter ports. The JMX config lives in `cluster-setup/jmx_exporter/kafka_jmx_config.yml`. Grafana dashboards are provisioned from `cluster-setup/grafana/`.
 
 Logs are handled separately from metrics: **Grafana Alloy** (`cluster-setup/alloy/config.alloy`) discovers containers via the Docker socket — scoped to this compose project via a `com.docker.compose.project` filter — and ships stdout/stderr to **Loki** (`cluster-setup/loki/loki-config.yml`, filesystem storage, 7-day retention), which Grafana queries via LogQL through a second provisioned datasource (`cluster-setup/grafana/provisioning/datasources/loki.yaml`). Alloy over Promtail (EOL March 2026): it also has native Kubernetes service discovery — when the monitoring stack moves to `k8s/`, only the discovery block changes (`discovery.kubernetes` instead of `discovery.docker`); the `loki.write` sink is unaffected. Grafana's default home dashboard (`GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH`, set in `container-compose.yml`) is the provisioned `cluster-setup/grafana/dashboards/logs_dashboard.json` — a Logs panel with `container`/`stream` dropdown variables, so opening Grafana lands directly on a browsable, filterable log view instead of the Pinot metrics dashboard.
 

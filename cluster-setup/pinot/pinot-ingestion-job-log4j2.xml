@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied.  See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+    Adapted from the image's default /opt/pinot/conf/pinot-ingestion-job-log4j2.xml.
+    Loaded via "-Dlog4j2.configurationFile=/opt/pinot/config/pinot-ingestion-job-log4j2.xml"
+    (container-compose.yml) instead of pinot-admin.sh's own default: that default
+    (conf/log4j2.xml) only applies when JAVA_OPTS is unset, and pinot-ingestion-runner's
+    JAVA_OPTS isn't, so without this override Log4j2 fell back to its bare built-in
+    configuration (console only, ERROR level) and the job's own progress/error output
+    never reached "docker logs" or the mounted volume at all. One change from the
+    original: the file appender gets an explicit path under /opt/pinot/logs, which is
+    host-mounted, instead of an unqualified filename that wrote next to the JVM's
+    working directory.
+
+-->
+<Configuration>
+  <Appenders>
+    <Console name="console" target="SYSTEM_OUT">
+      <PatternLayout>
+        <Pattern>%d{yyyy/MM/dd HH:mm:ss.SSS} %p [%c{1}] [%t] %m%n</Pattern>
+      </PatternLayout>
+    </Console>
+    <RandomAccessFile name="ingestionJobLog" fileName="/opt/pinot/logs/pinot-ingestion-job.log" immediateFlush="false">
+      <PatternLayout>
+        <Pattern>%d{yyyy/MM/dd HH:mm:ss.SSS} %p [%c{1}] [%t] %m%n</Pattern>
+      </PatternLayout>
+    </RandomAccessFile>
+  </Appenders>
+  <Loggers>
+    <Root level="info" additivity="false">
+      <AppenderRef ref="console"/>
+    </Root>
+    <Logger name="org.apache.pinot.tools.admin" level="info" additivity="false">
+      <AppenderRef ref="console"/>
+    </Logger>
+    <Logger name="org.apache.pinot" level="info" additivity="false">
+      <AppenderRef ref="console"/>
+      <AppenderRef ref="ingestionJobLog"/>
+    </Logger>
+    <AsyncLogger name="org.reflections" level="error" additivity="false"/>
+    <AsyncLogger name="org.apache.pinot.spi.plugin" level="error" additivity="false">
+      <AppenderRef ref="console"/>
+    </AsyncLogger>
+  </Loggers>
+</Configuration>

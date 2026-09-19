@@ -1,27 +1,7 @@
 """Backfill the gdansk_public_transport OFFLINE table one day at a time.
 
-Why per-day: the ingestion job spec's "inputFile" segment name generator gets
-its segment name pre-resolved by Pinot's IngestionJobLauncher by matching
-file.path.pattern against includeFileNamePattern *before* any real S3 listing
-happens. That only produces a correct name when the pattern matches exactly
-one file. Passing a wildcard INGESTION_DATE that matches many files (a full
-backfill, or a `2026-06-*` month) makes every file resolve to the same
-broken literal name (e.g. "gdansk_public_transport_*") and the whole job
-fails on the first segment. Looping this script one explicit date per
-`docker compose run` invocation sidesteps that entirely.
-
-Progress is tracked in a local JSON manifest (INGESTED_MANIFEST below) rather
-than by inspecting Pinot segment state: the MergeRollupTask (a minion
-background job, see README-docker.md) folds day segments into merged_1week_*
-segments and deletes the originals on its own schedule, independent of this
-script. Checking segment names for "already done" would therefore either miss
-merged days (and re-ingest them, double-counting rows alongside the merge —
-see README-docker.md's MergeRollup caveat) or require reading every merged
-segment's time-range metadata just to answer a yes/no question. The manifest
-instead just remembers "we successfully ran this date's ingestion job before",
-independent of whatever Pinot did with the resulting segment afterwards.
---force bypasses the manifest and re-ingests regardless (same double-counting
-risk as re-ingesting an already-merged day, now opt-in instead of the default).
+Rationale, the manifest, and --force are documented in README-docker.md's
+"Backfilling a range of days" section — read that before using this script.
 
 Usage:
   python cluster-setup/scripts/backfill_pinot_offline.py [--env dev|prod]

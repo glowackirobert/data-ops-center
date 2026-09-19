@@ -227,10 +227,11 @@ docker compose \
   --profile init up -d
 ```
 
-`pinot-ingestion-runner` is the exception: `INGESTION_DATE` ships empty, which
-is a wildcard, and Pinot's job launcher cannot name segments for a wildcard
-match — that container exits non-zero and nothing else is affected. Load the
-offline table afterwards instead:
+`pinot-ingestion-runner` (part of `--profile init`) does a full backfill of
+everything under `squashed/` at start — `INGESTION_DATE` ships empty, which is
+a wildcard, and that works fine in one shot. Later, once the cluster has been
+running a while, use `backfill_pinot_offline.py` to catch up on new days
+cheaply instead of re-running the full wildcard backfill each time:
 
 ```bash
 sudo apt-get install -y awscli python3
@@ -256,28 +257,26 @@ python3 cluster-setup/scripts/backfill_pinot_offline.py --env prod \
 ssh -i key.pem -L 3001:localhost:3001 -L 9000:localhost:9000 -L 8088:localhost:8088 -L 3000:localhost:3000 ubuntu@16.16.156.69
 ```
 
-Multi-laptop access: the tunnel is per-machine, not a link you can hand out.
-Anyone else who needs the UIs runs the same `ssh -L ...` command themselves,
-from their own laptop, with either a copy of `key.pem` or their own key added
-to `~ubuntu/.ssh/authorized_keys` on the instance.
+Multi-laptop access: the tunnel is per-machine. From another laptop use
+`ssh -L ...` with a copy of `key.pem`.
 
 
 **Mode C** — straight from a browser, no tunnel (the `docker compose` command
 is the Mode B/C one from step 7 with `--env-file env.mode-c`):
 
-| URL                        | Service             | Login                              |
-|----------------------------|---------------------|------------------------------------|
-| `http://16.170.37.11:3001`  | Web app             | none                               |
-| `http://16.170.37.11:8088`  | Superset            | the `superset_admin_*` secrets     |
-| `http://16.170.37.11:3000`  | Grafana             | `admin` / `grafana_admin_password` |
-| `http://16.170.37.11:9000`  | Pinot controller UI | **none — no authentication**       |
-| `http://16.170.37.11:8099`  | Pinot broker        | none                               |
-| `http://16.170.37.11:9090`  | Prometheus          | none                               |
-| `http://16.170.37.11:12345` | Alloy debug UI      | none                               |
+| URL                          | Service             | Login                              |
+|------------------------------|---------------------|------------------------------------|
+| `http://13.50.235.210:3001`   | Web app             | none                               |
+| `http://13.50.235.210:8088`   | Superset            | the `superset_admin_*` secrets     |
+| `http://13.50.235.210:3000`   | Grafana             | `admin` / `grafana_admin_password` |
+| `http://13.50.235.210:9000`   | Pinot controller UI | **none — no authentication**       |
+| `http://13.50.235.210:8099`   | Pinot broker        | none                               |
+| `http://13.50.235.210:9090`   | Prometheus          | none                               |
+| `http://13.50.235.210:12345`  | Alloy debug UI      | none                               |
 
 The last four have zero authentication of their own; the security-group rule
 from step 1 (source restricted to your IP) is the only thing in front of them.
-Switch back to `env.mode-a` (Mode A) as soon as you have a domain.
+
 
 ## 9. Stop and start
 
@@ -285,17 +284,3 @@ Switch back to `env.mode-a` (Mode A) as soon as you have a domain.
 aws ec2 stop-instances  --instance-ids <INSTANCE_ID>
 aws ec2 start-instances --instance-ids <INSTANCE_ID>
 ```
-
-
-## Troubleshooting
-
-| Symptom                                               | Cause                                                                                            |
-|-------------------------------------------------------|--------------------------------------------------------------------------------------------------|
-| `--env-file` rejected when given twice                | Compose v1 — remove `docker-compose`, use the v2 plugin                                          |
-| Controller unhealthy, S3 errors in its log            | `aws_credentials` missing, malformed, or without access to `s3://gdansk-public-transport`        |
-| Caddy log: challenge failed, no certificate           | DNS not pointing here yet, port 80 closed in the security group, or `CADDY_TLS` still `internal` |
-| Analytics tab blank, CSP error in the browser console | `WEBAPP_ORIGIN` / `SUPERSET_DOMAIN` do not match the URL in the address bar                      |
-| Pinot server killed, exit 137                         | Out of RAM — check `docker stats`, lower `PINOT_SERVER_HEAP` or resize the instance              |
-| `permission denied` on a mounted volume               | Docker created the host directory as root; `chown` it to the uid the container runs as           |
-| Map empty, `/api/positions` returns nothing           | Tables not registered — run the init profile, check `pinot-table-registrar` logs                 |
-| Grafana login accepts the password, bounces back to the login page with no error | `GRAFANA_COOKIE_SECURE=true` (the default) over plain HTTP to a non-`localhost` origin — the browser silently drops the `Secure` cookie. Set `GRAFANA_COOKIE_SECURE=false` (Mode C) and recreate the `grafana` container |

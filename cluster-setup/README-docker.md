@@ -295,19 +295,22 @@ an exact day (`2026-02-01`) or exact month (`2026-02`) each match exactly one fi
 a partial month (`2026-06-*`), or a year (`2025-*`) match many — whatever mix of day/month files
 currently exists for that range.
 
-> **Only the exact-single-file case works as a direct `docker compose run`.**
-> Pinot's `IngestionJobLauncher` pre-resolves the `inputFile` segment name
-> generator's output by matching `file.path.pattern` against
-> `includeFileNamePattern` *before* it lists any real S3 files — correct only
-> when that pattern matches exactly one file. A wildcard match makes every
-> file resolve to the same broken literal segment name (e.g.
-> `gdansk_public_transport_*`) and the job fails on the first segment. Both
-> `env.dev` and `env.prod` ship `INGESTION_DATE` empty, so **a plain
-> `--profile init up` currently fails to ingest anything** — the
-> `pinot-ingestion-runner` init container exits non-zero (the other init
-> containers are unaffected). For a full backfill or any multi-day/month range, use
-> `backfill_pinot_offline.py` below instead of a bare wildcard `INGESTION_DATE`
-> (daily only currently — see its `--help`).
+> **A wildcard `INGESTION_DATE` works fine as a direct `docker compose run`.**
+> Confirmed against a live cluster: an empty/wildcard run lists the real S3
+> files first and names one segment per file from its own path, so it doesn't
+> collapse into a single broken literal name. Both `env.dev` and `env.prod`
+> ship `INGESTION_DATE` empty, so a plain `--profile init up` does a full
+> backfill of everything under `squashed/`.
+>
+> Use `backfill_pinot_offline.py` below instead when **catching up days after
+> the cluster has been running for a while**, not because the wildcard is
+> broken: `pinot-ingestion-runner` is a one-shot init container that nothing
+> re-triggers automatically, so new day files pile up in `squashed/` every
+> night via compaction. Re-running the bare wildcard job to catch up would
+> re-download, re-generate and re-push segments for the *entire* history just
+> to pick up a few new days; the script's manifest skips dates already
+> ingested and only processes what's new (daily files only — see its
+> `--help`).
 
 Ingestion is idempotent for a given file — segments are named after it and
 overwritten, not duplicated — so retrying one failed day/month is simply
