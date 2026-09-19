@@ -44,12 +44,16 @@ If CLAUDE.md and the code disagree, that is a finding.
 - New `app/` logic gets a `tests/test_<module>.py` in the style of the closest existing test file.
 - New pure frontend logic gets a `node --test` case in the matching `test_<name>.js`. Note that the test directory holds Python tests too, so Node test files must be listed explicitly.
 
+**Documentation sync**
+- If the feature adds, changes, or removes user-visible behavior, grep `CLAUDE.md` and the `cluster-setup/README-*.md` files for any passage describing the old behavior. A passage left describing removed/changed behavior is a finding, same weight as CLAUDE.md/code disagreeing.
+- Check `WEB_APP_MANUAL_TEST_PLAN.md` for a case covering the changed behavior. A new user-visible feature needs a new case; a changed one needs its existing case's expected result updated; a removed one needs its case removed or corrected — not left describing something that no longer happens.
+
 ## Reporting
 
 Order findings by severity:
 1. **Will break at runtime** — route/fetch path mismatch, exception leaking to the client, missing 503 gate.
 2. **Convention mismatch** — logic in the wrong layer, a separate mechanism beside an established one, relative asset path.
-3. **Advisory** — missing CLAUDE.md entry, missing tests.
+3. **Advisory** — missing CLAUDE.md entry, missing tests, missing/stale `WEB_APP_MANUAL_TEST_PLAN.md` case.
 
 Give `path:line`, the convention broken, and the concrete fix. If the feature fits cleanly, say so rather than inventing findings.
 
