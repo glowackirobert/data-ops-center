@@ -161,12 +161,16 @@ export async function getJson(url) {
 
 // POST counterpart to getJson, for the endpoints (/api/ask, /api/map-filter)
 // that take a body. Same error-unwrapping rule: the server's own `error`
-// text beats a bare status code.
-export async function postJson(url, body) {
+// text beats a bare status code. `signal` is optional — chat.js/mapfilter.js
+// pass an AbortController's signal so a "Stop" click or a new question can
+// cancel a request still in flight; fetch rejects with a DOMException named
+// "AbortError" when it does, which callers check for and treat as silent.
+export async function postJson(url, body, signal) {
   const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    signal,
   });
   if (!resp.ok) {
     const data = await resp.json().catch(() => null);

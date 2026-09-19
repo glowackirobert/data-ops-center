@@ -14,8 +14,29 @@ export function initMapFilter(onApply) {
   const form = els.mapFilterForm;
   const input = els.mapFilterInput;
   const result = els.mapFilterResult;
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const clearBtn = els.mapFilterClearBtn;
 
-  let busy = false;
+  let controller = null; // non-null exactly while a request is in flight
+
+  const setBusy = busy => {
+    input.disabled = busy;
+    submitBtn.textContent = busy ? 'Stop' : 'Go';
+  };
+
+  // Cancels whatever's in flight, if anything, and drops the "Thinking…"
+  // placeholder it left up — the box stays open after a Stop click, so a
+  // stale "Thinking…" with the input re-enabled would look like it's still
+  // working. Used by Stop, Clear, and close() — closing the box mid-request
+  // must not let a stale response land and repopulate a panel the user isn't
+  // even looking at any more.
+  const stop = () => {
+    if (!controller) return;
+    controller.abort();
+    controller = null;
+    setBusy(false);
+    result.textContent = '';
+  };
 
   const open = () => {
     box.classList.remove('hidden');
@@ -23,27 +44,44 @@ export function initMapFilter(onApply) {
     input.focus();
   };
   const close = () => {
+    stop();
     box.classList.add('hidden');
     btn.classList.remove('active');
+  };
+  const clear = () => {
+    stop(); // also clears result
+    input.value = '';
+    input.focus();
   };
 
   btn.onclick = () => (box.classList.contains('hidden') ? open() : close());
   box.querySelector('.close').onclick = close;
+  clearBtn.onclick = clear;
 
   form.onsubmit = async e => {
     e.preventDefault();
+    if (controller) { stop(); return; } // submit button reads "Stop" while busy
     const text = input.value.trim();
-    if (!text || busy) return;
-    busy = true;
+    if (!text) return;
+    controller = new AbortController();
+    setBusy(true);
     result.textContent = 'Thinking…';
     try {
-      const filter = await postJson('/api/map-filter', { text });
+      const filter = await postJson('/api/map-filter', { text }, controller.signal);
       onApply(filter);
       result.textContent = describeMapFilter(filter);
     } catch (err) {
-      result.textContent = `Filter failed: ${err.message}`;
+      if (err.name !== 'AbortError') result.textContent = `Filter failed: ${err.message}`;
     } finally {
-      busy = false;
+      controller = null;
+      setBusy(false);
     }
   };
+
+  // Lets map.js's routeSelect.onchange keep this panel's readback honest: a
+  // manual dropdown pick clears state.nlFilter (see map.js) but has no
+  // other reason to reach into this module, so it calls this instead of
+  // leaving "Showing: route 3, delayed 5+ min…" up after the map itself
+  // has gone back to showing everything.
+  return { clearResult: () => { result.textContent = ''; } };
 }

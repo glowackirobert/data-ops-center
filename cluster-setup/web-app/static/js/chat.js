@@ -25,8 +25,29 @@ export function initChat() {
   const form = document.getElementById('ask-form');
   const input = document.getElementById('ask-input');
   const result = document.getElementById('ask-result');
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const clearBtn = document.getElementById('ask-clear-btn');
 
-  let busy = false;
+  let controller = null; // non-null exactly while a request is in flight
+
+  const setBusy = busy => {
+    input.disabled = busy;
+    submitBtn.textContent = busy ? 'Stop' : 'Ask';
+  };
+
+  // Cancels whatever's in flight, if anything, and drops the "Thinking…"
+  // placeholder it left up — the box stays open after a Stop click, so a
+  // stale "Thinking…" with the input re-enabled would look like it's still
+  // working. Used by Stop, Clear, and close() — closing the box mid-question
+  // must not let a stale answer land and repopulate a panel the user isn't
+  // even looking at any more.
+  const stop = () => {
+    if (!controller) return;
+    controller.abort();
+    controller = null;
+    setBusy(false);
+    result.innerHTML = '';
+  };
 
   const open = () => {
     box.classList.remove('hidden');
@@ -34,25 +55,35 @@ export function initChat() {
     input.focus();
   };
   const close = () => {
+    stop();
     box.classList.add('hidden');
     btn.classList.remove('active');
+  };
+  const clear = () => {
+    stop(); // also clears result
+    input.value = '';
+    input.focus();
   };
 
   btn.onclick = () => (box.classList.contains('hidden') ? open() : close());
   box.querySelector('.close').onclick = close;
+  clearBtn.onclick = clear;
 
   form.onsubmit = async e => {
     e.preventDefault();
+    if (controller) { stop(); return; } // submit button reads "Stop" while busy
     const question = input.value.trim();
-    if (!question || busy) return;
-    busy = true;
+    if (!question) return;
+    controller = new AbortController();
+    setBusy(true);
     result.innerHTML = '<div class="ask-pending">Thinking…</div>';
     try {
-      renderResult(result, await postJson('/api/ask', { question }));
+      renderResult(result, await postJson('/api/ask', { question }, controller.signal));
     } catch (err) {
-      renderError(result, err);
+      if (err.name !== 'AbortError') renderError(result, err);
     } finally {
-      busy = false;
+      controller = null;
+      setBusy(false);
     }
   };
 }

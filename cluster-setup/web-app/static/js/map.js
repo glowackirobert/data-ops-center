@@ -3,8 +3,8 @@
 // drawn is layers.js; the departures popup is stopbox.js; the route-delay
 // panel is histogram.js.
 
-import { time24, isTram, isNightBus, getJson, postJson, routeOf,
-         latencyBadgeHtml, describeMapFilter } from './utils.js';
+import { time24, isTram, isNightBus, getJson, routeOf,
+         latencyBadgeHtml } from './utils.js';
 import { needsRecentre } from './geo.js';
 import { state, els } from './state.js';
 import { tooltip, deckLayers } from './layers.js';
@@ -339,7 +339,18 @@ export async function initMap() {
     map.fitBounds(bounds, { padding: 80, maxZoom: 15 });
   }
 
-  routeSelect.onchange = () => {
+  routeSelect.onchange = e => {
+    // A manual dropdown pick takes filtering scope back from the Filter box
+    // (AI_PLATFORM_PLAN.md Track 2): its delay/in-service constraint would
+    // otherwise keep hiding vehicles with no indicator once the box is
+    // closed — including on "All vehicles", which must show every vehicle.
+    // applyMapFilter dispatches this same change event itself (untrusted,
+    // e.isTrusted is false) to drive the dropdown from a filter sentence, so
+    // only a real user pick clears nlFilter, not the Filter box's own.
+    if (e.isTrusted && state.nlFilter) {
+      state.nlFilter = null;
+      clearMapFilterResult();
+    }
     const route = routeSelect.value;
     // the drawn path belongs to one vehicle; drop it if the filter hides it
     if (state.selectedTrip && route) {
@@ -407,7 +418,7 @@ export async function initMap() {
   // /api/positions fetch is pending or timing out — chat.js's Ask panel
   // gets this for free by being initialized before initMap() is even
   // called; this is the equivalent for a handler defined inside it.
-  initMapFilter(applyMapFilter);
+  const { clearResult: clearMapFilterResult } = initMapFilter(applyMapFilter);
 
   // Bring the tracked vehicle up to date with the poll that just landed.
   // Three things can have happened to it since the last one: it went out of

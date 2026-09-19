@@ -27,9 +27,11 @@ export const state = {
   // additive constraint layered on top of whatever the route dropdown
   // already shows. null means "no extra constraint". Replaced wholesale on
   // every filter-box submission (each sentence describes the whole extra
-  // filter, not a delta); never touched by the dropdown/heatmap checkbox,
-  // which own their own state and are only ever added to, never reset, by
-  // the filter box — see applyMapFilter in map.js.
+  // filter, not a delta); the heatmap checkbox never touches it, and the
+  // filter box only ever adds to the dropdown/checkbox, never resets them —
+  // see applyMapFilter in map.js. The one exception: a manual (trusted)
+  // dropdown pick clears it, since "All vehicles" must show every vehicle —
+  // see routeSelect.onchange in map.js.
   nlFilter: null,
 };
 
@@ -47,6 +49,7 @@ export const els = {
   mapFilterForm: document.getElementById('map-filter-form'),
   mapFilterInput: document.getElementById('map-filter-input'),
   mapFilterResult: document.getElementById('map-filter-result'),
+  mapFilterClearBtn: document.getElementById('map-filter-clear-btn'),
   // #map is the Mapbox container; map.project() returns pixels relative to
   // the canvas Mapbox puts inside it, which is inset within #map-view.
   mapView: document.getElementById('map-view'),
