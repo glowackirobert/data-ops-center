@@ -8,14 +8,14 @@ pick one of these. Each mode's settings live in their own env file —
 third `--env-file`, so switching modes never means hand-editing `env.prod`
 itself:
 
-|                 | Mode A — Caddy TLS                                  | Mode B — SSH tunnels                      | Mode C — fully open (temporary)                                                                 |
-|-----------------|-----------------------------------------------------|-------------------------------------------|-------------------------------------------------------------------------------------------------|
-| Needs           | a domain you own                                    | nothing                                   | nothing — but lock the security group to your own IP                                            |
-| Security group  | 22, 80, 443                                         | 22                                        | 22, 3001, 8088, 3000, 9000, 8099, 9090, 12345 — source restricted to your IP, never `0.0.0.0/0` |
-| Compose profile | `--profile tls`                                     | none                                      | none                                                                                            |
-| Env file        | `env.mode-a`                                        | `env.mode-b`, plus `-f container-compose.debug-ports.yml` (needed for the `pinot-controller` tunnel below; `DEBUG_BIND` stays unset so it's loopback-only) | `env.mode-c`, plus `-f container-compose.debug-ports.yml` (`DEBUG_BIND=0.0.0.0`) |
-| URLs            | `https://map.<domain>`, `bi.`, `ops.`, `pinot.`     | `http://localhost:3001`, `:8088`, `:3000` | `http://<public-ip>:3001`, `:8088`, `:3000`, `:9000`, `:8099`, `:9090`, `:12345`                |
-| Good for        | anything others should reach                        | a private demo from your laptop           | quick testing before you have a domain                                                          |
+|                 | Mode A — Caddy TLS                                  | Mode B — SSH tunnels                                                                                                                                       | Mode C — fully open (temporary)                                                                   |
+|-----------------|-----------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------|
+| Needs           | a domain you own                                    | nothing                                                                                                                                                    | nothing — but lock the security group to your own IP                                              |
+| Security group  | 22, 80, 443                                         | 22                                                                                                                                                         | 22, 3001, 8088, 3000, 9000, 8099, 9090, 12345 — source restricted to your IP, never `0.0.0.0/0`   |
+| Compose profile | `--profile tls`                                     | none                                                                                                                                                       | none                                                                                              |
+| Env file        | `env.mode-a`                                        | `env.mode-b`, plus `-f container-compose.debug-ports.yml` (needed for the `pinot-controller` tunnel below; `DEBUG_BIND` stays unset so it's loopback-only) | `env.mode-c`, plus `-f container-compose.debug-ports.yml` (`DEBUG_BIND=0.0.0.0`)                  |
+| URLs            | `https://map.<domain>`, `bi.`, `ops.`, `pinot.`     | `http://localhost:3001`, `:8088`, `:3000`                                                                                                                  | `http://<public-ip>:3001`, `:8088`, `:3000`, `:9000`, `:8099`, `:9090`, `:12345`                  |
+| Good for        | anything others should reach                        | a private demo from your laptop                                                                                                                            | quick testing before you have a domain                                                            |
 
 
 
@@ -86,8 +86,8 @@ CREDS
 
 echo '' > grafana_admin_password
 echo '' > superset_admin_password
-echo '' > superset_admin_username
-echo '' > superset_admin_email
+echo 'admin' > superset_admin_username
+echo 'admin@wp.pl' > superset_admin_email
 echo '' > superset_mapbox_api_key
 echo '' > anthropic_api_key
 openssl rand -base64 42  > superset_secret_key
@@ -97,7 +97,7 @@ docker run --rm caddy:2.10-alpine caddy hash-password \
 
 chmod 600 *
 chmod 644 grafana_admin_password
-cd ../../..
+cd ../../../..
 ```
 
 `anthropic_api_key` is what `/api/ask` and the **Filter** box's natural-language
@@ -167,17 +167,16 @@ GRAFANA_ROOT_URL=https://ops.example.com
 ```
 
 **Mode B** — `cluster-setup/env/env.mode-b`: no proxy, so the browser sees
-the tunnelled localhost ports. Usually needs no edits — it already points at
-`localhost`.
+the tunnelled localhost ports. no edits.
 
 **Mode C** — `cluster-setup/env/env.mode-c`: no proxy, no tunnel, browser
 hits the instance directly. Replace `<PUBLIC_IP_OR_DNS>` with the instance's
 actual public IP/DNS:
 
 ```properties
-SUPERSET_DOMAIN=http://16.170.37.11:8088
-WEBAPP_ORIGIN=http://16.170.37.11:3001
-GRAFANA_ROOT_URL=http://16.170.37.11:3000
+SUPERSET_DOMAIN=http://13.50.235.210:8088
+WEBAPP_ORIGIN=http://13.50.235.210:3001
+GRAFANA_ROOT_URL=http://13.50.235.210:3000
 ```
 
 `SUPERSET_DOMAIN`/`WEBAPP_ORIGIN` must match the URL the browser actually
@@ -222,7 +221,7 @@ opens all four beyond loopback via `DEBUG_BIND=0.0.0.0` in `env.mode-c`:
 docker compose \
   --env-file cluster-setup/env/versions.env \
   --env-file cluster-setup/env/env.prod \
-  --env-file cluster-setup/env/env.mode-b \
+  --env-file cluster-setup/env/env.mode-c \
   -f cluster-setup/container/container-compose.yml \
   -f cluster-setup/container/container-compose.debug-ports.yml \
   --profile init up -d

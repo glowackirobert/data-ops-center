@@ -315,7 +315,7 @@ services:
           -values DATE="$$DATE_GLOB" PARALLELISM="$$PARALLELISM"
     restart: "no"
     environment:
-      JAVA_OPTS: "-Dpinot.admin.system.exit=true ${PINOT_INGESTION_RUNNER_HEAP:--Xmx2G}"
+      JAVA_OPTS: "-Dlog4j2.configurationFile=/opt/pinot/config/pinot-ingestion-job-log4j2.xml -Dpinot.admin.system.exit=true ${PINOT_INGESTION_RUNNER_HEAP:--Xmx2G}"
       AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
       INGESTION_DATE: ${INGESTION_DATE:-}
       INGESTION_JOB_PARALLELISM: ${INGESTION_JOB_PARALLELISM:-}
