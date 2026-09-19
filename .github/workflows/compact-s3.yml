@@ -77,7 +77,7 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "command=${{ inputs.command }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.schedule }}" = "0 3 1 * *" ]; then
+          elif [ "${{ github.event.schedule }}" = "11 4 1 * *" ]; then
             echo "command=monthly" >> "$GITHUB_OUTPUT"
           else
             echo "command=daily" >> "$GITHUB_OUTPUT"
