@@ -1,0 +1,48 @@
+name: Claude Code Review
+
+# Runs the repo's own review agents (.claude/agents/) against every PR, so
+# their value (catching cross-file drift) applies every time, not only when
+# someone remembers to ask locally. Only Read/Grep/Glob/WebFetch are allowed
+# here: the agents' optional MCP tools (see AI_PLATFORM_PLAN.md Track 1) talk
+# to the live cluster over pinot-network, which a GitHub-hosted runner can't
+# reach — that live-lookup behavior only fires in a local Claude Code session.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+  id-token: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: '--allowedTools "Read,Grep,Glob,WebFetch"'
+          prompt: |
+            Review this pull request for the data-ops-center project. Look at
+            the changed files and run only the subagents relevant to them —
+            skip the rest:
+
+            - @agent-compose-stack-reviewer — cluster-setup/container/,
+              cluster-setup/env/, cluster-setup/prometheus/,
+              cluster-setup/caddy/, or .github/workflows/docker-ci.yml changed
+            - @agent-pinot-config-reviewer — cluster-setup/table_config/ or
+              cluster-setup/pinot/ changed
+            - @agent-schema-pipeline-checker — a field was added, renamed, or
+              retyped anywhere in either pipeline (kafka-producer-app/src/main/avro/,
+              cluster-setup/py/, cluster-setup/table_config/,
+              cluster-setup/superset/dashboards/, cluster-setup/web-app/app/pinot.py)
+            - @agent-web-app-feature-reviewer — cluster-setup/web-app/ changed
+
+            Post the combined findings as one PR comment. If nothing changed
+            that any agent's scope covers, say so briefly instead of posting
+            invented findings.
