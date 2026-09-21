@@ -4,25 +4,27 @@ import { initHelp } from './help.js';
 import { initChat } from './chat.js';
 import { explainReading } from './utils.js';
 
+const dashView = document.getElementById('dash-view');
+
 function showTab(name) {
   const isMap = name === 'map';
   document.getElementById('map-view').classList.toggle('hidden', !isMap);
-  document.getElementById('dash-view').classList.toggle('hidden', isMap);
+  dashView.classList.toggle('hidden', isMap);
   document.getElementById('tab-map').classList.toggle('active', isMap);
   document.getElementById('tab-dash').classList.toggle('active', !isMap);
-  if (isMap) resizeMap(); // container was display:none while hidden
-  if (!isMap) initDashboard();
+  if (isMap) {
+    resizeMap(); // container was display:none while hidden
+  } else {
+    initDashboard();
+    refreshOverview();
+  }
 }
 
 document.getElementById('tab-map').onclick = () => showTab('map');
 document.getElementById('tab-dash').onclick = () => showTab('dash');
 
-// Explain panel: every latency badge that carries scan stats (see
-// latencyBadgeHtml in utils.js) opens a small popover of the figures behind
-// its number on click. One delegated listener rather than one per badge —
-// badges are rebuilt into fresh DOM nodes on every panel refresh (map status
-// line every 10 s, stopbox on every poll), so per-node listeners would just
-// be discarded along with the old nodes.
+// Explain popover for any latency badge carrying scan stats. One delegated
+// listener: badges are rebuilt into fresh nodes on every panel refresh.
 let openPopover = null;
 
 function closePopover() {
@@ -66,7 +68,9 @@ document.addEventListener('click', e => {
 initHelp();
 initChat();
 
-refreshOverview(); // also feeds the storage strip from its /api/stats fetch
-setInterval(refreshOverview, 60000);
+// The overview strip is refetched on every switch to Analytics and then
+// every 60 s while that tab is showing — not while the map is up, where two
+// Pinot queries a minute would only compete with the live refresh.
+setInterval(() => { if (!dashView.classList.contains('hidden')) refreshOverview(); }, 60000);
 
 await initMap();

@@ -15,16 +15,11 @@ import { initMapFilter } from './mapfilter.js';
 const REFRESH_MS = 10000;
 const INITIAL_VIEW = { center: [18.6466, 54.352], zoom: 15 }; // Gdansk Old Town
 
-// The latest positions on one line — what picking a line in the dropdown
-// means, shared by the renderer and the camera fit.
 function rowsOnRoute(route) {
   return state.lastRows.filter(d => routeOf(d) === route);
 }
 
-// Whether one row survives the Filter box's delay/in-service constraint
-// (AI_PLATFORM_PLAN.md Track 2) — a predicate rather than inlined into
-// currentRows()'s .filter() so syncSelection can ask the same question
-// about the tracked vehicle specifically (see there for why).
+// Separate from currentRows so syncSelection can test one vehicle.
 function passesNlFilter(d) {
   const f = state.nlFilter;
   if (!f) return true;
@@ -33,22 +28,24 @@ function passesNlFilter(d) {
   return true;
 }
 
-// The dropdown's route filter plus, on top of it, whatever the Filter box
-// last set — additive, not a replacement: a route picked in the dropdown
-// and a delay threshold from the filter box both apply together. Only
-// delay/in-service live in state.nlFilter; a route or heatmap named in a
-// sentence instead drives the dropdown/checkbox directly (see
-// applyMapFilter), so there is exactly one place each of those five is
-// decided, never two that could disagree.
+// The dropdown's route plus the Filter box's delay/in-service constraint,
+// both applied together. Memoized: render() runs at 10 Hz while a vehicle
+// is selected, and deck.gl re-lays-out every layer handed a new `data`
+// array — so the same array must come back until an input really changes.
+let rowsCache = { lastRows: null, route: null, nlFilter: null, rows: [] };
+
 function currentRows() {
   const route = els.routeSelect.value;
-  const rows = route ? rowsOnRoute(route) : state.lastRows;
-  return rows.filter(passesNlFilter);
+  const { lastRows, nlFilter } = state;
+  const c = rowsCache;
+  if (c.lastRows !== lastRows || c.route !== route || c.nlFilter !== nlFilter) {
+    const rows = route ? rowsOnRoute(route) : lastRows;
+    rowsCache = { lastRows, route, nlFilter, rows: nlFilter ? rows.filter(passesNlFilter) : rows };
+  }
+  return rowsCache.rows;
 }
 
-// Called when the map tab becomes visible again — its container was
-// display:none while hidden, so Mapbox needs telling its size may have
-// changed.
+// The map container is display:none while the Analytics tab is showing.
 export function resizeMap() {
   state.map?.resize();
 }
@@ -57,19 +54,14 @@ export async function initMap() {
   const { data: cfg } = await getJson('/api/config');
   mapboxgl.accessToken = cfg.mapboxToken;
 
-  // The map is created exactly once; refreshes below never touch it.
   const map = new mapboxgl.Map({
     container: 'map',
-    // light-v11: near-monochrome basemap so the colored markers and the
-    // grey/blue route path stand out (was streets-v9). It defaults to the
-    // globe projection, which breaks deck.gl overlay alignment and picking —
-    // force mercator.
+    // light-v11 keeps the coloured markers legible. Force mercator: the
+    // default globe projection breaks deck.gl overlay alignment and picking.
     style: 'mapbox://styles/mapbox/light-v11',
     projection: 'mercator',
     ...INITIAL_VIEW,
   });
-  // showCompass: false drops the "reset bearing to north" button. Nothing
-  // in this app rotates the map, so it was a no-op control taking up room.
   map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
   state.map = map;
 
@@ -89,23 +81,26 @@ export async function initMap() {
   map.addControl(overlay);
   state.overlay = overlay;
 
-  // Debug hooks for automated testing — intentional seam, not incidental:
-  // browser-driven verification (chromium-cli/Playwright) drives deck.gl
-  // picking and inspects layer state through these.
+  // Test seam for browser-driven verification (deck.gl picking, layer state).
   globalThis._map = map;
   globalThis._overlay = overlay;
   globalThis._log = [];
   map.on('moveend', () => globalThis._log.push(
     { t: Date.now(), ev: 'moveend', zoom: map.getZoom() }));
 
-  // Short names for the three nodes this module writes to; the other
-  // modules reach the same ones through els.
   const { status: statusEl, routeSelect, heatmapToggle } = els;
 
-  // 24 h ping-density heatmap, queried live from Pinot on every toggle-on —
-  // no caching anywhere, so the latency badge always shows a real query.
-  // Returns an error message on failure, so the caller's render() can show
-  // it instead of the routine vehicle-count line — see render()'s comment.
+  // Last routine status line written; a direct write elsewhere resets it so
+  // render() rewrites afterwards. Skipping unchanged writes matters at 10 Hz:
+  // innerHTML rebuilds the latency badge node every time.
+  let statusHtml = '';
+  function showStatus(text) {
+    statusEl.textContent = text;
+    statusHtml = '';
+  }
+
+  // Queried live on every toggle-on, no caching, so the latency badge is
+  // always a real query. Returns an error message for the caller's render().
   async function loadHeatmap() {
     try {
       const { data, ms, stats } = await getJson('/api/heatmap');
@@ -126,18 +121,13 @@ export async function initMap() {
     render(error);
   };
 
-  // Clicking a vehicle draws the trajectory of the trip it is serving, split
-  // at the vehicle: covered part grey, part ahead light blue. Clicking the
-  // same vehicle again, another vehicle, or empty map clears/replaces it.
   async function selectVehicle(d) {
     if (state.selectedTrip?.vehicleId === d.vehicleId) {
       clearTripPath({ restore: true });
       return;
     }
     if (d.inService === false) {
-      // No active trip (e.g. laying over between runs) — nothing to draw.
-      statusEl.textContent =
-        `Vehicle on line ${d.route} is not currently in service`;
+      showStatus(`Vehicle on line ${d.route} is not currently in service`);
       return;
     }
     state.selectedTrip = { vehicleId: d.vehicleId, routeId: d.routeId,
@@ -157,8 +147,7 @@ export async function initMap() {
         render();
       }
     } catch (err) {
-      // 404 is the ordinary case — a vehicle between trips, or a course not
-      // in today's plan. A fact to report, not a failure to apologise for.
+      // 404 is the ordinary case: between trips, or a course not in today's plan.
       const message = err.status === 404
         ? `No route path for line ${d.route} (course ${d.tripId})`
         : `Route path failed: ${err.message}`;
@@ -167,16 +156,11 @@ export async function initMap() {
     }
   }
 
-  // `restore` marks the deliberate deselects — re-clicking the tracked vehicle,
-  // or clicking empty map. Selecting a vehicle is an excursion inside whatever
-  // scope the dropdown defines, so ending it should hand the camera back to
-  // that scope; otherwise the user is stranded wherever the follow drifted to.
-  // Only when the follow was still on, though: once they have panned or zoomed
-  // themselves the camera is theirs, the same rule `movestart` already applies.
-  // Re-fitting beats restoring a saved viewport — after a few minutes the
-  // vehicles have moved, and a stale centre/zoom can frame empty road.
-  // The error paths (no trip shape, failed fetch) and the heatmap toggle pass
-  // nothing: those are not the user asking to look somewhere else.
+  // `restore` marks a deliberate deselect (re-click, empty-map click): the
+  // selection was an excursion inside the dropdown's scope, so hand the
+  // camera back to that scope — but only while the follow was still on; once
+  // the user has panned or zoomed the camera is theirs. Error paths and the
+  // heatmap toggle pass nothing: they are not a request to look elsewhere.
   function clearTripPath({ restore = false } = {}) {
     if (!state.selectedTrip) return;
     const wasFollowing = state.followSelected;
@@ -186,8 +170,7 @@ export async function initMap() {
     if (restore && wasFollowing) fitToSelection();
   }
 
-  // Stops are static for the day; fetched once. The server answers 503 for
-  // the first seconds after start while it parses the GTFS feed — retry.
+  // The server answers 503 while it is still parsing the GTFS feed — retry.
   async function loadStops() {
     try {
       const { data } = await getJson('/api/stops');
@@ -198,15 +181,12 @@ export async function initMap() {
     }
   }
 
-  // Every camera frame, not just moveend: the popup has to travel with the
-  // drag, not teleport when it ends. The listener takes no argument — the
-  // move event must not arrive as a truthy `measure`.
+  // Every camera frame, so the popup travels with the drag. No argument:
+  // the event must not arrive as a truthy `measure`.
   map.on('move', () => positionStopBox());
 
-  // Route list is the full GTFS schedule, fetched once — not just whichever
-  // routes happen to have a live vehicle this refresh — so night lines and
-  // temporarily idle routes stay selectable instead of disappearing. The
-  // server 503s until the GTFS feed finishes parsing; retry.
+  // The full GTFS route list, not just routes with a live vehicle, so idle
+  // and night lines stay selectable. 503s until the feed is parsed — retry.
   async function loadRoutes() {
     try {
       const { data } = await getJson('/api/routes');
@@ -236,11 +216,8 @@ export async function initMap() {
     updateRouteActivity(state.lastRows);
   }
 
-  // Routes options are built once (above) and never rebuilt, so this only
-  // toggles a class per refresh — an open dropdown or the user's selection
-  // is never disturbed. Routes with no vehicle in the latest poll (idle
-  // right now, not gone from the schedule) render greyed out, still
-  // selectable — see .route-inactive in styles.css.
+  // Only toggles a class per refresh — the options are never rebuilt, so an
+  // open dropdown or the user's selection is never disturbed.
   function updateRouteActivity(rows) {
     const active = new Set(rows.map(routeOf));
     for (const opt of routeSelect.querySelectorAll('option[value]:not([value=""])')) {
@@ -248,49 +225,38 @@ export async function initMap() {
     }
   }
 
-  // Markers jump to the newly scraped position on each refresh — no
-  // interpolated movement between API polls. Only the layers are replaced;
-  // deck.gl diffs them on the GPU and the base map keeps its tiles, camera
-  // and WebGL context. Called from the 10 s refresh, from every state change
-  // that alters what is drawn, and every 100 ms while a vehicle is selected
-  // (the halo pulse). `statusOverride`, when given, replaces the usual
-  // vehicle-count line — for a status a caller set moments earlier in the
-  // same synchronous handler (a heatmap failure, a lost route path, a
-  // vehicle going out of service mid-poll) that this render() call would
-  // otherwise paint over unseen, since nothing yields to the browser
-  // between the two writes.
+  // Called from the 10 s refresh, from every state change that alters what
+  // is drawn, and every 100 ms while a vehicle is selected (halo pulse).
+  // `statusOverride` replaces the vehicle-count line: a caller that set a
+  // message moments earlier in the same synchronous handler would otherwise
+  // see this render() paint over it before the browser ever paints.
   function render(statusOverride) {
     const route = routeSelect.value;
     const rows = currentRows();
-    // Heatmap (24 h aggregate) and live vehicles are alternate modes, not a
-    // combined view — showing both at once buried the badges (and stop poles)
-    // under the busiest hot spots, which are usually the same clusters.
+    // Heatmap and live vehicles are alternate modes — together, the hot
+    // spots buried the badges.
     const heatOn = heatmapToggle.checked;
     overlay.setProps({ layers: deckLayers(rows, route, heatOn) });
     if (statusOverride) {
-      statusEl.textContent = statusOverride;
+      showStatus(statusOverride);
       return;
     }
     const filtered = Boolean(route) || Boolean(state.nlFilter);
     const count = filtered ? `${rows.length} of ${state.lastRows.length}` : `${rows.length}`;
     const ms = heatOn ? state.heatmapMs : state.positionsMs;
     const stats = heatOn ? state.heatmapStats : state.positionsStats;
-    statusEl.innerHTML = `${count} vehicles · updated ${time24(state.lastUpdated)}`
+    const html = `${count} vehicles · updated ${time24(state.lastUpdated)}`
       + latencyBadgeHtml(ms, stats);
+    if (html !== statusHtml) {
+      statusEl.innerHTML = html;
+      statusHtml = html;
+    }
   }
 
-  // Centering on a tracked vehicle — both on the click that selects it and
-  // on every refresh while it stays selected. panTo (not flyTo/fitBounds)
-  // never touches zoom: clicking a badge to read its trip is not a request
-  // to re-frame the map, and a zoomed-out view is often exactly the context
-  // the user wants the trajectory drawn in. Contrast fitToSelection below,
-  // which does set zoom — but only for an explicit dropdown pick.
-  // `force` marks the camera moves the user actually asked for — the click
-  // that selects a vehicle. Refresh ticks come through without it and go via
-  // the deadzone, so a vehicle creeping across the middle of the screen costs
-  // no camera movement at all; only one that drifts out of the middle 60%
-  // pulls the map back. Before this, every poll panned, and a bus that moved
-  // 8 m slid the whole map out from under whoever was reading its trajectory.
+  // panTo, never flyTo/fitBounds: selecting a vehicle is not a request to
+  // re-frame the map, so zoom is untouched. `force` is the click that selects;
+  // refresh ticks go through the deadzone instead, so a vehicle creeping
+  // across mid-screen costs no camera movement.
   function centerOnVehicle(d, { force = false } = {}) {
     if (!force) {
       const c = map.getContainer();
@@ -302,27 +268,14 @@ export async function initMap() {
     map.panTo([d.lon, d.lat]);
   }
 
-  // The user's own pan/zoom ends the follow for good (until the next
-  // selection): moving the map is a deliberate "I want to look here", and
-  // silently undoing it on the next refresh is worse than losing the
-  // vehicle off-frame — panning ahead along the light-blue segment to see
-  // where the trip goes is exactly what the drawn trajectory invites.
-  // Mapbox marks user gestures with originalEvent; our own panTo has none,
-  // so the follow never cancels itself.
+  // The user's own pan/zoom ends the follow — undoing it on the next refresh
+  // would be worse than losing the vehicle off-frame. Mapbox marks user
+  // gestures with originalEvent; our own panTo has none.
   map.on('movestart', e => { if (e.originalEvent) state.followSelected = false; });
 
-  // Camera fit for the moment a line is picked in the dropdown, and for
-  // handing the camera back when a selection ends (clearTripPath). Never
-  // called from refresh(): once the user has the line in view they may
-  // pan/zoom freely, and a 10 s re-fit would keep snapping the camera back.
-  //
-  // "All vehicles" deliberately moves nothing. Picking a line names a place
-  // to look; "All vehicles" only widens the filter — every vehicle on screen
-  // stays put and more appear around it, so there is nothing to bring into
-  // view. Flying to INITIAL_VIEW here was the one camera move in this app
-  // that answered no question the user had asked: it teleported someone
-  // watching Osowa back to the Old Town, mid-track if a vehicle was selected.
-  // That viewport belongs to page load, not to a filter.
+  // Fits once, at the moment a line is picked (and when a selection ends —
+  // see clearTripPath); never from refresh(), or it would keep snapping the
+  // camera back. "All vehicles" moves nothing: it names no place to look.
   function fitToSelection() {
     const route = routeSelect.value;
     if (!route) return;
@@ -331,22 +284,18 @@ export async function initMap() {
     if (!rows.length && !stops.length) return;
     const bounds = new mapboxgl.LngLatBounds();
     for (const d of rows) bounds.extend([d.lon, d.lat]);
-    // Vehicles alone can cluster on one segment of the line, leaving the
-    // route's other stops rendered but outside the fitted view — include
-    // them in the bounds so the whole line's stops stay visible too.
+    // Include the stops so a line whose vehicles are bunched on one segment
+    // still shows end to end.
     for (const s of stops) bounds.extend([s.lon, s.lat]);
-    // maxZoom keeps a single-vehicle line from zooming into rooftop level.
-    map.fitBounds(bounds, { padding: 80, maxZoom: 15 });
+    map.fitBounds(bounds, { padding: 80, maxZoom: 15 }); // no rooftop zoom on a single vehicle
   }
 
   routeSelect.onchange = e => {
-    // A manual dropdown pick takes filtering scope back from the Filter box
-    // (AI_PLATFORM_PLAN.md Track 2): its delay/in-service constraint would
-    // otherwise keep hiding vehicles with no indicator once the box is
-    // closed — including on "All vehicles", which must show every vehicle.
-    // applyMapFilter dispatches this same change event itself (untrusted,
-    // e.isTrusted is false) to drive the dropdown from a filter sentence, so
-    // only a real user pick clears nlFilter, not the Filter box's own.
+    // A manual pick takes filtering scope back from the Filter box, whose
+    // delay/in-service constraint would otherwise keep hiding vehicles with
+    // no indicator once the box is closed. applyMapFilter dispatches this
+    // same event itself (e.isTrusted false) to drive the dropdown from a
+    // sentence, so only a real user pick clears nlFilter.
     if (e.isTrusted && state.nlFilter) {
       state.nlFilter = null;
       clearMapFilterResult();
@@ -361,37 +310,22 @@ export async function initMap() {
       }
     }
     render();
-    // Picking a line is an explicit "show me this line", so it always fits —
-    // including when the tracked vehicle happens to be on that very line,
-    // which used to be the one case that silently did nothing. The selection
-    // survives (its trajectory is still worth seeing) but the follow does not,
-    // or the next refresh would pan straight back and undo the fit. That fit
-    // still holds the tracked vehicle: it is one of the points fitted.
-    // "All vehicles" names no place to look, so it commands no camera and
-    // ends no follow — see fitToSelection.
+    // Picking a line always fits, even to the tracked vehicle's own line. The
+    // selection survives but the follow ends, or the next refresh would pan
+    // straight back and undo the fit.
     if (route) {
       state.followSelected = false;
       fitToSelection();
     }
     loadRouteHistogram(route);
-    // Not a placement problem any more — the popup tracks its stop's
-    // coordinates and would ride the fit out, closing itself if the stop
-    // leaves the screen. It closes here because picking a line is a new
-    // question, and one stop's departures are the answer to the old one.
-    hideStopBox();
+    hideStopBox(); // picking a line is a new question; the popup answered the old one
   };
 
-  // Applies a /api/map-filter result (AI_PLATFORM_PLAN.md Track 2): a route
-  // or heatmap named in the sentence drives the same dropdown/checkbox a
-  // click would, dispatching their existing onchange handlers rather than
-  // adding a second filtering path that could disagree with them. Delay/
-  // in-service have no click equivalent, so they live in state.nlFilter
-  // instead (see currentRows). Only ever adds to the dropdown/checkbox,
-  // never resets them — a sentence that names no route or doesn't ask for
-  // the heatmap leaves whatever was already picked alone, the same
-  // "explicit asks only" rule the rest of this file's camera moves follow.
-  // Never turns the heatmap off, for the same reason: "show route 8" with
-  // heatmap already on should not silently drop back to live vehicles.
+  // A route or heatmap named in the sentence drives the dropdown/checkbox
+  // through their own onchange handlers, so there is one filtering path.
+  // Delay/in-service have no click equivalent and live in state.nlFilter.
+  // Only ever adds: a sentence naming no route leaves the dropdown alone,
+  // and the heatmap is never turned off.
   function applyMapFilter(filter) {
     state.nlFilter = (filter.minDelaySec != null || filter.inServiceOnly)
       ? { minDelaySec: filter.minDelaySec, inServiceOnly: filter.inServiceOnly }
@@ -412,21 +346,13 @@ export async function initMap() {
     }
     render();
   }
-  // Wired here, not after the initial await refresh() below: the whole
-  // point of the Filter box (AI_PLATFORM_PLAN.md Track 2) is staying usable
-  // when Pinot is slow or down, so it must not sit dead while the first
-  // /api/positions fetch is pending or timing out — chat.js's Ask panel
-  // gets this for free by being initialized before initMap() is even
-  // called; this is the equivalent for a handler defined inside it.
+  // Wired before the first refresh() below: the Filter box must stay usable
+  // while /api/positions is pending or timing out.
   const { clearResult: clearMapFilterResult } = initMapFilter(applyMapFilter);
 
-  // Bring the tracked vehicle up to date with the poll that just landed.
-  // Three things can have happened to it since the last one: it went out of
-  // service, it finished its trip and started the return leg (new course, so
-  // a new shape to draw), or it dropped out of the feed entirely.
-  // Returns a status message when the tracked vehicle just went out of
-  // service, so refresh()'s render() can show it instead of the routine
-  // vehicle-count line — see render()'s comment.
+  // Reconcile the tracked vehicle with the poll that just landed. Returns a
+  // status message when it just went out of service or fell out of the
+  // filter, for refresh()'s render() to show.
   function syncSelection(rows) {
     const trip = state.selectedTrip;
     if (!trip) return;
@@ -437,18 +363,12 @@ export async function initMap() {
       return;
     }
     if (v.inService === false) {
-      // finished its last trip and went out of service — nothing left to track
       state.selectedTrip = null;
       return `Vehicle on line ${v.route} is not currently in service`;
     }
     if (!passesNlFilter(v)) {
-      // The Filter box's delay/in-service constraint now hides this vehicle
-      // (currentRows() already dropped it from what deckLayers draws — no
-      // badge, no halo, no trajectory) — same reasoning as the inService
-      // case above: nothing left to track once it isn't even on screen, and
-      // the camera must stop following a position nothing is drawn at. Up
-      // to one refresh cycle of staleness between the filter changing and
-      // this catching it, same as the inService transition above.
+      // currentRows() no longer draws it, so there is nothing to track and
+      // the camera must stop following a position nothing is drawn at.
       state.selectedTrip = null;
       state.followSelected = false;
       return `Vehicle on line ${v.route} no longer matches the active filter`;
@@ -474,19 +394,16 @@ export async function initMap() {
       render(statusOverride);
       globalThis._log.push({ t: Date.now(), ev: 'refresh', n: state.lastRows.length, zoom: map.getZoom() });
     } catch (err) {
-      statusEl.textContent = `Refresh failed: ${err.message}`;
+      showStatus(`Refresh failed: ${err.message}`);
       globalThis._log.push({ t: Date.now(), ev: 'refresh-error', msg: err.message });
     }
   }
 
-  // Discard the zoom event object — render(statusOverride) treats a truthy
-  // first argument as a status string to show verbatim, and Mapbox's event
-  // object stringifies to "[object Object]" if passed straight through.
+  // Not `map.on('zoomend', render)`: render treats a truthy argument as a
+  // status string, and the event object would print as "[object Object]".
   map.on('zoomend', () => render()); // toggles stop-layer visibility at the threshold
 
-  // Redraws just fast enough for the halo pulse to read as smooth motion;
-  // a no-op (skipped) whenever nothing is selected, so it costs nothing the
-  // rest of the time.
+  // Halo pulse; skipped whenever nothing is selected.
   setInterval(() => { if (state.selectedTrip) render(); }, 100);
 
   await refresh();

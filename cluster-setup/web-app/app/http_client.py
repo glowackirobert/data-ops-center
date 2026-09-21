@@ -1,9 +1,6 @@
-"""Outbound HTTP GET helper shared by gtfs.py and geo.py.
-
-Separate from app/http.py, which holds response-side helpers for this
-server's own Handler — this module is about fetching from upstream services
-(GTFS static feed, route-shapes API), not answering requests.
-"""
+"""Outbound HTTP helpers for upstream services (GTFS feed, route-shapes API,
+Pinot, Loki, Prometheus). app/http.py is the response side of this server."""
+import json
 import ssl
 import urllib.error
 import urllib.request
@@ -26,3 +23,16 @@ def http_get(url, timeout):
         ctx.verify_mode = ssl.CERT_NONE  # NOSONAR — deliberate fallback documented above
         with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
             return resp.read()
+
+
+def read_json(target, timeout, what, error):
+    """urlopen + json.load for a Request or URL. Every way of not getting an
+    answer (timeout, refused, HTTP error page) becomes `error`, so callers
+    have one exception to catch."""
+    try:
+        with urllib.request.urlopen(target, timeout=timeout) as resp:
+            return json.load(resp)
+    except TimeoutError as e:
+        raise error(f'{what} did not respond within {timeout}s') from e
+    except urllib.error.URLError as e:
+        raise error(f'{what} unreachable: {e.reason}') from e

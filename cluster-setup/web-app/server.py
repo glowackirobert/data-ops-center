@@ -1,7 +1,5 @@
-"""Vehicle map dev server.
-
-Serves static/index.html and proxies position queries to the Pinot broker so
-the browser never talks to Pinot directly (avoids CORS). Stdlib only.
+"""Vehicle map server: serves static/ and proxies Pinot queries so the
+browser never talks to Pinot directly. Stdlib only.
 
     python web-app/server.py
     # then open http://localhost:3001
@@ -26,33 +24,19 @@ TEXT_PLAIN = 'text/plain'
 
 class Handler(BaseHTTPRequestHandler):
 
-    def _send(self, code, body, content_type):
-        send(self, code, body, content_type)
-
-    def _send_json(self, code, payload, time_used_ms=None, stats=None):
-        send_json(self, code, payload, time_used_ms=time_used_ms, stats=stats)
-
+    # Shared by do_GET and do_POST: a Pinot failure gets the same response
+    # whichever route raised it.
     def _run_route(self, path, fn):
-        # Shared by do_GET and do_POST: the response to a failure is the
-        # same regardless of HTTP method, so it is handled once here rather
-        # than duplicated in each dispatcher.
         try:
             fn()
         except pinot.PinotQueryError as e:
-            # Pinot answered and rejected the query (bad SQL, server-side
-            # timeout). Handled here rather than in each Pinot-backed route:
-            # the response is identical for all of them, and writing it out
-            # per endpoint meant /api/stats and /api/heatmap were left out
-            # and reported a query error as a generic 500.
-            self._send_json(502, {'error': e.exceptions})
+            # Pinot answered and rejected the query (bad SQL, server-side timeout).
+            send_json(self, 502, {'error': e.exceptions})
         except pinot.PinotUnavailableError as e:
-            # Pinot never answered — cluster down, or too busy to reply (an
-            # S3 backfill building a segment on the same host is enough).
-            # A known, transient condition: log one line, not a traceback,
-            # and say so rather than claiming an internal error.
+            # Pinot never answered — transient, so one log line, not a traceback.
             print(f'WARN: {path}: {e}')
-            self._send_json(504, {'error': f'Pinot unavailable: {e}'})
-        except Exception:  # keep the dev server alive on any request error
+            send_json(self, 504, {'error': f'Pinot unavailable: {e}'})
+        except Exception:  # keep the server alive on any request error
             send_error_response(self, path)
 
     def do_GET(self):
@@ -64,7 +48,7 @@ class Handler(BaseHTTPRequestHandler):
         elif parsed.path.startswith('/static/'):
             self._run_route(parsed.path, lambda: self._serve_static(parsed.path))
         else:
-            self._send(404, NOT_FOUND, TEXT_PLAIN)
+            send(self, 404, NOT_FOUND, TEXT_PLAIN)
 
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
@@ -72,31 +56,39 @@ class Handler(BaseHTTPRequestHandler):
         if route:
             self._run_route(parsed.path, lambda: route(self))
         else:
-            self._send(404, NOT_FOUND, TEXT_PLAIN)
+            send(self, 404, NOT_FOUND, TEXT_PLAIN)
 
     def _serve_index(self):
         with open(os.path.join(STATIC_DIR, 'index.html'), 'rb') as f:
-            self._send(200, f.read(), 'text/html; charset=utf-8')
+            send(self, 200, f.read(), 'text/html; charset=utf-8')
 
+    # Static files revalidate by ETag (mtime + size): the browser re-sends
+    # If-None-Match and gets a 304 instead of re-downloading every bundle
+    # on each page load, while still seeing new code right after a deploy.
     def _serve_static(self, path):
-        # path is always under /static/ (checked by the caller); strip that
-        # prefix and resolve against STATIC_DIR, rejecting any attempt to
-        # escape it via "..".
         rel = urllib.parse.unquote(path[len('/static/'):])
         full = os.path.normpath(os.path.join(STATIC_DIR, rel))
         if not (full == STATIC_DIR or full.startswith(STATIC_DIR + os.sep)) \
                 or not os.path.isfile(full):
-            self._send(404, NOT_FOUND, TEXT_PLAIN)
+            send(self, 404, NOT_FOUND, TEXT_PLAIN)
+            return
+        st = os.stat(full)
+        etag = f'"{st.st_mtime_ns:x}-{st.st_size:x}"'
+        if self.headers.get('If-None-Match') == etag:
+            self.send_response(304)
+            self.send_header('ETag', etag)
+            self.send_header('Cache-Control', 'no-cache')
+            self.end_headers()
             return
         content_type = mimetypes.guess_type(full)[0] or 'application/octet-stream'
         with open(full, 'rb') as f:
-            self._send(200, f.read(), content_type)
+            send(self, 200, f.read(), content_type, cache_control='no-cache', etag=etag)
 
     def _serve_config(self):
-        self._send_json(200, {'mapboxToken': read_secret(MAPBOX_KEY_FILE)})
+        send_json(self, 200, {'mapboxToken': read_secret(MAPBOX_KEY_FILE)})
 
     def _serve_guest_token(self):
-        self._send_json(200, superset.get_guest_token())
+        send_json(self, 200, superset.get_guest_token())
 
     def _serve_positions(self):
         rows, ms, stats = pinot.get_positions()
@@ -104,68 +96,62 @@ class Handler(BaseHTTPRequestHandler):
         for row in rows:
             row['atTerminus'] = gtfs.at_terminus(row, trip_ends)
             row['inService'] = row['tripId'] != pinot.NULL_INT
-        self._send_json(200, rows, time_used_ms=ms, stats=stats)
+        send_json(self, 200, rows, time_used_ms=ms, stats=stats)
 
     def _serve_stats(self):
         data, ms, stats = pinot.table_stats()
-        self._send_json(200, data, time_used_ms=ms, stats=stats)
+        send_json(self, 200, data, time_used_ms=ms, stats=stats)
 
     def _serve_network_hourly(self):
         rows, ms, stats = pinot.network_hourly()
-        self._send_json(200, rows, time_used_ms=ms, stats=stats)
+        send_json(self, 200, rows, time_used_ms=ms, stats=stats)
 
     def _serve_heatmap(self):
         rows, ms, stats = pinot.heatmap_cells()
-        self._send_json(200, rows, time_used_ms=ms, stats=stats)
+        send_json(self, 200, rows, time_used_ms=ms, stats=stats)
 
     def _serve_route_delay_histogram(self):
         route = self.query.get('route', [''])[0]
         if not route:
-            self._send_json(400, {'error': 'route query parameter required'})
+            send_json(self, 400, {'error': 'route query parameter required'})
             return
         try:
             rows, ms, stats = pinot.route_hourly_delay(route)
         except ValueError:  # route failed the pattern check in pinot.py
-            self._send_json(400, {'error': 'invalid route'})
+            send_json(self, 400, {'error': 'invalid route'})
             return
-        self._send_json(200, rows, time_used_ms=ms, stats=stats)
+        send_json(self, 200, rows, time_used_ms=ms, stats=stats)
 
     def _serve_route_shape(self):
         route_id = self.query.get('routeId', [''])[0]
         trip_id = self.query.get('tripId', [''])[0]
         if not route_id or not trip_id:
-            self._send_json(
-                400, {'error': 'routeId and tripId query parameters required'})
+            send_json(self, 400, {'error': 'routeId and tripId query parameters required'})
             return
         path = geo.route_shape(route_id, trip_id)
         if path is None:
-            self._send_json(404, {'error': 'no shape for this trip today'})
+            send_json(self, 404, {'error': 'no shape for this trip today'})
             return
         last_stop = gtfs.get_trip_last_stop(route_id, trip_id)
         if last_stop and len(path) >= 2:
             path = geo.truncate_path_at(path, last_stop)
-        self._send_json(200, {'path': path})
+        send_json(self, 200, {'path': path})
 
+    # One per-IP token bucket (app/agent.py) shared by every AI-backed POST
+    # route: one API-spend budget, not one per endpoint.
     def _rate_limited(self):
-        # Per-IP token bucket (app/agent.py) — spoofable and in-memory, but
-        # this is a demo, not public infra; see AI_PLATFORM_PLAN.md's guard
-        # section for the actual threat model (broker load / API spend, not
-        # data exfiltration). Shared by every AI-backed POST route, one
-        # budget across them rather than a separate bucket each.
         if agent.RATE_LIMITER.allow(self.client_address[0]):
             return False
-        self._send_json(429, {'error': 'rate limit exceeded, try again shortly'})
+        send_json(self, 429, {'error': 'rate limit exceeded, try again shortly'})
         return True
 
+    # Returns None (having already sent the 400) on a body that isn't JSON.
     def _read_json_body(self):
-        # Shared by every POST route. Returns None (having already sent the
-        # 400) on a body that isn't valid JSON, so the caller's only job is
-        # `body = self._read_json_body(); if body is None: return`.
         length = int(self.headers.get('Content-Length', 0))
         try:
             return json.loads(self.rfile.read(length)) if length else {}
         except json.JSONDecodeError:
-            self._send_json(400, {'error': 'invalid JSON body'})
+            send_json(self, 400, {'error': 'invalid JSON body'})
             return None
 
     def _serve_ask(self):
@@ -176,9 +162,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         question = (body.get('question') or '').strip()
         if not question:
-            self._send_json(400, {'error': 'question is required'})
+            send_json(self, 400, {'error': 'question is required'})
             return
-        self._send_json(200, agent.ask(question))
+        send_json(self, 200, agent.ask(question))
 
     def _serve_map_filter(self):
         if self._rate_limited():
@@ -188,39 +174,35 @@ class Handler(BaseHTTPRequestHandler):
             return
         text = (body.get('text') or '').strip()
         if not text:
-            self._send_json(400, {'error': 'text is required'})
+            send_json(self, 400, {'error': 'text is required'})
             return
-        self._send_json(200, agent.parse_map_filter(text))
+        send_json(self, 200, agent.parse_map_filter(text))
 
+    # The feed is downloaded by a background thread on startup; every
+    # schedule-backed route answers 503 until it is parsed.
     def _require_gtfs(self):
-        """True if the feed is parsed; otherwise answers 503 and returns False.
-
-        The feed is downloaded by a background thread on startup, so every
-        schedule-backed route needs the same guard.
-        """
         if gtfs.is_loaded():
             return True
-        self._send_json(503, GTFS_NOT_LOADED)
+        send_json(self, 503, GTFS_NOT_LOADED)
         return False
 
     def _serve_stops(self):
         if not self._require_gtfs():
             return
-        self._send_json(200, gtfs.get_stops())
+        send_json(self, 200, gtfs.get_stops())
 
     def _serve_routes(self):
         if not self._require_gtfs():
             return
-        self._send_json(200, gtfs.get_routes())
+        send_json(self, 200, gtfs.get_routes())
 
     def _serve_departures(self):
         stop_id = self.query.get('stopId', [''])[0]
-        # The line selected in the map's route filter, if any. Compared
-        # against GTFS route names held in memory — never interpolated into
-        # SQL — so it needs no pattern validation of its own.
+        # The map's selected line; compared against GTFS names in memory,
+        # never interpolated into SQL, so it needs no pattern check.
         route_filter = self.query.get('route', [''])[0]
         if not stop_id:
-            self._send_json(400, {'error': 'stopId query parameter required'})
+            send_json(self, 400, {'error': 'stopId query parameter required'})
             return
         if not self._require_gtfs():
             return
@@ -236,26 +218,19 @@ class Handler(BaseHTTPRequestHandler):
             'mode': mode,  # 'hour' = next 60 min; 'next' = next 3 fallback
             'departures': shown,
         }
-        # A stop can be served by a line only at rare hours — tram 2 calls at
-        # "Wczasy 01" four times a day, all between 04:08 and 05:48 — so with
-        # that line picked in the route filter the pole is marked as served
-        # while its 60-minute window is filled entirely by other routes.
-        # Answer the question the marking raises instead of leaving it: when
-        # the selected line is absent from what we're about to show, say when
-        # it does next depart. `routeNext: null` distinguishes "nothing left
-        # in the loaded schedule" (today+tomorrow) from "not asked".
+        # A line served only at rare hours (tram 2 at "Wczasy 01", four dawn
+        # departures) can be absent from the whole 60-minute window: say when
+        # it next departs. `routeNext: null` = nothing left in the loaded schedule.
         if route_filter and not any(d['route'] == route_filter for d in shown):
             payload['routeNext'] = next(
                 (d for d in upcoming if d['route'] == route_filter), None)
-        self._send_json(200, payload, time_used_ms=ms, stats=stats)
+        send_json(self, 200, payload, time_used_ms=ms, stats=stats)
 
     def log_message(self, fmt, *args):
         pass  # silence per-request noise
 
-    # Built once at class-definition time, not per request. Sits at the foot
-    # of the class body because a class body only sees names already bound
-    # above it — the handlers have to exist first. do_GET calls the plain
-    # function with an explicit `self`.
+    # At the foot of the class body: a class body only sees names bound above
+    # it, so the handlers have to exist first.
     ROUTES = {
         '/': _serve_index,
         '/index.html': _serve_index,

@@ -79,90 +79,49 @@ nav button.active { background: #374151; color: #fff; }
 #route-filter { font: inherit; max-width: 140px; }
 #route-filter option.route-inactive { color: #9ca3af; }
 #heatmap-label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
-#ask-btn {
+.btn {
   background: #2563eb; color: #fff; border: 0; border-radius: 4px;
   padding: 4px 10px; font: inherit; font-weight: 600; cursor: pointer;
 }
-#ask-btn:hover, #ask-btn.active { background: #1d4ed8; }
-#ask-box {
-  position: absolute; z-index: 15; top: 10px; right: 10px; width: 340px;
-  max-height: calc(100% - 20px); overflow-y: auto;
-  background: rgba(255, 255, 255, 0.97); border-radius: 6px;
-  padding: 10px 12px; font-size: 13px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-}
-#ask-box h3 { margin: 0 18px 8px 0; font-size: 13px; font-weight: 600; }
-#ask-box .close {
-  position: absolute; top: 6px; right: 8px; border: 0; background: none;
-  font-size: 14px; cursor: pointer; color: #6b7280; padding: 0;
-}
-#ask-form { display: flex; gap: 6px; margin-bottom: 8px; }
-#ask-input {
-  flex: 1; font: inherit; padding: 4px 6px; min-width: 0;
-  border: 1px solid #d1d5db; border-radius: 4px;
-}
-#ask-form button[type="submit"] {
-  background: #2563eb; color: #fff; border: 0; border-radius: 4px;
-  padding: 4px 10px; font: inherit; font-weight: 600; cursor: pointer;
-}
-#ask-form button[type="submit"]:hover { background: #1d4ed8; }
-#ask-input:disabled, #map-filter-input:disabled { opacity: 0.6; }
+.btn:hover, .btn.active { background: #1d4ed8; }
 .clear-btn {
   background: #e5e7eb; color: #374151; border: 0; border-radius: 4px;
   padding: 4px 10px; font: inherit; font-weight: 600; cursor: pointer;
 }
 .clear-btn:hover { background: #d1d5db; }
-.ask-pending { color: #6b7280; }
-.ask-answer { margin-bottom: 6px; }
-.ask-rationale { color: #6b7280; font-size: 12px; margin-bottom: 6px; }
-#map-filter-btn {
-  background: #2563eb; color: #fff; border: 0; border-radius: 4px;
-  padding: 4px 10px; font: inherit; font-weight: 600; cursor: pointer;
-}
-#map-filter-btn:hover, #map-filter-btn.active { background: #1d4ed8; }
-/* Below #panel, not #ask-box's top-right corner — the two boxes can be open
-   at once without ever overlapping, with no cross-module coordination
-   needed to close one when the other opens. */
-#map-filter-box {
-  position: absolute; z-index: 15; top: 54px; left: 10px; width: 320px;
-  background: rgba(255, 255, 255, 0.97); border-radius: 6px;
-  padding: 10px 12px; font-size: 13px;
+/* The three floating boxes over the map: Ask, Filter, and the departures
+   popup. Ask and Filter sit in different corners so both can be open. */
+.panel {
+  position: absolute; z-index: 15; background: rgba(255, 255, 255, 0.97);
+  border-radius: 6px; padding: 10px 12px; font-size: 13px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
-#map-filter-box h3 { margin: 0 18px 8px 0; font-size: 13px; font-weight: 600; }
-#map-filter-box .close {
+.panel h3 { margin: 0 18px 8px 0; font-size: 13px; font-weight: 600; }
+.panel .close {
   position: absolute; top: 6px; right: 8px; border: 0; background: none;
   font-size: 14px; cursor: pointer; color: #6b7280; padding: 0;
 }
-#map-filter-form { display: flex; gap: 6px; margin-bottom: 8px; }
-#map-filter-input {
+.panel form { display: flex; gap: 6px; margin-bottom: 8px; }
+.panel input[type="text"] {
   flex: 1; font: inherit; padding: 4px 6px; min-width: 0;
   border: 1px solid #d1d5db; border-radius: 4px;
 }
-#map-filter-form button[type="submit"] {
-  background: #2563eb; color: #fff; border: 0; border-radius: 4px;
-  padding: 4px 10px; font: inherit; font-weight: 600; cursor: pointer;
+.panel input:disabled { opacity: 0.6; }
+.pending { color: #6b7280; }
+#ask-box {
+  top: 10px; right: 10px; width: 340px;
+  max-height: calc(100% - 20px); overflow-y: auto;
 }
-#map-filter-form button[type="submit"]:hover { background: #1d4ed8; }
-#map-filter-result { color: #374151; }
+.ask-answer { margin-bottom: 6px; }
+.ask-rationale { color: #6b7280; font-size: 12px; margin-bottom: 6px; }
 .ask-sql {
   background: #f3f4f6; border-radius: 4px; padding: 6px 8px; font-size: 12px;
   white-space: pre-wrap; word-break: break-word; margin: 0; color: #111827;
 }
 .ask-error { color: #b91c1c; }
-#stop-box {
-  position: absolute; z-index: 15; max-width: 280px; max-height: 320px;
-  overflow-y: auto; background: rgba(255, 255, 255, 0.97);
-  border-radius: 6px; padding: 10px 12px; font-size: 13px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-}
-#stop-box h3 {
-  margin: 0 18px 6px 0; font-size: 13px; font-weight: 600;
-}
-#stop-box .close {
-  position: absolute; top: 6px; right: 8px; border: 0; background: none;
-  font-size: 14px; cursor: pointer; color: #6b7280; padding: 0;
-}
+#map-filter-box { top: 54px; left: 10px; width: 320px; }
+#map-filter-result { color: #374151; }
+#stop-box { max-width: 280px; max-height: 320px; overflow-y: auto; }
 #stop-box .mode { color: #6b7280; margin-bottom: 6px; }
 #stop-box table { border-collapse: collapse; width: 100%; }
 #stop-box td { padding: 2px 6px 2px 0; white-space: nowrap; }

@@ -154,26 +154,6 @@ class StopTime(NamedTuple):
     trip_no: str | None
 
 
-def _passenger_trips(regular_pickup, regular_drop_off):
-    """The trip ids in passenger service at all, as one set.
-
-    A trip where nobody may board *and* nobody may alight in the ordinary
-    way is not in passenger service — it is a positioning run between two
-    courses, and its stop times are not departures.
-
-    ZTM encodes those as pickup/drop-off type 3 ("arrange with the driver")
-    at both ends rather than 1, which is why the plain no-pickup filter lets
-    them through: bus 115's 06:11 Saturday run out of "Niedźwiednik 02" — a
-    pole ZTM's own stops.json describes as *dla wysiadających* and publishes
-    no timetable for — surfaced in the popup as a real departure. Type 3 on
-    its own must stay boardable: the ~430 genuine request stops in the feed
-    use it for every call. Requiring a regular pickup *or* a regular drop-off
-    somewhere on the trip separates the two: measured against the full
-    15-day feed this drops 3 trips, all of them that same 115 run.
-    """
-    return regular_pickup | regular_drop_off
-
-
 def _stop_time(r, trip, noon):
     """One boardable stop_times row as the StopTime the popup shows.
 
@@ -195,9 +175,9 @@ def _stop_time(r, trip, noon):
 def _group_departures(by_stop, in_service):
     """Sorted departure list and serving routes per stop, passenger trips only.
 
-    Drops the positioning runs (see _passenger_trips), which is why this waits
-    for the whole file: a trip is only known not to carry passengers once
-    every one of its stop times has been read.
+    Drops the positioning runs (see _load_stop_times), which is why this
+    waits for the whole file: a trip is only known not to carry passengers
+    once every one of its stop times has been read.
     """
     departures = {}
     stop_routes = {}  # stop_id -> set of route short names serving it
@@ -249,8 +229,11 @@ def _load_stop_times(zf, trips, noon):
         by_stop.setdefault(r['stop_id'], []).append(
             (_stop_time(r, trip, noon), r['trip_id']))
 
+    # A trip with no regular pickup *and* no regular drop-off anywhere is a
+    # positioning run (ZTM marks both ends type 3, not 1), not a service.
+    # Type 3 alone stays boardable: the ~430 genuine request stops use it.
     departures, stop_routes = _group_departures(
-        by_stop, _passenger_trips(regular_pickup, regular_drop_off))
+        by_stop, regular_pickup | regular_drop_off)
     return departures, stop_routes, trip_span
 
 

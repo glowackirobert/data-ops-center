@@ -1,6 +1,6 @@
 // Everything deck.gl draws on top of the base map, and the tooltip it shows
-// for a hovered feature. Layer construction only: what is drawn is decided
-// here, when to redraw is map.js's business (render()).
+// for a hovered feature. Layer construction only; when to redraw is map.js's
+// business (render()).
 
 import { colorForRoute, esc, routeOf, time24 } from './utils.js';
 import { OFF_ROUTE_M, projectOnPath, nearestRouteStop } from './geo.js';
@@ -12,10 +12,11 @@ const HALO_PERIOD_MS = 2200;
 // which shows its own stops at any zoom).
 const STOP_MIN_ZOOM = 13;
 
-// Are stop poles being drawn at all right now? The layer's own `visible` and
-// the departures popup ask the same question — the popup points at a pole, so
-// it closes whenever the poles go (zoomed out past the threshold, or switched
-// to the heatmap). One expression so the two can never disagree.
+const NONE = [];
+
+// Are stop poles drawn at all right now? The layer's `visible` and the
+// departures popup ask the same question — the popup points at a pole, so it
+// closes whenever the poles go. One expression so the two can never disagree.
 export function stopsVisible() {
   return !els.heatmapToggle.checked
     && (Boolean(els.routeSelect.value) || state.map.getZoom() >= STOP_MIN_ZOOM);
@@ -52,9 +53,8 @@ export function tooltip({ object: d }) {
   };
 }
 
-// Marker layout, everything anchored on the vehicle position (route text
-// centred at 0):  [ ↑ route ]
-// The arrow sits inside the box's left backgroundPadding; its offset tracks
+// Marker layout, anchored on the vehicle position:  [ ↑ route ]
+// The arrow sits in the box's left backgroundPadding; its offset tracks
 // half the route text width (~8 px per glyph at size 14 bold).
 function routeTextWidth(d) {
   return routeOf(d).length * 8;
@@ -63,8 +63,31 @@ function arrowOffset(d) {
   return [-(routeTextWidth(d) / 2 + 9), 0];
 }
 
+// deck.gl diffs a layer's `data` by reference: a fresh array makes it re-lay-
+// out every glyph and re-upload its buffers. render() runs at 10 Hz while a
+// vehicle is selected, so each derived array below is handed back unchanged
+// until its inputs change — only the halo layer is rebuilt every tick.
+let stopsCache = { stopsData: null, route: null, stops: NONE };
+function stopsFor(route) {
+  const { stopsData } = state;
+  const c = stopsCache;
+  if (c.stopsData !== stopsData || c.route !== route) {
+    stopsCache = { stopsData, route,
+                   stops: route ? stopsData.filter(s => s.routes.includes(route)) : stopsData };
+  }
+  return stopsCache.stops;
+}
+
+let arrowsCache = { rows: null, arrows: NONE };
+function arrowsFor(rows) {
+  if (arrowsCache.rows !== rows) {
+    arrowsCache = { rows, arrows: rows.filter(d => d.speed > 0 || !d.atTerminus) };
+  }
+  return arrowsCache.arrows;
+}
+
 function heatmapLayers(heatOn) {
-  if (!heatOn || !state.heatmapData.length) return [];
+  if (!heatOn || !state.heatmapData.length) return NONE;
   return [new deck.HeatmapLayer({
     id: 'heatmap',
     data: state.heatmapData,
@@ -75,23 +98,32 @@ function heatmapLayers(heatOn) {
   })];
 }
 
-// The split is recomputed from the fresh position on every render, so each
-// 10 s refresh advances the grey portion without re-fetching the geometry.
-// The projected point closes both halves, so the colour changes exactly at
-// the vehicle dot.
+// The split is recomputed from the fresh position on each refresh, so the
+// grey portion advances without re-fetching the geometry. The projected
+// point closes both halves, so the colour changes exactly at the vehicle.
+let splitCache = { trip: null, path: null, rows: null, stopsData: null, layers: NONE };
 function tripPathLayers(rows) {
   const trip = state.selectedTrip;
-  if (!trip?.path || trip.path.length < 2) return [];
+  const { stopsData } = state;
+  const c = splitCache;
+  if (c.trip === trip && c.path === trip?.path && c.rows === rows && c.stopsData === stopsData) {
+    return c.layers;
+  }
+  splitCache = { trip, path: trip?.path, rows, stopsData, layers: buildTripPathLayers(trip, rows) };
+  return splitCache.layers;
+}
+
+function buildTripPathLayers(trip, rows) {
+  if (!trip?.path || trip.path.length < 2) return NONE;
   const v = rows.find(d => d.vehicleId === trip.vehicleId);
-  if (!v) return [];
+  if (!v) return NONE;
   let proj = projectOnPath(trip.path, v, trip.progress);
   const onRoute = proj.meters <= OFF_ROUTE_M;
   if (onRoute) {
     trip.progress = proj.progress;
   } else {
-    // Off-route (e.g. standing at a depot): nothing is covered yet — anchor
-    // the line at this route's stop nearest to the vehicle, where the trip
-    // will actually start, instead of at a raw nearest shape point.
+    // Off-route (e.g. at a depot): nothing is covered yet — anchor the line
+    // at this route's stop nearest the vehicle, where the trip will start.
     trip.progress = null;
     const stop = nearestRouteStop(state.stopsData, v);
     if (stop) {
@@ -124,16 +156,12 @@ function tripPathLayers(rows) {
   return layers;
 }
 
-// A pulsing ring under the selected vehicle's badge, so it stays
-// identifiable a few minutes after picking it out of a cluster of nearby
-// vehicles. Pixel-sized (not geo-sized) so it reads the same at any zoom.
-// Driven by a dedicated fast interval in map.js, separate from the 10 s data
-// refresh, so the pulse is smooth without touching the "only the dot layer
-// redraws on refresh" perf design.
+// Pulsing ring under the selected vehicle's badge; pixel-sized so it reads
+// the same at any zoom. The only layer that changes on the 100 ms tick.
 function selectedVehicleHaloLayer(rows) {
-  if (!state.selectedTrip) return [];
+  if (!state.selectedTrip) return NONE;
   const v = rows.find(d => d.vehicleId === state.selectedTrip.vehicleId);
-  if (!v) return [];
+  if (!v) return NONE;
   // 0..1..0 triangle wave: radius and opacity swell and shrink together.
   const phase = (Date.now() % HALO_PERIOD_MS) / HALO_PERIOD_MS;
   const wave = phase < 0.5 ? phase * 2 : 2 - phase * 2;
@@ -152,28 +180,20 @@ function selectedVehicleHaloLayer(rows) {
   })];
 }
 
-// The whole stack, bottom to top, for one render. `rows` is already filtered
-// (the selected line, and/or the Filter box's delay/in-service constraint —
-// see currentRows in map.js); `route` and `heatOn` are the two mode switches
-// that decide which layers are populated at all.
+// The whole stack, bottom to top. `rows` is already filtered (see
+// currentRows in map.js); `route` and `heatOn` decide which layers are
+// populated at all.
 export function deckLayers(rows, route, heatOn) {
   return [
-    // Density heatmap — lowest layer, everything else reads on top of it.
     ...heatmapLayers(heatOn),
-    // Selected trip's trajectory — drawn under stops and vehicles
-    // (path layers are not pickable).
-    ...(heatOn ? [] : tripPathLayers(rows)),
-    // Stop poles — static, rendered under the vehicles so vehicles win
-    // picking conflicts; hidden when zoomed out to avoid clutter, and
-    // hidden entirely in heatmap mode (same reasoning as the vehicle
-    // layers above — the poles bury the density colors they'd sit on).
-    // With a line selected, only that line's stops show — at any zoom,
-    // since fitting a long line can land below the threshold.
+    // Trajectory under stops and vehicles (path layers are not pickable).
+    ...(heatOn ? NONE : tripPathLayers(rows)),
+    // Stops under vehicles so vehicles win picking conflicts. Hidden zoomed
+    // out and in heatmap mode; with a line selected, only its stops, at any
+    // zoom, since fitting a long line can land below the threshold.
     new deck.ScatterplotLayer({
       id: 'stops',
-      data: route
-        ? state.stopsData.filter(s => s.routes.includes(route))
-        : state.stopsData,
+      data: stopsFor(route),
       visible: stopsVisible(),
       getPosition: d => [d.lon, d.lat],
       getRadius: 14,
@@ -187,14 +207,12 @@ export function deckLayers(rows, route, heatOn) {
       lineWidthMinPixels: 1,
       pickable: true,
     }),
-    // Ring around the tracked vehicle — under its badge so the badge and
-    // arrow stay on top and pickable.
-    ...(heatOn ? [] : selectedVehicleHaloLayer(rows)),
-    // Route-number box — the text background is the box itself, with
-    // extra left padding reserving room for the heading arrow.
+    ...(heatOn ? NONE : selectedVehicleHaloLayer(rows)),
+    // Route-number box; the text background is the box, with extra left
+    // padding reserving room for the heading arrow.
     new deck.TextLayer({
       id: 'vehicles',
-      data: heatOn ? [] : rows,
+      data: heatOn ? NONE : rows,
       characterSet: 'auto',
       getText: routeOf,
       getPosition: d => [d.lon, d.lat],
@@ -209,14 +227,12 @@ export function deckLayers(rows, route, heatOn) {
       getBorderWidth: 1,
       pickable: true,
     }),
-    // Heading arrow in the left slot of the box, pointing where the
-    // vehicle is going. Hidden only for vehicles standing at a terminus
-    // of their own course — the schedule-derived atTerminus flag from
-    // /api/positions (within 150 m of the trip's first/last stop). An
-    // ordinary speed-0 stop at lights or a stop keeps the last heading.
+    // Heading arrow. Hidden only for a vehicle standing at a terminus of its
+    // own course (atTerminus from /api/positions); an ordinary speed-0 stop
+    // keeps the last heading.
     new deck.TextLayer({
       id: 'vehicle-arrows',
-      data: heatOn ? [] : rows.filter(d => d.speed > 0 || !d.atTerminus),
+      data: heatOn ? NONE : arrowsFor(rows),
       characterSet: ['↑'],
       getText: () => '↑',
       getPosition: d => [d.lon, d.lat],

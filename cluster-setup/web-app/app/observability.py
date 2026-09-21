@@ -1,22 +1,20 @@
 """Read-only Loki (logs) and Prometheus (metrics) queries for the MCP
-server's operating tools — see AI_PLATFORM_PLAN.md Track 1. Same
-urlopen-and-normalize shape as app/pinot.py's _read_json, kept separate
-since these are a different pair of unauthenticated internal services.
-"""
-import json
+server's operating tools — see AI_PLATFORM_PLAN.md Track 1."""
+import functools
 import re
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
 
 from app.config import LOKI_URL, PROMETHEUS_URL
+from app.http_client import read_json
 
 
 class ObservabilityUnavailableError(Exception):
     """Loki or Prometheus never answered — same shape as
     pinot.PinotUnavailableError."""
 
+
+_read_json = functools.partial(read_json, error=ObservabilityUnavailableError)
 
 _DURATION_RE = re.compile(r'^(\d+)([smhd])$')
 _DURATION_SECONDS = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400}
@@ -30,26 +28,13 @@ def _duration_seconds(text):
     return int(n) * _DURATION_SECONDS[unit]
 
 
-def _read_json(url, timeout, what):
-    try:
-        with urllib.request.urlopen(url, timeout=timeout) as resp:
-            return json.load(resp)
-    except TimeoutError as e:
-        raise ObservabilityUnavailableError(
-            f'{what} did not respond within {timeout}s') from e
-    except urllib.error.URLError as e:
-        raise ObservabilityUnavailableError(f'{what} unreachable: {e.reason}') from e
-
-
 def _escape_logql_string(pattern):
     return pattern.replace('\\', '\\\\').replace('"', '\\"')
 
 
 def get_logs(container, since='1h', pattern=None):
-    """Recent log lines for one container, matching the same `container`
-    label Grafana's own logs_dashboard.json filters on — the same LogQL
-    Grafana runs, minus the browser. Newest-last, capped at 200 lines.
-    """
+    """Recent log lines for one container — the same `container` label and
+    LogQL Grafana's logs_dashboard.json uses. Newest-last, capped at 200."""
     query = f'{{container="{container}"}}'
     if pattern:
         query += f' |= "{_escape_logql_string(pattern)}"'
@@ -68,10 +53,8 @@ def get_logs(container, since='1h', pattern=None):
 
 
 def get_metric(promql, range_='1h'):
-    """A PromQL range query over the last `range_` — broker latency, server
-    heap, Kafka consumer lag, or anything else the JMX exporters publish
-    (see cluster-setup/jmx_exporter/).
-    """
+    """A PromQL range query over the last `range_` — anything the JMX
+    exporters publish (see cluster-setup/jmx_exporter/)."""
     seconds = _duration_seconds(range_)
     end = time.time()
     start = end - seconds

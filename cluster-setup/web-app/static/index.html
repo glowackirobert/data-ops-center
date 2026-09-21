@@ -68,30 +68,30 @@
     <label id="heatmap-label" title="GPS ping density over the last 24 h — where vehicles spend their time">
       <input type="checkbox" id="heatmap-toggle"> Heatmap
     </label>
-    <button id="ask-btn" title="Ask a question about the live data">Ask</button>
-    <button id="map-filter-btn" title="Describe what to show, in plain English">Filter</button>
+    <button id="ask-btn" class="btn" title="Ask a question about the live data">Ask</button>
+    <button id="map-filter-btn" class="btn" title="Describe what to show, in plain English">Filter</button>
     <span id="panel-status">Loading…</span>
   </div>
-  <div id="stop-box" class="hidden"></div>
+  <div id="stop-box" class="panel hidden"></div>
   <div id="route-histogram" class="hidden"></div>
-  <div id="ask-box" class="hidden">
+  <div id="ask-box" class="panel hidden">
     <button class="close" aria-label="Close">&times;</button>
     <h3>Ask the data</h3>
     <form id="ask-form">
       <input id="ask-input" type="text" autocomplete="off"
              placeholder="e.g. how many vehicles are on route 8 right now?">
-      <button type="submit">Ask</button>
+      <button type="submit" class="btn">Ask</button>
       <button type="button" id="ask-clear-btn" class="clear-btn">Clear</button>
     </form>
     <div id="ask-result"></div>
   </div>
-  <div id="map-filter-box" class="hidden">
+  <div id="map-filter-box" class="panel hidden">
     <button class="close" aria-label="Close">&times;</button>
     <h3>Filter the map</h3>
     <form id="map-filter-form">
       <input id="map-filter-input" type="text" autocomplete="off"
              placeholder="e.g. late 6s near Wrzeszcz">
-      <button type="submit">Go</button>
+      <button type="submit" class="btn">Go</button>
       <button type="button" id="map-filter-clear-btn" class="clear-btn">Clear</button>
     </form>
     <div id="map-filter-result"></div>

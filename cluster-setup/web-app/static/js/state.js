@@ -4,14 +4,10 @@
 // module is a singleton, so every importer sees the same two objects, and
 // map.js does not have to hand them down through every call.
 
-// Single app-state object rather than many top-level lets, so refresh/render
-// interactions are easier to follow and functions can't accidentally read a
-// stale closure variable. `progress` is added onto the selectedTrip object
-// itself (see tripPathLayers) since it's per-selection, recomputed each render.
 export const state = {
   map: null,
   overlay: null,
-  selectedTrip: null, // when set, has fields vehicleId, routeId, tripId, path, progress
+  selectedTrip: null, // { vehicleId, routeId, tripId, path, progress } — progress set by tripPathLayers
   followSelected: false, // camera tracks selectedTrip until the user moves the map
   // when open: { stopId, name, lon, lat, routes, data, ms, stats, w, h, tick, poll }
   stopBox: null,

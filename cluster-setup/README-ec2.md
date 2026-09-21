@@ -110,7 +110,7 @@ docker run --rm caddy:2.10-alpine caddy hash-password \
 
 chmod 600 *
 chmod 644 grafana_admin_password
-cd ../../../..
+cd ../../../
 ```
 
 `anthropic_api_key` is what `/api/ask` and the **Filter** box's natural-language
@@ -187,9 +187,9 @@ hits the instance directly. Replace `<PUBLIC_IP_OR_DNS>` with the instance's
 actual public IP/DNS:
 
 ```properties
-SUPERSET_DOMAIN=http://13.50.235.210:8088
-WEBAPP_ORIGIN=http://13.50.235.210:3001
-GRAFANA_ROOT_URL=http://13.50.235.210:3000
+SUPERSET_DOMAIN=http://51.21.41.15:8088
+WEBAPP_ORIGIN=http://51.21.41.15:3001
+GRAFANA_ROOT_URL=http://51.21.41.15:3000
 ```
 
 `SUPERSET_DOMAIN`/`WEBAPP_ORIGIN` must match the URL the browser actually
@@ -277,16 +277,16 @@ Multi-laptop access: the tunnel is per-machine. From another laptop use
 **Mode C** — straight from a browser, no tunnel (the `docker compose` command
 is the Mode B/C one from step 7 with `--env-file env.mode-c`):
 
-| URL                          | Service             | Login                              |
-|------------------------------|---------------------|------------------------------------|
-| `http://51.21.41.15:3001`   | Web app             | none                               |
-| `http://51.21.41.15:8088`   | Superset            | the `superset_admin_*` secrets     |
-| `http://51.21.41.15:3000`   | Grafana             | `admin` / `grafana_admin_password` |
-| `http://51.21.41.15:9000`   | Pinot controller UI | **none — no authentication**       |
-| `http://51.21.41.15:8099`   | Pinot broker        | none                               |
-| `http://51.21.41.15:9090`   | Prometheus          | none                               |
-| `http://51.21.41.15:12345`  | Alloy debug UI      | none                               |
-| `http://51.21.41.15:3100`   | Loki (LogQL API)    | none                                |
+| URL                          | Service               | Login                              |
+|------------------------------|-----------------------|------------------------------------|
+| `http://51.21.41.15:3001`   | Web app                | none                               |
+| `http://51.21.41.15:8088`   | Superset               | the `superset_admin_*` secrets     |
+| `http://51.21.41.15:3000`   | Grafana                | `admin` / `grafana_admin_password` |
+| `http://51.21.41.15:9000`   | Pinot controller UI    | **none — no authentication**       |
+| `http://51.21.41.15:8099`   | Pinot broker           | none                               |
+| `http://51.21.41.15:9090`   | Prometheus             | none                               |
+| `http://51.21.41.15:12345`  | Alloy debug UI         | none                               |
+| `http://51.21.41.15:3100`   | Loki (LogQL API)       | none                               |
 
 The last five have zero authentication of their own; the security-group rule
 from step 1 (source restricted to your IP) is the only thing in front of them.

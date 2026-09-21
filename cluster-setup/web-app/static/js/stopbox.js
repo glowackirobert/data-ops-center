@@ -7,23 +7,14 @@ import { onScreen, placeBox } from './geo.js';
 import { state, els } from './state.js';
 import { stopsVisible } from './layers.js';
 
-// Departures popup keeps itself alive while open, on two cadences. The poll
-// re-fetches delays every 10 s — matching REFRESH_MS in map.js, since both
-// read the same upsert table (gdansk_public_transport_latest) and a slower
-// poll let a tracked vehicle's badge (10 s) and an open stop popup for a
-// stop it's approaching disagree on its delay for up to 50 s. The tick is
-// the fallback for when a poll fails: it re-renders from data already in
-// hand, so the countdown keeps counting (and departed rows keep dropping)
-// even when the backend is briefly unreachable, without waiting on the next
-// successful poll.
+// Two cadences while open: the poll re-fetches delays every 10 s (matching
+// REFRESH_MS in map.js — both read the same upsert table, and a slower poll
+// let a tracked vehicle's badge and this popup disagree on its delay); the
+// tick re-renders from data in hand so the countdown keeps counting and
+// departed rows keep dropping even when a poll fails.
 const STOP_TICK_MS = 20000;
 const STOP_POLL_MS = 10000;
 
-// Departures popup. Fetched on click, then kept alive while open: a
-// countdown that never ticks is worse than none, because it still reads as
-// live data — "2 min" stayed "2 min" a minute later and a departed service
-// stayed at the top of the list. The tick recomputes locally, the poll
-// refreshes delays from the server (see STOP_TICK_MS / STOP_POLL_MS).
 export async function showStopBox(info) {
   const { stopId, name, routes, lon, lat } = info.object;
   hideStopBox(); // stop the timers of a box already open on another stop
@@ -73,15 +64,9 @@ function dayPrefix(ts) {
     : t.toLocaleDateString([], { weekday: 'short' }) + ' ';
 }
 
-// Expected time leads, schedule is the footnote: a rider wants to know when
-// the tram is actually there, and heading the row with 11:55 for a service
-// that will not arrive until 11:59 buries the delay in a chip. Chip and
-// struck-through schedule are one decision (displayedShiftMin, unit-tested in
-// utils.js): both appear together or neither does, and the chip is the gap
-// between the two times the row is showing. Deriving them separately is what
-// let a slightly-early tram print "22:17 22:18" with no chip to explain it. A
-// departure with no live vehicle matched (delayMin null) is schedule-only:
-// one value, nothing struck out.
+// Expected time leads, schedule is the footnote. Chip and struck-through
+// schedule are one decision (displayedShiftMin in utils.js): both appear or
+// neither does. No matched vehicle (delayMin null) means schedule-only.
 function departureRowHtml(d, now) {
   const eta = d.estimated ?? d.time;
   const shown = toDisplayedMinute(eta);
@@ -146,12 +131,9 @@ function renderStopBox() {
   positionStopBox(true); // re-measure: the row count just changed
 }
 
-// Anchored to the stop's *coordinates*, not to the pixel that was clicked:
-// re-projected on every camera frame, the popup rides along with its pole
-// through pan and zoom instead of hanging over whatever the map slid under
-// it. Size is measured rather than assumed — the old fixed 300x200 guess put
-// most of a busy stop's thirty rows below the map edge — but only when the
-// content changed (`measure`), since a camera frame cannot resize the box
+// Anchored to the stop's coordinates and re-projected on every camera frame,
+// so the popup rides along with its pole. Its size is measured, but only
+// when the content changed (`measure`): a camera frame cannot resize the box,
 // and reading offsetWidth after writing left/top forces a reflow each time.
 export function positionStopBox(measure) {
   const box = state.stopBox;
