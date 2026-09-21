@@ -70,11 +70,16 @@ range index / none) — that line is shown next to the query's scan stats.
   scheduledTripStartTimeTransformed TIMESTAMP.
 
 `gdansk_public_transport_latest` — upsert table, primary key vehicleId, \
-exactly one row per vehicle: its most recent ping. Same columns as above \
+exactly one row per vehicle. Same columns as above \
 minus dayBucket/isOnTime/isLate. Use this, not the history table, for "where \
-is X now" / "current delay" questions — a plain SELECT already returns the \
-latest state, no LASTWITHTIME/GROUP BY/MAX needed. Rows older than 10 \
-minutes are effectively stale (nothing else drops them).
+is X now" / "current delay" / "how many vehicles are running" questions — a \
+plain SELECT already returns the latest state, no LASTWITHTIME/GROUP BY/MAX \
+needed. A row stays here forever once written — nothing drops it when the \
+vehicle stops reporting — so any question about current/active state MUST \
+add `WHERE generatedTransformed > ago('PT10M')`, or a vehicle that went \
+quiet hours ago still counts as active. Omitting this filter on a "how many \
+are running" / "which vehicles are on line X now" question is wrong, not \
+just imprecise.
 
 No other tables exist. No stop-name column exists anywhere — stops live only \
 in GTFS, reachable via find_stops, never by guessing a column.

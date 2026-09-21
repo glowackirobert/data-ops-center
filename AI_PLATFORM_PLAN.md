@@ -10,11 +10,13 @@ first client via `.mcp.json`. So has Track 2's natural-language map filter —
 the **Filter** button beside **Ask**, Pinot-free, so it keeps working when
 `/api/ask` is answering 504s. So has Track 4's eval harness — a checked-in
 question set and three deterministic graders, run by hand against the live
-cluster, not in CI. All five are live, documented in `CLAUDE.md`,
-`README-docker.md` (endpoints, MCP service, eval-harness command) and
-`README-ec2.md` (the `anthropic_api_key` secret). What remains is Tracks 3
-and 5 below, plus Track 1's optional public exposure (for a Claude Desktop /
-claude.ai client — nothing needs it yet).
+cluster, not in CI. So has Track 5 — the reviewer agents are MCP-aware and
+run on every PR via `.github/workflows/claude-review.yml`. All six are live,
+documented in `CLAUDE.md`, `README-docker.md` (endpoints, MCP service,
+eval-harness command) and `README-ec2.md` (the `anthropic_api_key` secret).
+What remains is Track 3 below, plus Track 1's optional public exposure (for
+a Claude Desktop / claude.ai client — nothing needs it yet) and adding the
+`ANTHROPIC_API_KEY` GitHub Actions secret Track 5's PR workflow needs.
 
 The organising idea: **one tool surface, many clients.** The same handful of
 tools — run SQL, explain SQL, find stops, read logs, read metrics — serve the
@@ -212,10 +214,24 @@ Small, optional, and cheap now that Track 1 exists:
 
 - ~~`.mcp.json` checked in (Track 1 client 1) so every session here can query
   the cluster, not just read its config.~~ Done.
-- The existing reviewer agents get one line each telling them the MCP tools
-  exist and when to use them.
-- A `claude-code-action` job on pull requests running the three reviewers —
-  useful even solo, since the reviewers' value is in running *every* time.
+- ~~The existing reviewer agents get one line each telling them the MCP tools
+  exist and when to use them.~~ Done: all four (`compose-stack-reviewer`,
+  `pinot-config-reviewer`, `schema-pipeline-checker`,
+  `web-app-feature-reviewer`) now carry the relevant `mcp__data-ops-center__*`
+  tools in their frontmatter plus a line on when to reach for them — e.g.
+  `pinot-config-reviewer` can now ask the live cluster whether a star-tree
+  it's reviewing is actually used.
+- ~~A `claude-code-action` job on pull requests running the reviewers.~~ Done:
+  `.github/workflows/claude-review.yml`, triggered on
+  opened/synchronize/reopened, prompts Claude to run whichever agent(s) the
+  PR's changed files put in scope and post one combined comment. Needs a
+  GitHub Actions repo secret `ANTHROPIC_API_KEY` added (not yet done — this
+  is a separate secret from the cluster's `anthropic_api_key` file used by
+  `/api/ask`, since GitHub Actions secrets and the compose `secrets/`
+  directory are different stores). No MCP tools in this job — a
+  GitHub-hosted runner can't reach `pinot-network`, so the live-cluster
+  lookups only fire in a local Claude Code session; only `mcp.{$BASE_DOMAIN}`
+  public exposure (Track 1, still not done) would change that.
 
 ## Considered and cut
 
@@ -244,7 +260,7 @@ Small, optional, and cheap now that Track 1 exists:
 | 2    | Track 2 map filter (voice not done) | —                                       | **Done** | structured output, Pinot-free            |
 | 3    | Track 4 evals (not yet run live)   | 1                                        | **Done** | numbers behind every model/prompt choice |
 | 4    | Track 3 brief, path (b) then (a)   | 1, `mcp.` exposure                       | 1–2 days | scheduled autonomous agent               |
-| 5    | Track 5                            | 1                                        | hours (1/3 done) | —                                |
+| 5    | Track 5                            | 1                                        | **Done** (repo secret still needed) | reviewers run on every PR, MCP-aware |
 
 The morning brief is one session a day at perhaps 50–100k tokens with tool
 results: under a dollar a day on Opus 5. On a public endpoint the per-IP

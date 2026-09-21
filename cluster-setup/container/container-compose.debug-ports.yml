@@ -1,4 +1,4 @@
-# Opt-in override that re-publishes four internal-only ports, for debugging:
+# Opt-in override that re-publishes five internal-only ports, for debugging:
 #
 #   - Prometheus  9090  — /targets, the only view of whether a JMX scrape is up
 #   - Alloy      12345  — the only view of whether Docker log discovery is working
@@ -9,6 +9,10 @@
 #                             reached only through Caddy (pinot.${BASE_DOMAIN}),
 #                             which puts basic auth in front of an API that can
 #                             delete tables and segments.
+#   - Loki        3100  — mcp_server.py's get_logs tool (app/observability.py,
+#                         LOKI_URL). Otherwise only reachable through Grafana's
+#                         UI/API (ops.${BASE_DOMAIN} in prod), which get_logs
+#                         does not go through.
 #
 #   docker compose --env-file cluster-setup/env/versions.env \
 #     --env-file cluster-setup/env/env.dev \
@@ -16,7 +20,7 @@
 #     -f cluster-setup/container/container-compose.debug-ports.yml up -d
 #
 # Bound to ${DEBUG_BIND:-127.0.0.1} — defaults to loopback-only, independent of
-# ${BIND} (the three main published ports), because these four have no
+# ${BIND} (the three main published ports), because these five have no
 # authentication of any kind and must not ride along whenever BIND happens to
 # be 0.0.0.0 (dev's default). Only flip DEBUG_BIND to 0.0.0.0 on a host with no
 # other way in (e.g. EC2 without a domain, Caddy not running) and lock the
@@ -24,10 +28,11 @@
 # README-ec2.md. Revert to loopback (drop the DEBUG_BIND line) once Caddy is
 # back in front.
 #
-# Nothing else belongs here. Loki is already queryable through Grafana, which is
-# published; ZooKeeper, Schema Registry and the Pinot server/minion expose
-# CLI-shaped admin APIs reachable with `docker exec`, or from a throwaway
-# container on the bridge:
+# Nothing else belongs here. Grafana's own UI/API (ops.${BASE_DOMAIN} in prod)
+# already covers browsing logs by hand — Loki is only here for get_logs, which
+# talks to Loki's query API directly rather than through Grafana. ZooKeeper,
+# Schema Registry and the Pinot server/minion expose CLI-shaped admin APIs
+# reachable with `docker exec`, or from a throwaway container on the bridge:
 #
 #   docker run --rm --network pinot-network curlimages/curl -s \
 #     http://pinot-server:8097/health
@@ -52,3 +57,7 @@ services:
   alloy:
     ports:
       - "${DEBUG_BIND:-127.0.0.1}:12345:12345"
+
+  loki:
+    ports:
+      - "${DEBUG_BIND:-127.0.0.1}:3100:3100"

@@ -23,7 +23,7 @@ from the host when debugging.
 | Pinot Minion          | 7500    | internal        | Background task executor, driven by Controller-scheduled jobs, responsible for segment lifecycle operations.                                                                                                                       |
 | Prometheus            | 9090    | internal        | Scrapes JMX metrics from Kafka and all Pinot components.                                                                                                                                                                           |
 | Grafana               | 3000    | **host**        | Dashboards over Prometheus metrics and Loki logs.                                                                                                                                                                                  |
-| Loki                  | 3100    | internal        | Log storage/query backend (LogQL).                                                                                                                                                                                                 |
+| Loki                  | 3100    | internal        | Log storage/query backend (LogQL); the debug override re-publishes it on `127.0.0.1` in dev for `mcp_server.py`'s `get_logs` tool.                                                                                               |
 | Alloy                 | 12345   | internal        | Tails every container's stdout/stderr via the Docker socket and ships it to Loki; `12345` serves its debug UI (component graph, live pipeline state).                                                                             |
 | Superset              | 8088    | **host**        | BI and data exploration UI connected to Pinot via `pinotdb`.                                                                                                                                                                       |
 | Caddy                 | 80, 443 | **host**        | TLS reverse proxy; the only public entrypoint. Serves the four browser-facing services on `map.` / `bi.` / `ops.` / `pinot.` subdomains. |
@@ -661,13 +661,15 @@ the env files:
 
 #### Reaching an unpublished port from the host
 
-Four ports are covered by the debug override, which re-publishes them on
+Five ports are covered by the debug override, which re-publishes them on
 `127.0.0.1` only — Prometheus 9090 (its `/targets` page, the only view of
 whether a JMX scrape is up), Alloy 12345 (the only view of whether Docker log
 discovery is working), the Pinot broker 8099 (what
-`scripts/load_test_broker.py` connects to by default) and the Pinot controller
+`scripts/load_test_broker.py` connects to by default), the Pinot controller
 9000 (its cluster UI, and what a host-run `add-tables.sh` or `server.py` points
-`PINOT_CONTROLLER_URL` at). The controller is deliberately dev-only: its API
+`PINOT_CONTROLLER_URL` at), and Loki 3100 (`mcp_server.py`'s `get_logs` tool,
+`LOKI_URL` — it talks to Loki's query API directly rather than through
+Grafana). The controller is deliberately dev-only: its API
 can delete tables and segments and has no authentication of its own, so the
 only way in on a shared host is `https://pinot.<domain>` through Caddy, which puts
 basic auth in front of it:
@@ -678,8 +680,9 @@ docker compose --env-file cluster-setup/env/versions.env --env-file cluster-setu
 
 Never use it on a shared or internet-facing host.
 
-Nothing else is in the override by design. Loki is already queryable through
-Grafana, which is published; ZooKeeper, Schema Registry and the Pinot
+Nothing else is in the override by design. Grafana's own UI/API already
+covers browsing logs by hand, which is why Loki's inclusion above is only for
+`get_logs`, not a general exception; ZooKeeper, Schema Registry and the Pinot
 server/minion expose CLI-shaped admin APIs, reachable with `docker exec` or
 from a throwaway container on the bridge:
 

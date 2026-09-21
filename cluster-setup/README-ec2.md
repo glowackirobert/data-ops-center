@@ -11,10 +11,10 @@ itself:
 |                 | Mode A — Caddy TLS                                  | Mode B — SSH tunnels                                                                                                                                       | Mode C — fully open (temporary)                                                                   |
 |-----------------|-----------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------|
 | Needs           | a domain you own                                    | nothing                                                                                                                                                    | nothing — but lock the security group to your own IP                                              |
-| Security group  | 22, 80, 443                                         | 22                                                                                                                                                         | 22, 3001, 8088, 3000, 9000, 8099, 9090, 12345 — source restricted to your IP, never `0.0.0.0/0`   |
+| Security group  | 22, 80, 443                                         | 22                                                                                                                                                         | 22, 3001, 8088, 3000, 9000, 8099, 9090, 12345, 3100 — source restricted to your IP, never `0.0.0.0/0` |
 | Compose profile | `--profile tls`                                     | none                                                                                                                                                       | none                                                                                              |
 | Env file        | `env.mode-a`                                        | `env.mode-b`, plus `-f container-compose.debug-ports.yml` (needed for the `pinot-controller` tunnel below; `DEBUG_BIND` stays unset so it's loopback-only) | `env.mode-c`, plus `-f container-compose.debug-ports.yml` (`DEBUG_BIND=0.0.0.0`)                  |
-| URLs            | `https://map.<domain>`, `bi.`, `ops.`, `pinot.`     | `http://localhost:3001`, `:8088`, `:3000`                                                                                                                  | `http://<public-ip>:3001`, `:8088`, `:3000`, `:9000`, `:8099`, `:9090`, `:12345`                  |
+| URLs            | `https://map.<domain>`, `bi.`, `ops.`, `pinot.`     | `http://localhost:3001`, `:8088`, `:3000`                                                                                                                  | `http://<public-ip>:3001`, `:8088`, `:3000`, `:9000`, `:8099`, `:9090`, `:12345`, `:3100`         |
 | Good for        | anything others should reach                        | a private demo from your laptop                                                                                                                            | quick testing before you have a domain                                                            |
 
 
@@ -29,8 +29,21 @@ itself:
 - **Key pair**: create or reuse a `.pem`.
 - **Security group** (inbound): per the table above.
 
-Allocate an **Elastic IP** if you intend to stop and start the instance;
-otherwise the public IP changes on every start and DNS and tunnels break.
+Allocate an **Elastic IP** if you intend to stop and start the instance —
+otherwise the public IP changes on every start and DNS and tunnels break:
+
+1. EC2 console → **Network & Security → Elastic IPs → Allocate Elastic IP
+   address** → Allocate (default settings).
+2. Select the new address → **Actions → Associate Elastic IP address** →
+   Resource type **Instance** → pick this instance → Associate. Works even
+   while the instance is stopped; takes effect once it's running.
+3. Use that address for everything below instead of the instance's original
+   public IP — it stays fixed across stop/start until you release it.
+
+AWS charges hourly for an Elastic IP while it isn't attached to a *running*
+instance, so release it (Elastic IPs → select it → Actions → Release) if
+you're leaving the instance stopped for a while rather than paying idle
+charges on it.
 
 ## 2. Connect
 
@@ -266,16 +279,42 @@ is the Mode B/C one from step 7 with `--env-file env.mode-c`):
 
 | URL                          | Service             | Login                              |
 |------------------------------|---------------------|------------------------------------|
-| `http://13.50.235.210:3001`   | Web app             | none                               |
-| `http://13.50.235.210:8088`   | Superset            | the `superset_admin_*` secrets     |
-| `http://13.50.235.210:3000`   | Grafana             | `admin` / `grafana_admin_password` |
-| `http://13.50.235.210:9000`   | Pinot controller UI | **none — no authentication**       |
-| `http://13.50.235.210:8099`   | Pinot broker        | none                               |
-| `http://13.50.235.210:9090`   | Prometheus          | none                               |
-| `http://13.50.235.210:12345`  | Alloy debug UI      | none                               |
+| `http://51.21.41.15:3001`   | Web app             | none                               |
+| `http://51.21.41.15:8088`   | Superset            | the `superset_admin_*` secrets     |
+| `http://51.21.41.15:3000`   | Grafana             | `admin` / `grafana_admin_password` |
+| `http://51.21.41.15:9000`   | Pinot controller UI | **none — no authentication**       |
+| `http://51.21.41.15:8099`   | Pinot broker        | none                               |
+| `http://51.21.41.15:9090`   | Prometheus          | none                               |
+| `http://51.21.41.15:12345`  | Alloy debug UI      | none                               |
+| `http://51.21.41.15:3100`   | Loki (LogQL API)    | none                                |
 
-The last four have zero authentication of their own; the security-group rule
+The last five have zero authentication of their own; the security-group rule
 from step 1 (source restricted to your IP) is the only thing in front of them.
+
+### Pointing the MCP server at this instance
+
+`.mcp.json`'s `data-ops-center` server (Track 1, `AI_PLATFORM_PLAN.md`)
+defaults to `localhost`, for a locally-running dev cluster. If your machine
+can't run the cluster itself (not enough RAM/CPU), point it at this instance
+instead — reasonable in Mode C specifically, since `container-compose.debug-ports.yml`
+already publishes every port the MCP tools need (broker, controller,
+Prometheus, Loki) and Mode C's security-group rule already restricts them to
+your IP. Export these before launching Claude Code, so the change is a
+deliberate per-session opt-in rather than baked into the checked-in
+`.mcp.json` (which should keep defaulting to `localhost` for anyone running
+the cluster locally):
+
+```bash
+export PINOT_BROKER_URL=http://51.21.41.15:8099
+export PINOT_CONTROLLER_URL=http://51.21.41.15:9000
+export PROMETHEUS_URL=http://51.21.41.15:9090
+export LOKI_URL=http://51.21.41.15:3100
+claude
+```
+
+`find_stops` (GTFS-backed) and `ingestion_gaps` (S3-backed) don't depend on
+any of these — they work the same regardless of which cluster, if any, is
+reachable.
 
 
 ## 9. Stop and start

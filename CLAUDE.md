@@ -141,10 +141,11 @@ unauthenticated on `pinot-network`). Runs two ways: `stdio` (the
 "the cheapest client: one JSON file") or `MCP_TRANSPORT=http` (the
 `data-ops-mcp` compose service, internal-only — no Caddyfile route or
 bearer-token secret yet, since no client needs public exposure today).
-`get_logs` only reaches Loki when run inside the compose network or
-`container-compose.debug-ports.yml` is extended with a Loki port — unlike
-Prometheus/the Pinot controller/broker, Loki has no debug port published
-today. The `/tables/{t}/externalview` shape `cluster_health` reads wasn't
+`get_logs` reaches Loki when run inside the compose network, or from the host
+via `container-compose.debug-ports.yml` (Loki 3100, alongside Prometheus/the
+Pinot controller/broker), or against an EC2 instance in Mode C with
+`LOKI_URL` pointed at its public IP. The `/tables/{t}/externalview` shape
+`cluster_health` reads wasn't
 checked against a live 1.5.1 controller while writing this — verify at
 `http://localhost:9000/help` before relying on it operationally. New
 dependencies for both: `mcp`, `boto3` (pinned in `Dockerfile.web-app`
